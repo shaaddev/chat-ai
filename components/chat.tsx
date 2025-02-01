@@ -2,7 +2,7 @@
 import { useChat } from "ai/react";
 import { Menu, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, Paperclip } from "lucide-react";
+import { Paperclip } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Sidebar,
@@ -12,6 +12,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { Link } from "next-view-transitions";
+import { ModelsPopover } from "./models-popover";
 
 export function Chat() {
   const { messages, input, handleInputChange, handleSubmit } = useChat();
@@ -83,13 +84,7 @@ export function Chat() {
               >
                 <div className="relative rounded-t-2xl shadow-lg bg-neutral-800/50 backdrop-blur-sm">
                   <div className="absolute bottom-3 left-3 flex items-center gap-2">
-                    <button
-                      type="button"
-                      className="inline-flex items-center gap-1 px-3 py-1 text-sm text-neutral-300 hover:text-neutral-100"
-                    >
-                      ChatGPT 4o mini
-                      <ChevronDown className="h-4 w-4" />
-                    </button>
+                    <ModelsPopover />
                     <button
                       type="button"
                       className="text-neutral-300 hover:text-neutral-100"
