@@ -4,15 +4,10 @@ import { Menu, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Paperclip } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarHeader,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Link } from "next-view-transitions";
 import { ModelsPopover } from "./models-popover";
+import { ChatHistory } from "./chat-history";
 
 export function Chat() {
   const { messages, input, handleInputChange, handleSubmit } = useChat();
@@ -20,17 +15,7 @@ export function Chat() {
   return (
     <SidebarProvider>
       <div className="flex h-screen w-full bg-neutral-900 text-gray-100">
-        <Sidebar className="w-64 border-r border-neutral-800">
-          <SidebarHeader className="p-4">
-            <h2 className="text-lg font-semibold">Chat History</h2>
-          </SidebarHeader>
-          <SidebarContent>
-            {/* Add chat history items here */}
-            <div className="p-4">
-              <p className="text-gray-400">No chat history yet</p>
-            </div>
-          </SidebarContent>
-        </Sidebar>
+        <ChatHistory />
 
         <div className="flex flex-col flex-1 w-full">
           <header className="flex items-center p-4 border-b border-neutral-800">
