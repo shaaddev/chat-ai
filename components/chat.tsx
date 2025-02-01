@@ -2,12 +2,12 @@
 import { useChat } from "ai/react";
 import { Menu, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Paperclip } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Link } from "next-view-transitions";
 import { ModelsPopover } from "./models-popover";
 import { ChatHistory } from "./chat-history";
+import { FileInput } from "./file-input";
 
 export function Chat() {
   const { messages, input, handleInputChange, handleSubmit } = useChat();
@@ -70,12 +70,7 @@ export function Chat() {
                 <div className="relative rounded-t-2xl shadow-lg bg-neutral-800/50 backdrop-blur-sm">
                   <div className="absolute bottom-3 left-3 flex items-center gap-2">
                     <ModelsPopover />
-                    <button
-                      type="button"
-                      className="text-neutral-300 hover:text-neutral-100"
-                    >
-                      <Paperclip className="h-5 w-5" />
-                    </button>
+                    <FileInput />
                   </div>
                   <textarea
                     value={input}
