@@ -24,3 +24,8 @@ Database
 - [] Supabase
 - [] KV
 - [] Look for something to store the messages
+
+Misc
+
+- [] Terms
+- [] Privacy Policy

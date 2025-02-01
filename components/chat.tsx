@@ -11,6 +11,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
+import { Link } from "next-view-transitions";
 
 export function Chat() {
   const { messages, input, handleInputChange, handleSubmit } = useChat();
@@ -67,13 +68,13 @@ export function Chat() {
           <div className="max-w-3xl mx-auto space-y-4 w-full">
             <p className="text-center text-sm text-gray-400">
               Make sure you agree to our{" "}
-              <a href="#" className="underline">
+              <Link href="/terms" className="underline">
                 Terms
-              </a>{" "}
+              </Link>{" "}
               and our{" "}
-              <a href="#" className="underline">
+              <Link href="/policy" className="underline">
                 Privacy Policy
-              </a>
+              </Link>
             </p>
             <div className="relative ">
               <form
