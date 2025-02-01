@@ -99,6 +99,11 @@ export function Chat() {
                     className="w-full bg-transparent border-0 focus:ring-0 text-base text-neutral-100 placeholder-neutral-400 p-6 pt-4 resize-none outline-none disabled:opacity-0"
                     rows={3}
                     style={{ minHeight: "100px" }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                      }
+                    }}
                   />
                   <Button
                     type="submit"
