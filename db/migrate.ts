@@ -1,0 +1,27 @@
+import { migrate } from "drizzle-orm/postgres-js/migrator";
+import { config } from "dotenv";
+import { client, db, databaseUrl } from ".";
+
+config({
+  path: ".env.local",
+});
+
+async function pushMigrations() {
+  if (!databaseUrl) {
+    throw new Error("PostgreSQL URL is not defined");
+  }
+
+  await migrate(db, {
+    migrationsFolder: "/migrations",
+  });
+
+  console.log("Migrations Complete");
+  await client.end();
+  process.exit(0);
+}
+
+pushMigrations().catch((err) => {
+  console.error("Migration failed");
+  console.error(err);
+  process.exit(1);
+});

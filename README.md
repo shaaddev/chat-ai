@@ -7,6 +7,7 @@ Client
 - [x] Chat UI
 - [] Profile at the bottom left
 - [] Reactify app (3 stories deep)
+- [] Auth
 
 Server
 Basic
@@ -21,9 +22,10 @@ Advance (Optional - Future Development)
 
 Database
 
-- [] Supabase
-- [] KV
-- [] Look for something to store the messages
+- [x] Local DB
+- [x] Neon
+- [] Add Schema
+- [] Add Queries
 
 Misc
 
