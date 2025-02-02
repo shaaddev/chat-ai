@@ -8,7 +8,7 @@ config({
 
 async function pushMigrations() {
   if (!databaseUrl) {
-    throw new Error("PostgreSQL URL is not defined");
+    throw new Error("URL is not defined");
   }
 
   await migrate(db, {
