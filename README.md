@@ -8,12 +8,15 @@ Client
 - [] Profile at the bottom left
 - [] Reactify app (3 stories deep)
 - [] Auth
+- [x] Markdown design (AI response cleaned up)
+- [] Add model switcher
 
 Server
 Basic
 
-- [] Use AI SDK
-- [] Add Actions
+- [x] Use AI SDK
+- [] Add multiple models (OpenAI, Deepseek)
+- [] Add file input
 
 Advance (Optional - Future Development)
 
