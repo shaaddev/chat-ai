@@ -10,6 +10,8 @@ Client
 - [] Auth
 - [x] Markdown design (AI response cleaned up)
 - [] Add model switcher
+- [] Fix Textarea on Height
+- [] On Scroll behaviour
 
 Server
 Basic
