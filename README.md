@@ -21,7 +21,7 @@ Basic
 Advance (Optional - Future Development)
 
 - [] Make it faster
-- [] Use React Router
+- [] Optimize
 
 Database
 
@@ -29,6 +29,7 @@ Database
 - [x] Neon
 - [] Add Schema
 - [] Add Queries
+- [] Save Messages to DB
 
 Misc
 
