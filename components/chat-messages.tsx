@@ -1,4 +1,5 @@
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Markdown } from "./markdown";
 
 export function ChatMessages({ messages }: any) {
   return (
@@ -12,13 +13,13 @@ export function ChatMessages({ messages }: any) {
             }`}
           >
             <div
-              className={`inline-block p-2 rounded-xl ${
+              className={`inline-block px-5 py-2 rounded-xl ${
                 message.role === "user"
-                  ? "bg-neutral-700 text-neutral-100"
-                  : "bg-neutral-800 text-neutral-100"
+                  ? "bg-neutral-800 text-neutral-300"
+                  : " text-neutral-100"
               }`}
             >
-              {message.content}
+              <Markdown>{message.content as string}</Markdown>
             </div>
           </div>
         ))}
