@@ -7,9 +7,13 @@ import { Link } from "next-view-transitions";
 import { ChatHistory } from "./chat-history";
 import { ChatInput } from "./chat-input";
 import { ChatMessages } from "./chat-messages";
+import { generateUUID } from "@/lib/utils";
 
 export function Chat() {
-  const { messages, input, handleInputChange, handleSubmit } = useChat();
+  const { messages, input, handleInputChange, handleSubmit, isLoading } =
+    useChat();
+
+  const id = generateUUID();
 
   return (
     <SidebarProvider>
@@ -44,6 +48,8 @@ export function Chat() {
               input={input}
               handleInputChange={handleInputChange}
               handleSubmit={handleSubmit}
+              isLoading={isLoading}
+              chatId={id}
             />
           </div>
         </div>

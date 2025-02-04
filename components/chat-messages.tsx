@@ -4,7 +4,7 @@ export function ChatMessages({ messages }: any) {
   return (
     <ScrollArea className="flex-1 p-4 w-full">
       <div className="max-w-3xl mx-auto">
-        {messages.map((message: any) => (
+        {messages.map((message) => (
           <div
             key={message.id}
             className={`mb-4 ${
