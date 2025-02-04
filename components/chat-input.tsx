@@ -3,7 +3,25 @@ import { FileInput } from "./file-input";
 import { Button } from "@/components/ui/button";
 import { Send } from "lucide-react";
 import { toast } from "sonner";
+import { ChatRequestOptions } from "ai";
 // import { useCallback } from "react";
+
+interface ChatInputProps {
+  handleSubmit: (
+    event?: {
+      preventDefault?: () => void;
+    },
+    chatRequestOptions?: ChatRequestOptions
+  ) => void;
+  input: string;
+  handleInputChange: (
+    e:
+      | React.ChangeEvent<HTMLInputElement>
+      | React.ChangeEvent<HTMLTextAreaElement>
+  ) => void;
+  isLoading: boolean;
+  chatId: string;
+}
 
 export function ChatInput({
   handleSubmit,
@@ -11,7 +29,7 @@ export function ChatInput({
   handleInputChange,
   isLoading,
   chatId,
-}: any) {
+}: ChatInputProps) {
   const submitForm = () => {
     handleSubmit();
   };
@@ -51,10 +69,10 @@ export function ChatInput({
           </div>
           <Button
             type="submit"
-            className="absolute bottom-3 right-3 bg-transparent hover:bg-neutral-700"
+            className="absolute bottom-3 right-3 bg-transparent hover:bg-neutral-800 rounded-xl"
             disabled={!input.trim()}
           >
-            <Send className="h-5 w-5" />
+            <Send className="size-5 text-white" />
           </Button>
         </div>
       </form>

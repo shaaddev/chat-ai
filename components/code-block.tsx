@@ -38,9 +38,12 @@ export function CodeBlock({
     }
   };
 
-  if (inline) {
+  if (language === "plaintext") {
     return (
-      <code className={className} {...props}>
+      <code
+        className="bg-background border border-white/20 text-primary rounded px-1 py-0.5 font-mono text-sm"
+        {...props}
+      >
         {children}
       </code>
     );
