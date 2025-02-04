@@ -1,7 +1,12 @@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Markdown } from "./markdown";
+import { Message } from "ai";
 
-export function ChatMessages({ messages }: any) {
+interface messageProps {
+  messages: Message[];
+}
+
+export function ChatMessages({ messages }: messageProps) {
   return (
     <ScrollArea className="flex-1 p-4 w-full">
       <div className="max-w-3xl mx-auto">
