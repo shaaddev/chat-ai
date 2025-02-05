@@ -20,7 +20,7 @@ interface ChatInputProps {
       | React.ChangeEvent<HTMLTextAreaElement>
   ) => void;
   isLoading: boolean;
-  chatId: string;
+  chatId: string | undefined;
 }
 
 export function ChatInput({

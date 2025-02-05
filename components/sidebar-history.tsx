@@ -79,20 +79,22 @@ export function SidebarHistory() {
                 asChild
               >
                 <Link href={`/chat/${chat.id}`} className="flex justify-start">
-                  <MessageSquareText className="mr-2 size-4" />
-                  <span className="truncate">{chat.title}</span>
+                  <div className="flex flex-row items-center">
+                    <MessageSquareText className="mr-2 size-4 " />
+                    <span className="truncate">{chat.title}</span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0 top-0 h-full opacity-0 transition-opacity duration-200 ease-in-out hover:opacity-100 bg-none"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleDelete(chat.id);
+                    }}
+                  >
+                    <Trash className="size-4 text-muted-foreground hover:text-destructive" />
+                  </Button>
                 </Link>
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute right-0 top-0 h-full opacity-0 transition-opacity duration-200 ease-in-out group-hover:opacity-100"
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleDelete(chat.id);
-                }}
-              >
-                <Trash className="size-4 text-muted-foreground hover:text-destructive" />
               </Button>
             </div>
           ))}

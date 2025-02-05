@@ -1,5 +1,5 @@
 "use client";
-import { useChat } from "ai/react";
+import { useChat, type Message } from "ai/react";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -9,11 +9,18 @@ import { ChatInput } from "./chat-input";
 import { ChatMessages } from "./chat-messages";
 import { generateUUID } from "@/lib/utils";
 
-export function Chat() {
-  const { messages, input, handleInputChange, handleSubmit, isLoading } =
-    useChat();
+interface ChatProps {
+  id?: string;
+  initialMessages?: Array<Message>;
+}
 
-  const id = generateUUID();
+export function Chat({ id, initialMessages }: ChatProps) {
+  const { messages, input, handleInputChange, handleSubmit, isLoading } =
+    useChat({
+      id,
+      initialMessages,
+      generateId: generateUUID,
+    });
 
   return (
     <SidebarProvider>
