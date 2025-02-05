@@ -18,6 +18,9 @@ Basic
 
 - [x] Use AI SDK
 - [] Add multiple models (OpenAI, Deepseek)
+
+(Optional)
+
 - [] Add file input
 
 Advance (Optional - Future Development)
@@ -31,7 +34,11 @@ Database
 - [x] Neon
 - [x] Add Schema
 - [x] Add Queries
-- [] Save Messages to DB
+- [x] Save Messages to DB (Kinda)
+
+Able to save messages, however, the UUID regenerates after every key down "Enter"
+
+- [] Fix
 
 Misc
 
