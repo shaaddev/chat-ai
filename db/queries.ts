@@ -35,6 +35,16 @@ export async function deleteChatById({ id }: { id: string }) {
   }
 }
 
+export async function getAllChats() {
+  try {
+    const chats = await db.select().from(chat);
+    return chats;
+  } catch (error) {
+    console.error("Failed to fetch chats:", error);
+    return [];
+  }
+}
+
 export async function getChatById({ id }: { id: string }) {
   try {
     const [selectedChat] = await db.select().from(chat).where(eq(chat.id, id));

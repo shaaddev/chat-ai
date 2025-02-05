@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Send } from "lucide-react";
 import { toast } from "sonner";
 import { ChatRequestOptions } from "ai";
-// import { useCallback } from "react";
+import { useCallback } from "react";
 
 interface ChatInputProps {
   handleSubmit: (
@@ -30,9 +30,11 @@ export function ChatInput({
   isLoading,
   chatId,
 }: ChatInputProps) {
-  const submitForm = () => {
-    handleSubmit();
-  };
+  const submitForm = useCallback(() => {
+    window.history.replaceState({}, "", `/chat/${chatId}`);
+
+    handleSubmit(undefined);
+  }, [handleSubmit, chatId]);
 
   return (
     <div className="relative ">

@@ -2,7 +2,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Markdown } from "./markdown";
 import { Message } from "ai";
 
-interface messageProps {
+export interface messageProps {
   messages: Message[];
 }
 

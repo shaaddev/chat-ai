@@ -18,7 +18,7 @@ export function Chat() {
   return (
     <SidebarProvider>
       <div className="flex h-screen w-full bg-neutral-900 text-gray-100">
-        <ChatHistory />
+        <ChatHistory messages={messages} />
 
         <div className="flex flex-col flex-1 w-full">
           <header className="flex items-center p-4 border-b border-neutral-800">
