@@ -31,7 +31,7 @@ export function Chat() {
             <h1 className="text-xl font-bold">Chatbot</h1>
           </header>
 
-          <ChatMessages messages={messages} />
+          <ChatMessages isLoading={isLoading} messages={messages} />
 
           <div className="max-w-3xl mx-auto space-y-4 w-full">
             <p className="text-center text-sm text-gray-400">
