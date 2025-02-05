@@ -29,8 +29,8 @@ Database
 
 - [x] Local DB
 - [x] Neon
-- [] Add Schema
-- [] Add Queries
+- [x] Add Schema
+- [x] Add Queries
 - [] Save Messages to DB
 
 Misc
