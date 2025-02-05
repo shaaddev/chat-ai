@@ -68,7 +68,7 @@ export function SidebarHistory() {
       ) : (
         <div className="space-y-2 px-2">
           {chats.map((chat) => (
-            <div key={chat.id} className="group relative">
+            <div key={chat.id} className="group relative rounded-xl">
               <Button
                 variant="ghost"
                 className={cn(
