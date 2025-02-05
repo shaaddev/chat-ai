@@ -12,7 +12,7 @@ import { generateTitleFromUserMessage } from "@/app/actions";
 export const maxDuration = 30;
 
 export async function POST(req: Request) {
-  const { id: clientId, messages }: { id: string; messages: Array<Message> } =
+  const { id, messages }: { id: string; messages: Array<Message> } =
     await req.json();
 
   const userMessage = getMostRecentUserMessage(messages);
@@ -21,27 +21,15 @@ export async function POST(req: Request) {
     return new Response("No user message found", { status: 400 });
   }
 
-  let chatId: string;
-  let chat;
-
-  // const chat = await getChatById({ id });
-
-  if (clientId) {
-    chat = await getChatById({ id: clientId });
-  }
+  const chat = await getChatById({ id });
 
   if (!chat) {
-    chatId = generateUUID();
     const title = await generateTitleFromUserMessage({ message: userMessage });
-    await saveChat({ id: chatId, title });
-  } else {
-    chatId = chat.id;
+    await saveChat({ id, title });
   }
 
   await saveMessages({
-    messages: [
-      { ...userMessage, id: generateUUID(), createdAt: new Date(), chatId },
-    ],
+    messages: [{ ...userMessage, createdAt: new Date(), chatId: id }],
   });
 
   const res = streamText({
@@ -58,8 +46,8 @@ export async function POST(req: Request) {
         await saveMessages({
           messages: sanitizedResponseMessages.map((message) => {
             return {
-              id: generateUUID(),
-              chatId,
+              id: message.id,
+              chatId: id,
               role: message.role,
               content: message.content,
               createdAt: new Date(),

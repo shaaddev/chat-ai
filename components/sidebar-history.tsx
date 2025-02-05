@@ -78,10 +78,7 @@ export function SidebarHistory() {
                 )}
                 asChild
               >
-                <Link
-                  href={`/chat/${chat.id}`}
-                  className="flex justify-between"
-                >
+                <Link href={`/chat/${chat.id}`} className="flex justify-start">
                   <MessageSquareText className="mr-2 size-4" />
                   <span className="truncate">{chat.title}</span>
                 </Link>

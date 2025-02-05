@@ -4,9 +4,8 @@ import {
   SidebarHeader,
 } from "@/components/ui/sidebar";
 import { SidebarHistory } from "./sidebar-history";
-import { messageProps } from "./chat-messages";
 
-export function ChatHistory({ messages }: messageProps) {
+export function ChatHistory() {
   return (
     <Sidebar className="w-64 border-r border-neutral-800">
       <SidebarHeader className="p-4">
@@ -14,13 +13,10 @@ export function ChatHistory({ messages }: messageProps) {
       </SidebarHeader>
       <SidebarContent>
         {/* Add chat history items here */}
-        {messages.length > 0 ? (
-          <SidebarHistory />
-        ) : (
-          <div className="p-4">
+        <SidebarHistory />
+        {/* <div className="p-4">
             <p className="text-gray-400">No chat history yet</p>
-          </div>
-        )}
+          </div> */}
       </SidebarContent>
     </Sidebar>
   );
