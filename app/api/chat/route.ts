@@ -6,12 +6,7 @@ import {
   smoothStream,
 } from "ai";
 import { systemPrompt } from "@/lib/ai/prompts";
-import {
-  saveChat,
-  saveMessages,
-  getChatById,
-  deleteChatById,
-} from "@/db/queries";
+import { saveChat, saveMessages, getChatById } from "@/db/queries";
 import {
   getMostRecentUserMessage,
   sanitizeResponseMessages,
@@ -80,21 +75,4 @@ export async function POST(req: Request) {
       return "Oops, an error occurred";
     },
   });
-}
-
-export async function DELETE(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const id = searchParams.get("id");
-
-  if (!id) {
-    return new Response("Not Found", { status: 404 });
-  }
-
-  try {
-    await deleteChatById({ id });
-    return new Response("Chat deleted", { status: 200 });
-  } catch (error) {
-    console.error("Failed to delete chat:", error);
-    return Response.json("Failed to delete chat", { status: 500 });
-  }
 }

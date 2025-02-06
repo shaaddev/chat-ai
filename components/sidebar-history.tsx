@@ -43,7 +43,7 @@ export function SidebarHistory() {
 
   const handleDelete = async (chatId: string) => {
     try {
-      const res = fetch(`/api/chat?id=${chatId}`, {
+      const res = fetch(`/api/chats/${chatId}`, {
         method: "DELETE",
       });
 
@@ -52,10 +52,6 @@ export function SidebarHistory() {
         success: "Chat deleted successfully",
         error: "Failed to delete chat",
       });
-
-      // if (!res.ok) {
-      //   throw new Error("failed to delete chat");
-      // }
 
       setChats(chats.filter((chat) => chat.id !== chatId));
       if (pathname === `/chat/${chatId}`) {
