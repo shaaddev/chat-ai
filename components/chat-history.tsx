@@ -5,20 +5,16 @@ import {
 } from "@/components/ui/sidebar";
 import { SidebarHistory } from "./sidebar-history";
 import { SquarePen } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 export function ChatHistory() {
   return (
     <Sidebar className="w-64 border-r border-neutral-800">
       <SidebarHeader className="p-4 flex flex-row items-center justify-between">
         <h2 className="text-lg font-semibold">Chat History</h2>
-        <Button
-          variant={"ghost"}
-          size={"icon"}
-          className="hover:bg-neutral-800 rounded-xl"
-        >
+        <Link href="/" className="opacity-75 hover:opacity-100 rounded-xl">
           <SquarePen className="size-4" />
-        </Button>
+        </Link>
       </SidebarHeader>
       <SidebarContent>
         {/* Add chat history items here */}
