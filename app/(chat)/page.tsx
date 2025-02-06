@@ -1,9 +1,12 @@
 import { Chat } from "@/components/chat";
+import { generateUUID } from "@/lib/utils";
 
 export default function Page() {
+  const id = generateUUID();
+
   return (
     <div className="flex flex-col min-h-screen w-full">
-      <Chat />
+      <Chat id={id} initialMessages={[]} />
     </div>
   );
 }

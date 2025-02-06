@@ -10,7 +10,7 @@ import { ChatMessages } from "./chat-messages";
 import { generateUUID } from "@/lib/utils";
 
 interface ChatProps {
-  id?: string;
+  id: string;
   initialMessages?: Array<Message>;
 }
 

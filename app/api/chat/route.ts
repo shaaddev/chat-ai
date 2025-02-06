@@ -1,11 +1,16 @@
 import { google } from "@ai-sdk/google";
-import { type Message, streamText } from "ai";
+import {
+  type Message,
+  streamText,
+  createDataStreamResponse,
+  smoothStream,
+} from "ai";
 import { systemPrompt } from "@/lib/ai/prompts";
-import { generateUUID } from "@/lib/utils";
 import { saveChat, saveMessages, getChatById } from "@/db/queries";
 import {
   getMostRecentUserMessage,
   sanitizeResponseMessages,
+  generateUUID,
 } from "@/lib/utils";
 import { generateTitleFromUserMessage } from "@/app/actions";
 
@@ -32,36 +37,42 @@ export async function POST(req: Request) {
     messages: [{ ...userMessage, createdAt: new Date(), chatId: id }],
   });
 
-  const res = streamText({
-    model: google("gemini-1.5-pro-latest"),
-    system: systemPrompt(),
-    messages,
-    experimental_generateMessageId: generateUUID,
-    onFinish: async ({ response }) => {
-      try {
-        const sanitizedResponseMessages = sanitizeResponseMessages({
-          messages: response.messages,
-        });
+  return createDataStreamResponse({
+    execute: (dataStream) => {
+      const res = streamText({
+        model: google("gemini-1.5-pro-latest"),
+        system: systemPrompt(),
+        messages,
+        maxSteps: 5,
+        experimental_transform: smoothStream({ chunking: "word" }),
+        experimental_generateMessageId: generateUUID,
+        onFinish: async ({ response }) => {
+          try {
+            const sanitizedResponseMessages = sanitizeResponseMessages({
+              messages: response.messages,
+            });
 
-        await saveMessages({
-          messages: sanitizedResponseMessages.map((message) => {
-            return {
-              id: message.id,
-              chatId: id,
-              role: message.role,
-              content: message.content,
-              createdAt: new Date(),
-            };
-          }),
-        });
-      } catch (error) {
-        console.error("Failed to save chat");
-      }
+            await saveMessages({
+              messages: sanitizedResponseMessages.map((message) => {
+                return {
+                  id: message.id,
+                  chatId: id,
+                  role: message.role,
+                  content: message.content,
+                  createdAt: new Date(),
+                };
+              }),
+            });
+          } catch (error) {
+            console.error("Failed to save chat", error);
+          }
+        },
+      });
+
+      res.mergeIntoDataStream(dataStream);
     },
-    // onError: () => {
-    //   return "Oops, an error occurred";
-    // },
+    onError: () => {
+      return "Oops, an error occurred";
+    },
   });
-
-  return res.toDataStreamResponse();
 }

@@ -5,13 +5,14 @@ import {
   timestamp,
   json,
   text,
+  uuid,
   // primaryKey,
   // foreignKey,
   // boolean,
 } from "drizzle-orm/pg-core";
 
 export const chat = pgTable("Chat", {
-  id: text("id").primaryKey().notNull(),
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
   createdAt: timestamp("createdAt").notNull(),
   title: text("title").notNull(),
   // userId: uuid('userId')
@@ -26,8 +27,8 @@ export type Chat = InferSelectModel<typeof chat>;
 
 // using string for id (not recommended)
 export const message = pgTable("Message", {
-  id: text("id").primaryKey().notNull(),
-  chatId: text("chatId")
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  chatId: uuid("chatId")
     .notNull()
     .references(() => chat.id),
   role: varchar("role").notNull(),

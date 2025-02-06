@@ -1,13 +1,13 @@
 CREATE TABLE "Chat" (
-	"id" text PRIMARY KEY NOT NULL,
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"createdAt" timestamp NOT NULL,
 	"title" text NOT NULL,
 	"visibility" varchar DEFAULT 'private' NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "Message" (
-	"id" text PRIMARY KEY NOT NULL,
-	"chatId" text NOT NULL,
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"chatId" uuid NOT NULL,
 	"role" varchar NOT NULL,
 	"content" json NOT NULL,
 	"createdAt" timestamp NOT NULL
