@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
 
 interface Chat {
   id: string;
@@ -42,13 +43,19 @@ export function SidebarHistory() {
 
   const handleDelete = async (chatId: string) => {
     try {
-      const res = await fetch(`/api/chats/${chatId}`, {
+      const res = fetch(`/api/chat?id=${chatId}`, {
         method: "DELETE",
       });
 
-      if (!res.ok) {
-        throw new Error("failed to delete chat");
-      }
+      toast.promise(res, {
+        loading: "Deleting chat...",
+        success: "Chat deleted successfully",
+        error: "Failed to delete chat",
+      });
+
+      // if (!res.ok) {
+      //   throw new Error("failed to delete chat");
+      // }
 
       setChats(chats.filter((chat) => chat.id !== chatId));
       if (pathname === `/chat/${chatId}`) {
@@ -72,7 +79,7 @@ export function SidebarHistory() {
               <Button
                 variant="ghost"
                 className={cn(
-                  "w-full justify-start font-normal transition-all duration-200 ease-in-out",
+                  "w-full justify-start font-normal transition-all duration-200 ease-in-out rounded-xl",
                   pathname === `/chat/${chat.id}` && "bg-accent",
                   "group-hover:pr-12"
                 )}
@@ -86,13 +93,13 @@ export function SidebarHistory() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="absolute right-0 top-0 h-full opacity-0 transition-opacity duration-200 ease-in-out hover:opacity-100 bg-none"
+                    className="absolute right-0 top-0 h-full opacity-0 transition-opacity duration-200 ease-in-out hover:opacity-100 rounded-xl bg-none"
                     onClick={(e) => {
                       e.preventDefault();
                       handleDelete(chat.id);
                     }}
                   >
-                    <Trash className="size-4 text-muted-foreground hover:text-destructive" />
+                    <Trash className="size-4 text-muted-foreground hover:text-red-600" />
                   </Button>
                 </Link>
               </Button>
