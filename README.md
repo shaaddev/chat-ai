@@ -19,7 +19,7 @@ Basic
 - [x] Use AI SDK
 - [] Add multiple models (OpenAI, Deepseek)
 
-(Optional)
+(Optional - Future Development)
 
 - [] Add file input
 
@@ -38,7 +38,7 @@ Database
 
 Able to save messages, however, the UUID regenerates after every key down "Enter"
 
-- [] Fix
+- [x] Fixed (Read Notes)
 
 Misc
 
