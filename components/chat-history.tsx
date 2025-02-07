@@ -7,6 +7,7 @@ import {
 import { SidebarHistory } from "./sidebar-history";
 import { SquarePen } from "lucide-react";
 import Link from "next/link";
+import { SidebarUser } from "./sidebar-user";
 
 export function ChatHistory() {
   return (
@@ -21,9 +22,7 @@ export function ChatHistory() {
         <SidebarHistory />
       </SidebarContent>
       <SidebarFooter className="border-t p-4 mt-5">
-        <div className="w-full bg-neutral-600 rounded-xl h-full px-5 py-2">
-          does it need words?
-        </div>
+        <SidebarUser />
       </SidebarFooter>
     </Sidebar>
   );
