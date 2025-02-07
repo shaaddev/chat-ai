@@ -5,11 +5,11 @@ TO-DO
 Client
 
 - [x] Chat UI
-- [] Profile at the bottom left
-- [] Reactify app (3 stories deep)
-- [] Auth
+- [x] Profile at the bottom left
+- [x] Reactify app (3 stories deep)
 - [x] Markdown design (AI response cleaned up)
-- [] Add model switcher
+- [x] Add model switcher
+- [] Auth
 - [] Fix Textarea on Height
 - [] On Scroll behaviour
 
@@ -17,7 +17,7 @@ Server
 Basic
 
 - [x] Use AI SDK
-- [] Add multiple models (OpenAI, Deepseek)
+- [] Add multiple models (OpenAI, Deepseek) (Note: check off when API Keys and functionality added)
 
 (Optional - Future Development)
 

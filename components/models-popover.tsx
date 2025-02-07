@@ -15,7 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ImageTooltip, UnstableTooltip } from "./model-helpful-tooltips";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface model_selection {
   model: string;
@@ -24,8 +24,19 @@ interface model_selection {
   unstable?: LucideIcon;
 }
 
+const LOCAL_STORAGE_KEY = "selectedAIModel";
+
 export function ModelsPopover() {
-  const [selectedModel, setSelectedModel] = useState<string>("Gemini 1.5 pro");
+  const [selectedModel, setSelectedModel] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem(LOCAL_STORAGE_KEY) || "Gemini 1.5 pro";
+    }
+    return "Gemini 1.5 pro";
+  });
+
+  useEffect(() => {
+    localStorage.setItem(LOCAL_STORAGE_KEY, selectedModel);
+  }, [selectedModel]);
 
   const stable_models: model_selection[] = [
     {
@@ -68,6 +79,8 @@ export function ModelsPopover() {
   const handleModelSelect = (model: string) => {
     setSelectedModel(model);
   };
+
+  useEffect(() => {}, []);
 
   return (
     <DropdownMenu>
