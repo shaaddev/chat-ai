@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ImageTooltip, UnstableTooltip } from "./model-helpful-tooltips";
+import { useState } from "react";
 
 interface model_selection {
   model: string;
@@ -24,6 +25,8 @@ interface model_selection {
 }
 
 export function ModelsPopover() {
+  const [selectedModel, setSelectedModel] = useState<string>("Gemini 1.5 pro");
+
   const stable_models: model_selection[] = [
     {
       model: "Gemini 1.5 pro",
@@ -62,6 +65,10 @@ export function ModelsPopover() {
     },
   ];
 
+  const handleModelSelect = (model: string) => {
+    setSelectedModel(model);
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild className="outline-none focus:outline-none">
@@ -69,7 +76,7 @@ export function ModelsPopover() {
           type="button"
           className="inline-flex items-center gap-1 px-3 py-1 text-sm text-neutral-300 hover:text-neutral-100"
         >
-          Gemini 1.5 pro
+          {selectedModel}
           <ChevronDown className="size-4" />
         </button>
       </DropdownMenuTrigger>
@@ -85,17 +92,16 @@ export function ModelsPopover() {
             <DropdownMenuItem
               key={index}
               className="rounded-xl justify-between flex py-4"
+              onSelect={() => handleModelSelect(m.model)}
             >
               <div className="flex items-center gap-2">
                 <span className="font-medium">{m.model}</span>
                 <m.icon className="size-4" />{" "}
                 {/* add tooltip component here later */}
               </div>
-              <div>
-                <ImageTooltip>
-                  <m.image className="size-4 text-blue-600" />
-                </ImageTooltip>
-              </div>
+              <ImageTooltip>
+                <m.image className="size-4 text-blue-600" />
+              </ImageTooltip>
             </DropdownMenuItem>
           ))}
           <DropdownMenuSeparator />
@@ -110,17 +116,16 @@ export function ModelsPopover() {
               <DropdownMenuItem
                 key={index}
                 className="rounded-xl justify-between flex py-4"
+                onSelect={() => handleModelSelect(m.model)}
               >
                 <div className="flex items-center gap-2">
                   <span className="font-medium'">{m.model}</span>
                   <m.icon className="size-4" />{" "}
                   {/* add tooltip component here later */}
                 </div>
-                <div>
-                  <UnstableTooltip>
-                    <m.unstable className="size-4 text-orange-600" />
-                  </UnstableTooltip>
-                </div>
+                <UnstableTooltip>
+                  <m.unstable className="size-4 text-orange-600" />
+                </UnstableTooltip>
               </DropdownMenuItem>
             ))}
           </DropdownMenuGroup>
