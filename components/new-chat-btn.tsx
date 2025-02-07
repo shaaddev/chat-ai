@@ -16,7 +16,7 @@ export function NewChat() {
             <SquarePen className="size-4" />
           </Link>
         </TooltipTrigger>
-        <TooltipContent className="rounded-xl bg-neutral-950">
+        <TooltipContent className="rounded-xl">
           <p>Start a new chat!</p>
         </TooltipContent>
       </Tooltip>
