@@ -31,7 +31,7 @@ export default function RootLayout({
           className={`${geistSans.variable} ${geistMono.variable} antialiased bg-neutral-900`}
         >
           <main className="lg:mx-auto">{children}</main>
-          <Toaster position="bottom-right" />
+          <Toaster position="bottom-right" className="bg-neutral-800" />
         </body>
       </html>
     </ViewTransitions>
