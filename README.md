@@ -9,9 +9,9 @@ Client
 - [x] Reactify app (3 stories deep)
 - [x] Markdown design (AI response cleaned up)
 - [x] Add model switcher
-- [] Auth
 - [] Fix Textarea on Height
 - [] On Scroll behaviour
+- [] Auth
 
 Server
 Basic
