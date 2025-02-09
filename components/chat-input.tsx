@@ -65,7 +65,7 @@ export function ChatInput({
               }
             }}
           />
-          <div className="flex flex-col gap-5 md:flex-row md:items-center py-2 px-5">
+          <div className="flex flex-row gap-5 items-center py-2 px-5">
             <ModelsPopover />
             <FileInput />
           </div>
