@@ -5,16 +5,26 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { SquarePen } from "lucide-react";
-import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
 
 export function NewChat() {
+  const router = useRouter();
+
   return (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Link href="/" className="opacity-75 hover:opacity-100 rounded-xl">
+          <Button
+            variant={"ghost"}
+            className="opacity-75 hover:opacity-100 rounded-xl hover:bg-none"
+            onClick={() => {
+              router.push("/");
+              router.refresh();
+            }}
+          >
             <SquarePen className="size-4" />
-          </Link>
+          </Button>
         </TooltipTrigger>
         <TooltipContent className="rounded-xl">
           <p>Start a new chat!</p>
