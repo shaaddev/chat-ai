@@ -11,7 +11,7 @@ import { generateUUID } from "@/lib/utils";
 
 interface ChatProps {
   id: string;
-  selectedChatModel?: string;
+  selectedChatModel: string;
   initialMessages?: Array<Message>;
 }
 

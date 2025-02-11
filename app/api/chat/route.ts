@@ -45,7 +45,7 @@ export async function POST(req: Request) {
     execute: (dataStream) => {
       const res = streamText({
         model: myProvider.languageModel(selectedChatModel),
-        system: systemPrompt(),
+        system: systemPrompt({ selectedChatModel }),
         messages,
         maxSteps: 5,
         experimental_transform: smoothStream({ chunking: "word" }),

@@ -12,26 +12,37 @@ import { ImageTooltip, UnstableTooltip } from "./model-helpful-tooltips";
 import { useState, useEffect } from "react";
 import { stable_models, experimental_models } from "@/lib/ai/models";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
+import { setCookie, getCookie } from "cookies-next";
 
-const LOCAL_STORAGE_KEY = "selected_model";
+const STORAGE_KEY = "selected_model";
 
 export function ModelsPopover() {
   const [selectedModel, setSelectedModel] = useState<string>(() => {
     if (typeof window !== "undefined") {
-      return localStorage.getItem(LOCAL_STORAGE_KEY) || DEFAULT_CHAT_MODEL;
+      const localStorageValue = localStorage.getItem(STORAGE_KEY);
+      if (localStorageValue) return localStorageValue;
+
+      const cookieValue = getCookie(STORAGE_KEY);
+      if (cookieValue) return cookieValue as string;
+
+      return DEFAULT_CHAT_MODEL;
     }
     return DEFAULT_CHAT_MODEL;
   });
 
   useEffect(() => {
-    localStorage.setItem(LOCAL_STORAGE_KEY, selectedModel);
+    localStorage.setItem(STORAGE_KEY, selectedModel);
+
+    // update cookie
+    setCookie(STORAGE_KEY, selectedModel, {
+      maxAge: 30 * 24 * 60 * 60, // 30 days
+      path: "/",
+    });
   }, [selectedModel]);
 
   const handleModelSelect = (model: string) => {
     setSelectedModel(model);
   };
-
-  useEffect(() => {}, []);
 
   return (
     <DropdownMenu>
@@ -56,10 +67,10 @@ export function ModelsPopover() {
             <DropdownMenuItem
               key={index}
               className="rounded-xl justify-between flex py-4"
-              onSelect={() => handleModelSelect(m.model)}
+              onSelect={() => handleModelSelect(m.name)}
             >
               <div className="flex items-center gap-2">
-                <span className="font-medium">{m.model}</span>
+                <span className="font-medium">{m.name}</span>
                 <m.icon className="size-4" />{" "}
                 {/* add tooltip component here later */}
               </div>
@@ -80,11 +91,11 @@ export function ModelsPopover() {
               <DropdownMenuItem
                 key={index}
                 className="rounded-xl justify-between flex py-4"
-                onSelect={() => handleModelSelect(m.model)}
+                onSelect={() => handleModelSelect(m.name)}
                 disabled
               >
                 <div className="flex items-center gap-2">
-                  <span className="font-medium'">{m.model}</span>
+                  <span className="font-medium'">{m.name}</span>
                   <m.icon className="size-4" />{" "}
                   {/* add tooltip component here later */}
                 </div>
