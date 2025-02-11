@@ -11,15 +11,16 @@ import {
 import { ImageTooltip, UnstableTooltip } from "./model-helpful-tooltips";
 import { useState, useEffect } from "react";
 import { stable_models, experimental_models } from "@/lib/ai/models";
+import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
 
-const LOCAL_STORAGE_KEY = "selectedAIModel";
+const LOCAL_STORAGE_KEY = "selected_model";
 
 export function ModelsPopover() {
   const [selectedModel, setSelectedModel] = useState<string>(() => {
     if (typeof window !== "undefined") {
-      return localStorage.getItem(LOCAL_STORAGE_KEY) || "Gemini 1.5 pro";
+      return localStorage.getItem(LOCAL_STORAGE_KEY) || DEFAULT_CHAT_MODEL;
     }
-    return "Gemini 1.5 pro";
+    return DEFAULT_CHAT_MODEL;
   });
 
   useEffect(() => {
@@ -80,6 +81,7 @@ export function ModelsPopover() {
                 key={index}
                 className="rounded-xl justify-between flex py-4"
                 onSelect={() => handleModelSelect(m.model)}
+                disabled
               >
                 <div className="flex items-center gap-2">
                   <span className="font-medium'">{m.model}</span>
