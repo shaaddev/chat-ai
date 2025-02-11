@@ -59,7 +59,7 @@ export const DEFAULT_CHAT_MODEL: string = "Gemini 1.5 pro";
 
 export const myProvider = customProvider({
   languageModels: {
-    "Gemini 1.5 pro": google("gemini-1.5-pro"),
+    "Gemini 1.5 pro": google("gemini-1.5-pro-latest"),
     "Gemini 2.0 Flash": google("gemini-2.0-flash-exp"),
     "ChatGPT o1-mini": openai("o1-mini"),
   },

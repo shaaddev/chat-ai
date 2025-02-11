@@ -11,13 +11,15 @@ import { generateUUID } from "@/lib/utils";
 
 interface ChatProps {
   id: string;
+  selectedChatModel?: string;
   initialMessages?: Array<Message>;
 }
 
-export function Chat({ id, initialMessages }: ChatProps) {
+export function Chat({ id, selectedChatModel, initialMessages }: ChatProps) {
   const { messages, input, handleInputChange, handleSubmit, isLoading } =
     useChat({
       id,
+      body: { id, selectedChatModel: selectedChatModel },
       initialMessages,
       generateId: generateUUID,
     });

@@ -1,4 +1,3 @@
-import { google } from "@ai-sdk/google";
 import {
   type Message,
   streamText,
@@ -13,11 +12,16 @@ import {
   generateUUID,
 } from "@/lib/utils";
 import { generateTitleFromUserMessage } from "@/app/actions";
+import { myProvider } from "@/lib/ai/models";
 
 export const maxDuration = 30;
 
 export async function POST(req: Request) {
-  const { id, messages }: { id: string; messages: Array<Message> } =
+  const {
+    id,
+    messages,
+    selectedChatModel,
+  }: { id: string; messages: Array<Message>; selectedChatModel: string } =
     await req.json();
 
   const userMessage = getMostRecentUserMessage(messages);
@@ -40,7 +44,7 @@ export async function POST(req: Request) {
   return createDataStreamResponse({
     execute: (dataStream) => {
       const res = streamText({
-        model: google("gemini-1.5-pro-latest"),
+        model: myProvider.languageModel(selectedChatModel),
         system: systemPrompt(),
         messages,
         maxSteps: 5,
