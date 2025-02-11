@@ -1,10 +1,4 @@
-import {
-  ChevronDown,
-  Info,
-  Image,
-  FlaskConical,
-  LucideIcon,
-} from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,13 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ImageTooltip, UnstableTooltip } from "./model-helpful-tooltips";
 import { useState, useEffect } from "react";
-
-interface model_selection {
-  model: string;
-  icon: LucideIcon;
-  image: LucideIcon;
-  unstable?: LucideIcon;
-}
+import { stable_models, experimental_models } from "@/lib/ai/models";
 
 const LOCAL_STORAGE_KEY = "selectedAIModel";
 
@@ -37,44 +25,6 @@ export function ModelsPopover() {
   useEffect(() => {
     localStorage.setItem(LOCAL_STORAGE_KEY, selectedModel);
   }, [selectedModel]);
-
-  const stable_models: model_selection[] = [
-    {
-      model: "Gemini 1.5 pro",
-      icon: Info,
-      image: Image,
-      unstable: FlaskConical,
-    },
-    {
-      model: "Gemini 2.0 Flash",
-      icon: Info,
-      image: Image,
-      unstable: FlaskConical,
-    },
-    {
-      model: "ChatGPT o1-mini",
-      icon: Info,
-      image: Image,
-    },
-  ];
-
-  const experimental_models = [
-    {
-      model: "Deekseek r1",
-      icon: Info,
-      unstable: FlaskConical,
-    },
-    {
-      model: "Deepseek v3",
-      icon: Info,
-      unstable: FlaskConical,
-    },
-    {
-      model: "Deepseek v3 (old)",
-      icon: Info,
-      unstable: FlaskConical,
-    },
-  ];
 
   const handleModelSelect = (model: string) => {
     setSelectedModel(model);
