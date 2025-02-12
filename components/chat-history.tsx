@@ -5,8 +5,9 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar";
 import { SidebarHistory } from "./sidebar-history";
-import { SidebarUser } from "./sidebar-user";
+// import { SidebarUser } from "./sidebar-user";
 import { NewChat } from "./new-chat-btn";
+import { LoginDialog } from "./login-dialog";
 
 export function ChatHistory() {
   return (
@@ -19,7 +20,8 @@ export function ChatHistory() {
         <SidebarHistory />
       </SidebarContent>
       <SidebarFooter className="border-t p-4 mt-5">
-        <SidebarUser />
+        {/* <SidebarUser /> */}
+        <LoginDialog />
       </SidebarFooter>
     </Sidebar>
   );
