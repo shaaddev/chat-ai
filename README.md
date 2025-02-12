@@ -17,7 +17,7 @@ Server
 Basic
 
 - [x] Use AI SDK
-- [] Add multiple models (OpenAI, Deepseek) (Note: check off when API Keys and functionality added)
+- [x] Add multiple models (OpenAI, Deepseek) (Note: check off when API Keys and functionality added)
 
 (Optional - Future Development)
 
