@@ -21,6 +21,7 @@ interface ChatInputProps {
   ) => void;
   isLoading: boolean;
   chatId: string | undefined;
+  handleModelChange: (model: string) => void;
 }
 
 export function ChatInput({
@@ -29,6 +30,7 @@ export function ChatInput({
   handleInputChange,
   isLoading,
   chatId,
+  handleModelChange,
 }: ChatInputProps) {
   const submitForm = useCallback(() => {
     window.history.replaceState({}, "", `/chat/${chatId}`);
@@ -66,7 +68,7 @@ export function ChatInput({
             }}
           />
           <div className="flex flex-row gap-5 items-center py-2 px-5">
-            <ModelsPopover />
+            <ModelsPopover onModelChange={handleModelChange} />
             <FileInput />
           </div>
           <Button

@@ -1,6 +1,6 @@
 import { Chat } from "@/components/chat";
 import { generateUUID } from "@/lib/utils";
-import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
+// import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
 import { cookies } from "next/headers";
 
 export default async function Page() {
@@ -14,7 +14,7 @@ export default async function Page() {
       <div className="flex flex-col min-h-screen w-full">
         <Chat
           id={id}
-          selectedChatModel={DEFAULT_CHAT_MODEL}
+          // selectedChatModel={DEFAULT_CHAT_MODEL}
           initialMessages={[]}
         />
       </div>
@@ -25,7 +25,7 @@ export default async function Page() {
     <div className="flex flex-col min-h-screen w-full">
       <Chat
         id={id}
-        selectedChatModel={modelFromCookie.value}
+        // selectedChatModel={modelFromCookie.value}
         initialMessages={[]}
       />
     </div>

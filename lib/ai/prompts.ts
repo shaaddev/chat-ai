@@ -8,8 +8,12 @@ export const openAIPrompt = `
 `;
 
 // edit this to suit each model
-export const systemPrompt = ({ selectedModel }: { selectedModel: string }) => {
-  if (selectedModel === "ChatGPT o1-mini" || "ChatGPT 4o mini") {
+export const systemPrompt = ({
+  selectedChatModel,
+}: {
+  selectedChatModel: string;
+}) => {
+  if (selectedChatModel === "chat-o1-mini" || "chat-4o-mini") {
     return openAIPrompt;
   } else {
     return regularPrompt;

@@ -8,21 +8,29 @@ import { ChatHistory } from "./chat-history";
 import { ChatInput } from "./chat-input";
 import { ChatMessages } from "./chat-messages";
 import { generateUUID } from "@/lib/utils";
+import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
+import { useState } from "react";
 
 interface ChatProps {
   id: string;
-  selectedChatModel: string;
+  selectedChatModel?: string;
   initialMessages?: Array<Message>;
 }
 
-export function Chat({ id, selectedChatModel, initialMessages }: ChatProps) {
+export function Chat({ id, initialMessages }: ChatProps) {
+  const [selectedModel, setSelectedModel] = useState(DEFAULT_CHAT_MODEL);
   const { messages, input, handleInputChange, handleSubmit, isLoading } =
     useChat({
+      api: "/api/chat",
       id,
-      body: { id, selectedChatModel: selectedChatModel },
+      body: { id, selectedChatModel: selectedModel },
       initialMessages,
       generateId: generateUUID,
     });
+
+  const handleModelChange = (model: string) => {
+    setSelectedModel(model);
+  };
 
   return (
     <SidebarProvider>
@@ -59,6 +67,7 @@ export function Chat({ id, selectedChatModel, initialMessages }: ChatProps) {
               handleSubmit={handleSubmit}
               isLoading={isLoading}
               chatId={id}
+              handleModelChange={handleModelChange}
             />
           </div>
         </div>

@@ -12,7 +12,7 @@ import {
   generateUUID,
 } from "@/lib/utils";
 import { generateTitleFromUserMessage } from "@/app/actions";
-import { myProvider } from "@/lib/ai/models";
+import { myProvider, stable_models } from "@/lib/ai/models";
 
 export const maxDuration = 30;
 
@@ -40,6 +40,14 @@ export async function POST(req: Request) {
   await saveMessages({
     messages: [{ ...userMessage, createdAt: new Date(), chatId: id }],
   });
+
+  const selectedModel = stable_models.find(
+    (model) => model.id === selectedChatModel
+  );
+
+  if (!selectedModel) {
+    return new Response("Invalid model selected", { status: 400 });
+  }
 
   return createDataStreamResponse({
     execute: (dataStream) => {

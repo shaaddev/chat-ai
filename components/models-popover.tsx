@@ -2,46 +2,36 @@ import { ChevronDown } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
+  // DropdownMenuGroup,
+  // DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
 } from "@/components/ui/dropdown-menu";
 import { ImageTooltip, UnstableTooltip } from "./model-helpful-tooltips";
 import { useState, useEffect } from "react";
-import { stable_models, experimental_models } from "@/lib/ai/models";
-import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
-import { setCookie, getCookie } from "cookies-next";
+import {
+  stable_models,
+  experimental_models,
+  DEFAULT_CHAT_MODEL,
+} from "@/lib/ai/models";
+// import { setCookie, getCookie } from "cookies-next";
 
-const STORAGE_KEY = "selected_model";
+interface ModelSelectorProps {
+  onModelChange: (modelId: string) => void;
+}
 
-export function ModelsPopover() {
-  const [selectedModel, setSelectedModel] = useState<string>(() => {
-    if (typeof window !== "undefined") {
-      const localStorageValue = localStorage.getItem(STORAGE_KEY);
-      if (localStorageValue) return localStorageValue;
-
-      const cookieValue = getCookie(STORAGE_KEY);
-      if (cookieValue) return cookieValue as string;
-
-      return DEFAULT_CHAT_MODEL;
-    }
-    return DEFAULT_CHAT_MODEL;
-  });
+export function ModelsPopover({ onModelChange }: ModelSelectorProps) {
+  const [selectedId, setSelectedId] = useState(DEFAULT_CHAT_MODEL);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, selectedModel);
+    onModelChange(selectedId);
+  }, [selectedId, onModelChange]);
 
-    // update cookie
-    setCookie(STORAGE_KEY, selectedModel, {
-      maxAge: 30 * 24 * 60 * 60, // 30 days
-      path: "/",
-    });
-  }, [selectedModel]);
-
-  const handleModelSelect = (model: string) => {
-    setSelectedModel(model);
+  const getModelNameById = (id: string) => {
+    return stable_models.find((model) => model.id === id)?.name;
   };
 
   return (
@@ -51,7 +41,7 @@ export function ModelsPopover() {
           type="button"
           className="inline-flex items-center gap-1 px-3 py-1 text-sm text-neutral-300 hover:text-neutral-100"
         >
-          {selectedModel}
+          {getModelNameById(selectedId)}
           <ChevronDown className="size-4" />
         </button>
       </DropdownMenuTrigger>
@@ -62,22 +52,24 @@ export function ModelsPopover() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuGroup>
-          {stable_models.map((m, index) => (
-            <DropdownMenuItem
-              key={index}
+        <DropdownMenuRadioGroup
+          value={selectedId}
+          onValueChange={setSelectedId}
+        >
+          {stable_models.map((m) => (
+            <DropdownMenuRadioItem
+              key={m.id}
               className="rounded-xl justify-between flex py-4"
-              onSelect={() => handleModelSelect(m.name)}
+              value={m.id}
             >
               <div className="flex items-center gap-2">
                 <span className="font-medium">{m.name}</span>
-                <m.icon className="size-4" />{" "}
-                {/* add tooltip component here later */}
+                <m.icon className="size-4" />
               </div>
               <ImageTooltip>
                 <m.image className="size-4 text-blue-600" />
               </ImageTooltip>
-            </DropdownMenuItem>
+            </DropdownMenuRadioItem>
           ))}
           <DropdownMenuSeparator />
           <DropdownMenuLabel className="font-normal">
@@ -86,26 +78,28 @@ export function ModelsPopover() {
             </div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuGroup>
+          <DropdownMenuRadioGroup
+            value={selectedId}
+            onValueChange={setSelectedId}
+          >
             {experimental_models.map((m, index) => (
-              <DropdownMenuItem
+              <DropdownMenuRadioItem
                 key={index}
                 className="rounded-xl justify-between flex py-4"
-                onSelect={() => handleModelSelect(m.name)}
+                value={m.name}
                 disabled
               >
                 <div className="flex items-center gap-2">
                   <span className="font-medium'">{m.name}</span>
-                  <m.icon className="size-4" />{" "}
-                  {/* add tooltip component here later */}
+                  <m.icon className="size-4" />
                 </div>
                 <UnstableTooltip>
                   <m.unstable className="size-4 text-orange-600" />
                 </UnstableTooltip>
-              </DropdownMenuItem>
+              </DropdownMenuRadioItem>
             ))}
-          </DropdownMenuGroup>
-        </DropdownMenuGroup>
+          </DropdownMenuRadioGroup>
+        </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );

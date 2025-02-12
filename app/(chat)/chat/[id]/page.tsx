@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { getChatById, getMessagesByChatId } from "@/db/queries";
 import { convertToUIMessages } from "@/lib/utils";
 import { cookies } from "next/headers";
-import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
+// import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
 
 export default async function Page(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
@@ -26,7 +26,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
       <>
         <Chat
           id={chat.id}
-          selectedChatModel={DEFAULT_CHAT_MODEL}
+          // selectedChatModel={DEFAULT_CHAT_MODEL}
           initialMessages={convertToUIMessages(messagesFromDb)}
         />
       </>
@@ -37,7 +37,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
     <>
       <Chat
         id={chat.id}
-        selectedChatModel={chatModelFromCookie.value}
+        // selectedChatModel={chatModelFromCookie.value}
         initialMessages={convertToUIMessages(messagesFromDb)}
       />
     </>
