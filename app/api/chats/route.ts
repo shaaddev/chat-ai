@@ -9,7 +9,7 @@ export async function GET() {
     console.error("Failed to fetch chats: ", error);
     return NextResponse.json(
       { error: "Faield to fetch chats" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

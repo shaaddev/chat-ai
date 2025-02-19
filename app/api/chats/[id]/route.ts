@@ -3,7 +3,7 @@ import { deleteChatById } from "@/db/queries";
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } },
 ) {
   try {
     const { id } = await params;
@@ -13,7 +13,7 @@ export async function DELETE(
     console.error("Failed to delete chat:", error);
     return NextResponse.json(
       { error: "Failed to delete chat" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

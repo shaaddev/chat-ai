@@ -42,7 +42,7 @@ export async function POST(req: Request) {
   });
 
   const selectedModel = stable_models.find(
-    (model) => model.id === selectedChatModel
+    (model) => model.id === selectedChatModel,
   );
 
   if (!selectedModel) {
