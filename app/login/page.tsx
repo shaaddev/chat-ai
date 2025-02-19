@@ -1,7 +1,7 @@
 import { Link } from "next-view-transitions";
 import { Button } from "@/components/ui/button";
 import { MoveLeft } from "lucide-react";
-import { OTPForm } from "@/components/otp-form";
+import { OTPForm } from "@/components/auth/otp-form";
 
 export default function Page() {
   return (

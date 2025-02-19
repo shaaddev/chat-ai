@@ -7,7 +7,7 @@ import {
 import { SidebarHistory } from "./sidebar-history";
 // import { SidebarUser } from "./sidebar-user";
 import { NewChat } from "./new-chat-btn";
-import { LoginDialog } from "./login-dialog";
+import { LoginDialog } from "./auth/login-dialog";
 
 export function ChatHistory() {
   return (
