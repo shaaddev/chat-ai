@@ -51,9 +51,9 @@ export function CodeBlock({
 
   return (
     <div className="relative">
-      <pre className="pl-10 pr-24 py-5 rounded-xl overflow-x-auto bg-neutral-950 text-white">
+      <pre className="pl-10 pr-10 py-5 rounded-xl overflow-x-auto bg-neutral-950 text-white max-w-full">
         <code
-          className={`language-${language}`}
+          className={`language-${language} inline-block min-w-full`}
           dangerouslySetInnerHTML={{ __html: highlighted }}
         />
       </pre>

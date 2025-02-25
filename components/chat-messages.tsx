@@ -19,7 +19,7 @@ export function ChatMessages({ messages }: messageProps) {
             }`}
           >
             <div
-              className={`inline-block px-5 py-2 rounded-xl ${
+              className={` px-5 py-2 rounded-xl flex flex-col w-full ${
                 message.role === "user"
                   ? "bg-neutral-800 text-neutral-300"
                   : " text-neutral-100"
