@@ -52,7 +52,7 @@ export function Chat({ id, initialMessages }: ChatProps) {
 
           <div className="max-w-3xl mx-auto space-y-4 w-full">
             <p className="text-center text-sm text-gray-400">
-              Make sure you agree to our{" "}
+              Make sure to agree to your{" "}
               <Link href="/terms" className="underline">
                 Terms
               </Link>{" "}
