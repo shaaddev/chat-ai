@@ -3,7 +3,6 @@ import { useChat, type Message } from "ai/react";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { Link } from "next-view-transitions";
 import { ChatHistory } from "./chat-history";
 import { ChatInput } from "./chat-input";
 import { ChatMessages } from "./chat-messages";
@@ -51,16 +50,7 @@ export function Chat({ id, initialMessages }: ChatProps) {
           <ChatMessages isLoading={isLoading} messages={messages} />
 
           <div className="max-w-3xl mx-auto space-y-4 w-full">
-            <p className="text-center text-sm text-gray-400">
-              Make sure to agree to your{" "}
-              <Link href="/terms" className="underline">
-                Terms
-              </Link>{" "}
-              and our{" "}
-              <Link href="/policy" className="underline">
-                Privacy Policy
-              </Link>
-            </p>
+            <p className="text-center text-sm text-gray-400">shaaddev</p>
             <ChatInput
               input={input}
               handleInputChange={handleInputChange}
