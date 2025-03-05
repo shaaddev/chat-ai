@@ -1,5 +1,6 @@
 "use server";
 import { authClient } from "@/lib/auth/auth-client";
+import { generateOTP } from "@/lib/utils";
 
 export const get_email = async (formData: FormData) => {
   const { email } = Object.fromEntries(formData);
@@ -19,7 +20,14 @@ export const get_email = async (formData: FormData) => {
       type: "sign-in",
     });
 
+    const encodedEmail = encodeURIComponent(email as string);
+
     console.log(`During try-catch: ${email}`);
+    return {
+      success: true,
+      redirectUrl: `/login?email=${encodedEmail}`,
+      email: email as string,
+    };
   } catch (error) {
     console.log(error);
   }
@@ -28,13 +36,6 @@ export const get_email = async (formData: FormData) => {
 export const send_otp = async () => {
   const { data, error } = authClient.signIn.emailOtp({
     email: "",
-    otp: generate(),
+    otp: generateOTP(),
   });
 };
-
-function generate(): string {
-  const min = 100000;
-  const max = 999999;
-
-  return (Math.floor(Math.random() * (max - min + 1)) + min).toString();
-}

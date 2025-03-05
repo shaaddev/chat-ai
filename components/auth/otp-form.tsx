@@ -25,7 +25,7 @@ const Schema = z.object({
   }),
 });
 
-export function OTPForm() {
+export function OTPForm({ email }: { email: string }) {
   const form = useForm<z.infer<typeof Schema>>({
     resolver: zodResolver(Schema),
     defaultValues: {
@@ -39,7 +39,7 @@ export function OTPForm() {
         <pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4">
           <code className="text-white">{JSON.stringify(data, null, 2)}</code>
         </pre>
-      )}`,
+      )}`
     );
   }
 
@@ -58,7 +58,7 @@ export function OTPForm() {
                 Verification
               </FormLabel>
               <FormDescription>
-                We have sent a code to m@example.com. Enter it below
+                We have sent a code to {email}. Enter it below
               </FormDescription>
               <FormControl>
                 <InputOTP maxLength={6} {...field}>

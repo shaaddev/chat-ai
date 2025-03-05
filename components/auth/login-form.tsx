@@ -40,9 +40,13 @@ export function LoginForm() {
     }
 
     try {
-      await get_email(formData);
+      const res = await get_email(formData);
 
-      router.push("/login");
+      if (res.success && res.redirectUrl) {
+        router.push(res.redirectUrl);
+      } else {
+        console.log(res.message);
+      }
     } catch (error) {
       return {
         error: error,
