@@ -12,6 +12,8 @@ import {
 } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { get_email } from "./action";
+import { useRouter } from "next/navigation";
 
 const schema = z.object({
   email: z.string().min(1, {
@@ -26,10 +28,27 @@ export function LoginForm() {
       email: "",
     },
   });
+  const router = useRouter();
 
-  function onSubmit(values: z.infer<typeof schema>) {
-    console.log(values);
-  }
+  const onSubmit = async (values: z.infer<typeof schema>) => {
+    const formData = new FormData();
+
+    for (const [key, value] of Object.entries(values)) {
+      if (value !== undefined && value !== null && value !== "") {
+        formData.append(key, value);
+      }
+    }
+
+    try {
+      await get_email(formData);
+
+      router.push("/login");
+    } catch (error) {
+      return {
+        error: error,
+      };
+    }
+  };
 
   return (
     <Form {...form}>
