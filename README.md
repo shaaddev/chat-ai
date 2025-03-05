@@ -49,3 +49,7 @@ Notes
 Typescript is greattttt
 
 Note: never create an interface with undefined variables, will break code in future if you do that.
+
+OTP Note
+
+Create a resend function/action for sendVerificiationOTP so that an email can be sent
