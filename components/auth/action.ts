@@ -25,20 +25,44 @@ export const get_email = async (formData: FormData) => {
       email: email as string,
     };
   } catch (error) {
-    console.log(error);
+    return {
+      success: false,
+      redirectUrl: "/",
+      error: error,
+    };
   }
 };
 
 export const confirm_otp = async (formData: FormData, email: string) => {
   const { otp } = Object.fromEntries(formData);
 
-  await authClient.signIn.emailOtp({
-    email: email,
-    otp: otp as string,
-  });
+  if (!otp) {
+    return {
+      success: false,
+      message: "Missing required fields",
+      error: "Invalid message",
+      redirectUrl: "/",
+    };
+  }
 
-  return {
-    success: true,
-    redirectUrl: "/",
-  };
+  console.log(`\nBefore: ${otp}\n`);
+
+  try {
+    await authClient.signIn.emailOtp({
+      email: email,
+      otp: otp as string,
+    });
+    console.log(`\nDuring try-catch: ${otp}\n`);
+
+    return {
+      success: true,
+      redirectUrl: "/",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      redirectUrl: "/",
+      error: error,
+    };
+  }
 };

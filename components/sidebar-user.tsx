@@ -19,7 +19,11 @@ import { LogOut, ChevronsUpDown, BadgeCheck } from "lucide-react";
 // add this part when auth is added
 // { user }: { user: {name: string, email: string, avatar:string}}
 
-export function SidebarUser() {
+interface UserProps {
+  email: string;
+}
+
+export function SidebarUser({ email }: UserProps) {
   const { isMobile } = useSidebar();
 
   return (
@@ -36,8 +40,8 @@ export function SidebarUser() {
                 <AvatarFallback className="rounded-lg">CN</AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">user name here</span>
-                <span className="truncate text-xs">user@example.com</span>
+                <span className="truncate font-semibold">{email}</span>
+                {/* <span className="truncate text-xs">{email}</span> */}
               </div>
               <ChevronsUpDown className="ml-auto size-4" />
             </SidebarMenuButton>
@@ -56,7 +60,7 @@ export function SidebarUser() {
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">user name here</span>
-                  <span className="truncate text-xs">user@example.com</span>
+                  <span className="truncate text-xs">{email}</span>
                 </div>
               </div>
             </DropdownMenuLabel>

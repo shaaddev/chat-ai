@@ -4,20 +4,20 @@ import { Button } from "@/components/ui/button";
 import { Send } from "lucide-react";
 import { toast } from "sonner";
 import { ChatRequestOptions } from "ai";
-import { useCallback } from "react";
+import { useCallback, useState, useRef, useEffect } from "react";
 
 interface ChatInputProps {
   handleSubmit: (
     event?: {
       preventDefault?: () => void;
     },
-    chatRequestOptions?: ChatRequestOptions,
+    chatRequestOptions?: ChatRequestOptions
   ) => void;
   input: string;
   handleInputChange: (
     e:
       | React.ChangeEvent<HTMLInputElement>
-      | React.ChangeEvent<HTMLTextAreaElement>,
+      | React.ChangeEvent<HTMLTextAreaElement>
   ) => void;
   isLoading: boolean;
   chatId: string | undefined;
@@ -32,11 +32,36 @@ export function ChatInput({
   chatId,
   handleModelChange,
 }: ChatInputProps) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [textareaHeight, setTextareaHeight] = useState("72px");
   const submitForm = useCallback(() => {
     window.history.replaceState({}, "", `/chat/${chatId}`);
 
     handleSubmit(undefined);
   }, [handleSubmit, chatId]);
+
+  const adjustTextareaHeight = useCallback(() => {
+    const textarea = textareaRef.current;
+
+    if (!textarea) return;
+
+    textarea.style.height = "auto";
+
+    const newHeight = Math.max(72, textarea.scrollHeight);
+    textarea.style.height = `${newHeight}px`;
+    setTextareaHeight(`${newHeight}px`);
+  }, []);
+
+  useEffect(() => {
+    adjustTextareaHeight();
+  }, [input, adjustTextareaHeight]);
+
+  const customHandleInputChange = (
+    e: React.ChangeEvent<HTMLTextAreaElement>
+  ) => {
+    handleInputChange(e);
+    adjustTextareaHeight();
+  };
 
   return (
     <div className="relative ">
@@ -46,20 +71,21 @@ export function ChatInput({
       >
         <div className="relative rounded-t-2xl shadow-lg bg-neutral-800/50 flex flex-grow flex-col">
           <textarea
+            ref={textareaRef}
             value={input}
-            onChange={handleInputChange}
+            onChange={customHandleInputChange}
             placeholder="Type your message here..."
             className="w-full resize-none bg-transparent border-0 focus:ring-0 text-base text-neutral-100 placeholder-neutral-400 p-6 pt-4  outline-none disabled:opacity-0 "
             rows={1}
             autoFocus
-            style={{ height: "72px !important" }}
+            style={{ height: textareaHeight }}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
 
                 if (isLoading) {
                   toast.error(
-                    "Please wait for the model to finish its response!",
+                    "Please wait for the model to finish its response!"
                   );
                 } else {
                   submitForm();

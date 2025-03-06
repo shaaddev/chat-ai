@@ -10,7 +10,7 @@ import { NewChat } from "./new-chat-btn";
 import { LoginDialog } from "./auth/login-dialog";
 import { User } from "@/lib/auth/auth-client";
 
-export function ChatHistory({ user }: { user: User | undefined }) {
+export function ChatHistory({ user }: { user: User }) {
   return (
     <Sidebar className="w-64 border-r border-neutral-800">
       <SidebarHeader className="p-4 flex flex-row items-center justify-between border-b mb-5">
@@ -21,9 +21,7 @@ export function ChatHistory({ user }: { user: User | undefined }) {
         <SidebarHistory />
       </SidebarContent>
       <SidebarFooter className="border-t p-4 mt-5">
-        {user ? <SidebarUser /> : <LoginDialog />}
-        {/* <SidebarUser /> */}
-        {/* <LoginDialog /> */}
+        {user ? <SidebarUser email={user.email} /> : <LoginDialog />}
       </SidebarFooter>
     </Sidebar>
   );

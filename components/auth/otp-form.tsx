@@ -22,7 +22,7 @@ import { confirm_otp } from "./action";
 import { useRouter } from "next/navigation";
 
 const Schema = z.object({
-  pin: z.string().min(6, {
+  otp: z.string().min(6, {
     message: "Your one-time password must be 6 characters",
   }),
 });
@@ -31,7 +31,7 @@ export function OTPForm({ email }: { email: string }) {
   const form = useForm<z.infer<typeof Schema>>({
     resolver: zodResolver(Schema),
     defaultValues: {
-      pin: "",
+      otp: "",
     },
   });
   const router = useRouter();
@@ -58,11 +58,10 @@ export function OTPForm({ email }: { email: string }) {
         toast.error("Oops!", {
           description: "Please try again later",
         });
+        router.push(res.redirectUrl);
       }
     } catch (error) {
-      return {
-        error: error,
-      };
+      toast.error(`${error}`);
     }
   };
 
@@ -74,7 +73,7 @@ export function OTPForm({ email }: { email: string }) {
       >
         <FormField
           control={form.control}
-          name="pin"
+          name="otp"
           render={({ field }) => (
             <FormItem>
               <FormLabel className="text-xl font-semibold">
