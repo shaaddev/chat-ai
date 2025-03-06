@@ -47,7 +47,7 @@ export function ChatInput({
 
     textarea.style.height = "auto";
 
-    const newHeight = Math.max(72, textarea.scrollHeight);
+    const newHeight = Math.min(256, Math.max(72, textarea.scrollHeight));
     textarea.style.height = `${newHeight}px`;
     setTextareaHeight(`${newHeight}px`);
   }, []);
