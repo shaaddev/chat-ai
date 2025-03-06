@@ -18,6 +18,8 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 import { toast } from "sonner";
+import { confirm_otp } from "./action";
+import { useRouter } from "next/navigation";
 
 const Schema = z.object({
   pin: z.string().min(6, {
@@ -32,16 +34,37 @@ export function OTPForm({ email }: { email: string }) {
       pin: "",
     },
   });
+  const router = useRouter();
 
-  function onSubmit(data: z.infer<typeof Schema>) {
-    toast.success(
-      `Congrats! \n Here is the data: \n${(
-        <pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4">
-          <code className="text-white">{JSON.stringify(data, null, 2)}</code>
-        </pre>
-      )}`
-    );
-  }
+  const onSubmit = async (values: z.infer<typeof Schema>) => {
+    const formData = new FormData();
+
+    for (const [key, value] of Object.entries(values)) {
+      if (value !== undefined && value !== null && value !== "") {
+        formData.append(key, value);
+      }
+    }
+
+    try {
+      const res = await confirm_otp(formData, email);
+
+      if (res.success && res.redirectUrl) {
+        toast.success("You have signed in!", {
+          description: "You will be redirected shortly",
+        });
+
+        router.push(res.redirectUrl);
+      } else {
+        toast.error("Oops!", {
+          description: "Please try again later",
+        });
+      }
+    } catch (error) {
+      return {
+        error: error,
+      };
+    }
+  };
 
   return (
     <Form {...form}>
