@@ -5,7 +5,6 @@ import {
   Head,
   Hr,
   Html,
-  Preview,
   Section,
   Text,
   Tailwind,
@@ -20,7 +19,6 @@ export default function Email({ email, otp }: OTPProps) {
   return (
     <Html>
       <Head />
-      <Preview>{otp} - Chat Sign-in Verification</Preview>
       <Tailwind>
         <Body className="bg-[#f5f5f5] font-sans p-10">
           <Container className="border border-black  shadow-md rounded-lg px-5 py-2">
@@ -37,7 +35,9 @@ export default function Email({ email, otp }: OTPProps) {
                 To complete the sign-in process; enter the 6-digit code in the
                 original window.
               </Text>
-              <Text className="text-sm rounded-xl p-7 bg-white">{otp}</Text>
+              <Text className="text-lg font-bold rounded-xl py-3 bg-white text-center">
+                {otp}
+              </Text>
             </Section>
             <Hr className="border-[#cccccc] mt-5" />
             <Text className="text-[#8898aa] leading-7 text-xs text-center">
