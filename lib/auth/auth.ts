@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { emailOTP } from "better-auth/plugins";
 import { nextCookies } from "better-auth/next-js";
 import * as schema from "@/db/schema";
+import { otp_message } from "../email/resend";
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -12,7 +13,12 @@ export const auth = betterAuth({
   }),
   plugins: [
     emailOTP({
-      async sendVerificationOTP({ email, otp, type }) {},
+      async sendVerificationOTP({ email, otp, type }) {
+        if (type === "sign-in") {
+          // add resend action here
+          await otp_message(email, otp);
+        }
+      },
     }),
     nextCookies(),
   ],
