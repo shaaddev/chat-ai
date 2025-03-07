@@ -9,7 +9,7 @@ Client
 - [x] Reactify app (3 stories deep)
 - [x] Markdown design (AI response cleaned up)
 - [x] Add model switcher
-- [] Fix Textarea on Height
+- [x] Fix Textarea on Height
 - [] On Scroll behaviour
 - [] Auth
 
@@ -40,16 +40,12 @@ Able to save messages, however, the UUID regenerates after every key down "Enter
 
 - [x] Fixed (Read Notes)
 
-Misc
+Misc - (Not needed)
 
-- [] Terms
-- [] Privacy Policy
+- [-] Terms
+- [-] Privacy Policy
 
 Notes
 Typescript is greattttt
 
 Note: never create an interface with undefined variables, will break code in future if you do that.
-
-OTP Note
-
-Create a resend function/action for sendVerificiationOTP so that an email can be sent

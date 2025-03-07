@@ -41,7 +41,6 @@ export const confirm_otp = async (formData: FormData, email: string) => {
       success: false,
       message: "Missing required fields",
       error: "Invalid message",
-      redirectUrl: "/",
     };
   }
 

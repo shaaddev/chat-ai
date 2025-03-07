@@ -58,7 +58,6 @@ export function OTPForm({ email }: { email: string }) {
         toast.error("Oops!", {
           description: "Please try again later",
         });
-        router.push(res.redirectUrl);
       }
     } catch (error) {
       toast.error(`${error}`);
