@@ -17,7 +17,7 @@ export default async function Page() {
         id={id}
         // selectedChatModel={modelFromCookie.value}
         initialMessages={[]}
-        user={session?.user}
+        session={session}
       />
     </div>
   );

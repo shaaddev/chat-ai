@@ -8,9 +8,9 @@ import { SidebarHistory } from "./sidebar-history";
 import { SidebarUser } from "./sidebar-user";
 import { NewChat } from "./new-chat-btn";
 import { LoginDialog } from "./auth/login-dialog";
-import { User } from "@/lib/auth/auth-client";
+import { Session } from "@/lib/auth/auth";
 
-export function ChatHistory({ user }: { user: User | null }) {
+export function ChatHistory({ session }: { session: Session | null }) {
   return (
     <Sidebar className="w-64 border-r border-neutral-800">
       <SidebarHeader className="p-4 flex flex-row items-center justify-between border-b mb-5">
@@ -21,7 +21,11 @@ export function ChatHistory({ user }: { user: User | null }) {
         <SidebarHistory />
       </SidebarContent>
       <SidebarFooter className="border-t p-4 mt-5">
-        {user ? <SidebarUser email={user.email} /> : <LoginDialog />}
+        {session ? (
+          <SidebarUser email={session?.user.email} />
+        ) : (
+          <LoginDialog />
+        )}
       </SidebarFooter>
     </Sidebar>
   );

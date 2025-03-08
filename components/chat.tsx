@@ -9,16 +9,16 @@ import { ChatMessages } from "./chat-messages";
 import { generateUUID } from "@/lib/utils";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
 import { useState } from "react";
-import { User } from "@/lib/auth/auth-client";
+import { Session } from "@/lib/auth/auth";
 
 interface ChatProps {
   id: string;
-  user: User | null;
+  session: Session | null;
   selectedChatModel?: string;
   initialMessages?: Array<Message>;
 }
 
-export function Chat({ id, initialMessages, user }: ChatProps) {
+export function Chat({ id, initialMessages, session }: ChatProps) {
   const [selectedModel, setSelectedModel] = useState(DEFAULT_CHAT_MODEL);
   const { messages, input, handleInputChange, handleSubmit, isLoading } =
     useChat({
@@ -36,7 +36,7 @@ export function Chat({ id, initialMessages, user }: ChatProps) {
   return (
     <SidebarProvider>
       <div className="flex h-screen w-full bg-neutral-900 text-gray-100">
-        <ChatHistory user={user} />
+        <ChatHistory session={session} />
 
         <div className="flex flex-col flex-1 w-full">
           <header className="flex items-center p-4 border-b border-neutral-800">
