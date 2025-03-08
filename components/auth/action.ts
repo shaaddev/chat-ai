@@ -44,14 +44,11 @@ export const confirm_otp = async (formData: FormData, email: string) => {
     };
   }
 
-  console.log(`\nBefore: ${otp}\n`);
-
   try {
     await authClient.signIn.emailOtp({
       email: email,
       otp: otp as string,
     });
-    console.log(`\nDuring try-catch: ${otp}\n`);
 
     return {
       success: true,
