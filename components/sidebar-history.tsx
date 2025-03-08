@@ -16,6 +16,7 @@ interface Chat {
   id: string;
   title: string;
   updatedAt: Date;
+  createdAt: Date;
 }
 
 export function SidebarHistory() {
@@ -32,7 +33,13 @@ export function SidebarHistory() {
           throw new Error("Failed to fetch chats");
         }
         const data = await res.json();
-        setChats(data);
+
+        const sortedChats = data.sort(
+          (a: Chat, b: Chat) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+
+        setChats(sortedChats);
       } catch (error) {
         console.error("Error fetching chats: ", error);
       } finally {
