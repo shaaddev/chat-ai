@@ -7,6 +7,7 @@ import * as schema from "@/db/schema";
 import { otp_message } from "../email/resend";
 
 export const auth = betterAuth({
+  emailAndPassword: { enabled: true },
   database: drizzleAdapter(db, {
     provider: "pg",
     schema: schema,

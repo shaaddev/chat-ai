@@ -13,7 +13,7 @@ import { User } from "@/lib/auth/auth-client";
 
 interface ChatProps {
   id: string;
-  user?: User | undefined;
+  user: User | null;
   selectedChatModel?: string;
   initialMessages?: Array<Message>;
 }
