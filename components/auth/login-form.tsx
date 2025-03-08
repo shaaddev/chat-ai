@@ -13,7 +13,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { get_email } from "./action";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 const schema = z.object({
@@ -29,7 +28,6 @@ export function LoginForm() {
       email: "",
     },
   });
-  const router = useRouter();
 
   const onSubmit = async (values: z.infer<typeof schema>) => {
     const formData = new FormData();
@@ -43,12 +41,12 @@ export function LoginForm() {
     try {
       const res = await get_email(formData);
 
-      if (res.success && res.redirectUrl) {
+      if (res.success) {
         toast.success("Success!", {
-          description: "You will be redirected shortly",
+          description: "Check your emails",
         });
 
-        router.push(res.redirectUrl);
+        // router.push(res.redirectUrl);
       } else {
         toast.error("Oh no", {
           description: "Something went wrong. Please try again later.",

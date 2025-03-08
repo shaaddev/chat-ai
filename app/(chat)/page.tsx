@@ -1,6 +1,6 @@
 import { Chat } from "@/components/chat";
 import { generateUUID } from "@/lib/utils";
-import { auth } from "@/lib/auth/auth";
+import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 
 export default async function Page() {

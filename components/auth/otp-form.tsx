@@ -52,7 +52,7 @@ export function OTPForm({ email }: { email: string }) {
         toast.success("You have signed in!", {
           description: "You will be redirected shortly",
         });
-
+        console.log(`JSON here: ${JSON.stringify(res)}`);
         router.push(res.redirectUrl);
       } else {
         toast.error("Oops!", {

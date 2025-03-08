@@ -8,7 +8,7 @@ import { SidebarHistory } from "./sidebar-history";
 import { SidebarUser } from "./sidebar-user";
 import { NewChat } from "./new-chat-btn";
 import { LoginDialog } from "./auth/login-dialog";
-import { Session } from "@/lib/auth/auth";
+import { Session } from "@/lib/auth";
 
 export function ChatHistory({ session }: { session: Session | null }) {
   return (

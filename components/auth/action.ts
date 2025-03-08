@@ -1,5 +1,6 @@
 "use server";
-import { authClient } from "@/lib/auth/auth-client";
+import { authClient } from "@/lib/auth-client";
+import { redirect } from "next/navigation";
 
 export const get_email = async (formData: FormData) => {
   const { email } = Object.fromEntries(formData);
@@ -12,16 +13,21 @@ export const get_email = async (formData: FormData) => {
   }
 
   try {
-    await authClient.emailOtp.sendVerificationOtp({
+    // await authClient.emailOtp.sendVerificationOtp({
+    //   email: email as string,
+    //   type: "sign-in",
+    // });
+
+    await authClient.signIn.magicLink({
       email: email as string,
-      type: "sign-in",
+      callbackURL: "/",
     });
 
-    const encodedEmail = encodeURIComponent(email as string);
+    // const encodedEmail = encodeURIComponent(email as string);
 
     return {
       success: true,
-      redirectUrl: `/login?email=${encodedEmail}`,
+      // redirectUrl: `/login?email=${encodedEmail}`,
       email: email as string,
     };
   } catch (error) {
@@ -45,12 +51,13 @@ export const confirm_otp = async (formData: FormData, email: string) => {
   }
 
   try {
-    await authClient.signIn.emailOtp({
+    const { data } = await authClient.signIn.emailOtp({
       email: email,
       otp: otp as string,
     });
 
     return {
+      data: data,
       success: true,
       redirectUrl: "/",
     };
@@ -61,4 +68,14 @@ export const confirm_otp = async (formData: FormData, email: string) => {
       error: error,
     };
   }
+};
+
+export const sign_out = async () => {
+  await authClient.signOut({
+    fetchOptions: {
+      onSuccess: () => {
+        redirect("/");
+      },
+    },
+  });
 };

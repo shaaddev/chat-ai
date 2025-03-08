@@ -9,7 +9,7 @@ import { ChatMessages } from "./chat-messages";
 import { generateUUID } from "@/lib/utils";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
 import { useState } from "react";
-import { Session } from "@/lib/auth/auth";
+import { Session } from "@/lib/auth";
 
 interface ChatProps {
   id: string;

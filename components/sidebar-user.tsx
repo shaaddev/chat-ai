@@ -15,6 +15,8 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { LogOut, ChevronsUpDown, BadgeCheck } from "lucide-react";
+import { sign_out } from "./auth/action";
+import { Button } from "@/components/ui/button";
 
 // add this part when auth is added
 // { user }: { user: {name: string, email: string, avatar:string}}
@@ -72,7 +74,9 @@ export function SidebarUser({ email }: UserProps) {
               </DropdownMenuItem>
               <DropdownMenuItem className="rounded-xl">
                 <LogOut />
-                Log out
+                <Button onClick={sign_out} variant={"destructive"}>
+                  Log Out
+                </Button>
               </DropdownMenuItem>
             </DropdownMenuGroup>
           </DropdownMenuContent>

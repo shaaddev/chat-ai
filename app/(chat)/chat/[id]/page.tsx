@@ -2,7 +2,7 @@ import { Chat } from "@/components/chat";
 import { notFound } from "next/navigation";
 import { getChatById, getMessagesByChatId } from "@/db/queries";
 import { convertToUIMessages } from "@/lib/utils";
-import { auth } from "@/lib/auth/auth";
+import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 
 export default async function Page(props: { params: Promise<{ id: string }> }) {
@@ -12,8 +12,6 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
   const session = await auth.api.getSession({
     headers: await headers(),
   });
-
-  console.log(session);
 
   if (!chat && !session) {
     notFound();

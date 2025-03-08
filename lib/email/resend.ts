@@ -28,3 +28,23 @@ export const otp_message = async (email: string, otp: string) => {
     };
   }
 };
+
+export const magic_link_message = async (email: string, url: string) => {
+  try {
+    await resend.emails.send({
+      from: "chat <chat@shaaddev.com>",
+      to: [email],
+      subject: `Magic Link Verification`,
+      html: `<a href="${url}">Click link</a>`,
+    });
+
+    return {
+      success: true,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error,
+    };
+  }
+};
