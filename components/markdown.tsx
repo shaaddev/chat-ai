@@ -17,7 +17,7 @@ const components: Partial<Components> = {
   p: (props) => <p className="leading-10" {...props} />,
   li: ({ children, ...props }) => {
     return (
-      <li className="py-1" {...props}>
+      <li className="py-1 leading-10" {...props}>
         {children}
       </li>
     );
@@ -93,5 +93,5 @@ const NonMemoizedMarkdown = ({ children }: { children: string }) => {
 
 export const Markdown = memo(
   NonMemoizedMarkdown,
-  (prevProps, nextProps) => prevProps.children === nextProps.children,
+  (prevProps, nextProps) => prevProps.children === nextProps.children
 );
