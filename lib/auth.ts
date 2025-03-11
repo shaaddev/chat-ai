@@ -7,7 +7,6 @@ import * as schema from "@/db/schema";
 import { otp_message, magic_link_message } from "./email/resend";
 
 export const auth = betterAuth({
-  emailAndPassword: { enabled: true },
   database: drizzleAdapter(db, {
     provider: "pg",
     schema: schema,
@@ -23,7 +22,7 @@ export const auth = betterAuth({
       },
     }),
     magicLink({
-      sendMagicLink: async ({ email, token, url }, request) => {
+      sendMagicLink: async ({ email, url }) => {
         await magic_link_message(email, url);
       },
     }),
