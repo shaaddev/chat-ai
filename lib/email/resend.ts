@@ -3,6 +3,7 @@
 import React from "react";
 import { Resend } from "resend";
 import Email from "@/emails/otp-message";
+import MagicLinkEmail from "@/emails/magic-link";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -35,7 +36,10 @@ export const magic_link_message = async (email: string, url: string) => {
       from: "chat <chat@shaaddev.com>",
       to: [email],
       subject: `Magic Link Verification`,
-      html: `<a href="${url}">Click link</a>`,
+      react: React.createElement(MagicLinkEmail, {
+        email: email as string,
+        link: url as string,
+      }),
     });
 
     return {

@@ -45,8 +45,6 @@ export function LoginForm() {
         toast.success("Success!", {
           description: "Check your emails",
         });
-
-        // router.push(res.redirectUrl);
       } else {
         toast.error("Oh no", {
           description: "Something went wrong. Please try again later.",

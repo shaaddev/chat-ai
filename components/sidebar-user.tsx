@@ -1,4 +1,3 @@
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,10 +15,6 @@ import {
 } from "@/components/ui/sidebar";
 import { LogOut, ChevronsUpDown, BadgeCheck } from "lucide-react";
 import { sign_out } from "./auth/action";
-import { Button } from "@/components/ui/button";
-
-// add this part when auth is added
-// { user }: { user: {name: string, email: string, avatar:string}}
 
 interface UserProps {
   email: string;
@@ -37,13 +32,8 @@ export function SidebarUser({ email }: UserProps) {
               size="lg"
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground hover:bg-neutral-800 rounded-xl transition-all ease-in-out duration-150"
             >
-              <Avatar>
-                <AvatarImage src="/next.svg" alt={"username"} />
-                <AvatarFallback className="rounded-lg">CN</AvatarFallback>
-              </Avatar>
-              <div className="grid flex-1 text-left text-sm leading-tight">
+              <div className="grid flex-1 text-center text-sm leading-tight">
                 <span className="truncate font-semibold">{email}</span>
-                {/* <span className="truncate text-xs">{email}</span> */}
               </div>
               <ChevronsUpDown className="ml-auto size-4" />
             </SidebarMenuButton>
@@ -56,12 +46,7 @@ export function SidebarUser({ email }: UserProps) {
           >
             <DropdownMenuLabel className="p-0 font-normal">
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                <Avatar className="h-8 w-8 rounded-lg">
-                  <AvatarImage src="/next.svg" alt="username" />
-                  <AvatarFallback className="rounded-lg">CN</AvatarFallback>
-                </Avatar>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">user name here</span>
+                <div className="grid flex-1 text-center text-sm leading-tight">
                   <span className="truncate text-xs">{email}</span>
                 </div>
               </div>
@@ -72,11 +57,12 @@ export function SidebarUser({ email }: UserProps) {
                 <BadgeCheck />
                 Account
               </DropdownMenuItem>
-              <DropdownMenuItem className="rounded-xl">
+              <DropdownMenuItem
+                className="rounded-xl hover:cursor-pointer"
+                onClick={sign_out}
+              >
                 <LogOut />
-                <Button onClick={sign_out} variant={"destructive"}>
-                  Log Out
-                </Button>
+                Log Out
               </DropdownMenuItem>
             </DropdownMenuGroup>
           </DropdownMenuContent>
