@@ -13,12 +13,7 @@ export default async function Page() {
 
   return (
     <div className="flex flex-col min-h-screen w-full">
-      <Chat
-        id={id}
-        // selectedChatModel={modelFromCookie.value}
-        initialMessages={[]}
-        session={session}
-      />
+      <Chat id={id} initialMessages={[]} session={session} />
     </div>
   );
 }

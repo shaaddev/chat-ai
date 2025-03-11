@@ -13,21 +13,13 @@ export const get_email = async (formData: FormData) => {
   }
 
   try {
-    // await authClient.emailOtp.sendVerificationOtp({
-    //   email: email as string,
-    //   type: "sign-in",
-    // });
-
     await authClient.signIn.magicLink({
       email: email as string,
       callbackURL: "/",
     });
 
-    // const encodedEmail = encodeURIComponent(email as string);
-
     return {
       success: true,
-      // redirectUrl: `/login?email=${encodedEmail}`,
       email: email as string,
     };
   } catch (error) {
