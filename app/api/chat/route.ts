@@ -13,6 +13,8 @@ import {
 } from "@/lib/utils";
 import { generateTitleFromUserMessage } from "@/app/actions";
 import { myProvider, stable_models } from "@/lib/ai/models";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
 
 export const maxDuration = 30;
 
@@ -24,6 +26,10 @@ export async function POST(req: Request) {
   }: { id: string; messages: Array<Message>; selectedChatModel: string } =
     await req.json();
 
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
   const userMessage = getMostRecentUserMessage(messages);
 
   if (!userMessage) {
@@ -32,9 +38,13 @@ export async function POST(req: Request) {
 
   const chat = await getChatById({ id });
 
-  if (!chat) {
+  if (!chat && session) {
     const title = await generateTitleFromUserMessage({ message: userMessage });
-    await saveChat({ id, title });
+    await saveChat({ id, userId: session.user.id, title });
+  } else {
+    if (chat.userId !== session?.user.id) {
+      return new Response("Unauthorized", { status: 401 });
+    }
   }
 
   await saveMessages({
@@ -42,7 +52,7 @@ export async function POST(req: Request) {
   });
 
   const selectedModel = stable_models.find(
-    (model) => model.id === selectedChatModel,
+    (model) => model.id === selectedChatModel
   );
 
   if (!selectedModel) {

@@ -2,22 +2,22 @@ import "server-only";
 
 import { chat, message, type Message } from "./schema";
 import { db } from ".";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, desc } from "drizzle-orm";
 
 export async function saveChat({
   id,
-  // userId,
+  userId,
   title,
 }: {
   id: string;
-  // userId: string;
+  userId: string;
   title: string;
 }) {
   try {
     return await db.insert(chat).values({
       id,
       createdAt: new Date(),
-      // userId,
+      userId,
       title,
     });
   } catch (error) {
@@ -37,9 +37,13 @@ export async function deleteChatById({ id }: { id: string }) {
   }
 }
 
-export async function getAllChats() {
+export async function getChatsByUserId({ id }: { id: string }) {
   try {
-    const chats = await db.select().from(chat);
+    const chats = await db
+      .select()
+      .from(chat)
+      .where(eq(chat.userId, id))
+      .orderBy(desc(chat.createdAt));
     return chats;
   } catch (error) {
     console.error("Failed to fetch chats:", error);

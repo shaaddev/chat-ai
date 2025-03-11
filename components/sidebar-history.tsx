@@ -29,6 +29,11 @@ export function SidebarHistory() {
     async function fetchChats() {
       try {
         const res = await fetch("/api/chats");
+
+        if (res.status === 401) {
+          return;
+        }
+
         if (!res.ok) {
           throw new Error("Failed to fetch chats");
         }
