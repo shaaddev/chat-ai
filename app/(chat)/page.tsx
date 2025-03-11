@@ -9,8 +9,6 @@ export default async function Page() {
     headers: await headers(),
   });
 
-  console.log(session);
-
   return (
     <div className="flex flex-col min-h-screen w-full">
       <Chat id={id} initialMessages={[]} session={session} />

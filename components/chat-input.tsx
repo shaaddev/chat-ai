@@ -5,6 +5,7 @@ import { Send } from "lucide-react";
 import { toast } from "sonner";
 import { ChatRequestOptions } from "ai";
 import { useCallback, useState, useRef, useEffect } from "react";
+import { LoginContent } from "./auth/login-content";
 
 interface ChatInputProps {
   handleSubmit: (
@@ -22,6 +23,7 @@ interface ChatInputProps {
   isLoading: boolean;
   chatId: string | undefined;
   handleModelChange: (model: string) => void;
+  isAuthenticated?: boolean;
 }
 
 export function ChatInput({
@@ -31,14 +33,21 @@ export function ChatInput({
   isLoading,
   chatId,
   handleModelChange,
+  isAuthenticated,
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [textareaHeight, setTextareaHeight] = useState("72px");
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
   const submitForm = useCallback(() => {
     window.history.replaceState({}, "", `/chat/${chatId}`);
 
+    if (!isAuthenticated) {
+      setShowLoginDialog(true);
+      return;
+    }
+
     handleSubmit(undefined);
-  }, [handleSubmit, chatId]);
+  }, [handleSubmit, chatId, isAuthenticated]);
 
   const adjustTextareaHeight = useCallback(() => {
     const textarea = textareaRef.current;
@@ -88,7 +97,11 @@ export function ChatInput({
                     "Please wait for the model to finish its response!"
                   );
                 } else {
-                  submitForm();
+                  if (!isAuthenticated) {
+                    setShowLoginDialog(true);
+                  } else {
+                    submitForm();
+                  }
                 }
               }
             }}
@@ -106,6 +119,8 @@ export function ChatInput({
           </Button>
         </div>
       </form>
+
+      <LoginContent open={showLoginDialog} onOpenChange={setShowLoginDialog} />
     </div>
   );
 }

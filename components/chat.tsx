@@ -20,6 +20,7 @@ interface ChatProps {
 
 export function Chat({ id, initialMessages, session }: ChatProps) {
   const [selectedModel, setSelectedModel] = useState(DEFAULT_CHAT_MODEL);
+  const [isAuthenticated] = useState(session ? true : false);
   const { messages, input, handleInputChange, handleSubmit, isLoading } =
     useChat({
       api: "/api/chat",
@@ -60,6 +61,7 @@ export function Chat({ id, initialMessages, session }: ChatProps) {
               isLoading={isLoading}
               chatId={id}
               handleModelChange={handleModelChange}
+              isAuthenticated={isAuthenticated}
             />
           </div>
         </div>
