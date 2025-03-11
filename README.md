@@ -10,8 +10,8 @@ Client
 - [x] Markdown design (AI response cleaned up)
 - [x] Add model switcher
 - [x] Fix Textarea on Height
+- [x] Auth
 - [] On Scroll behaviour
-- [] Auth
 
 Server
 Basic
@@ -52,6 +52,3 @@ Note: never create an interface with undefined variables, will break code in fut
 
 Magic Link works
 Email OTP doesn't
-
-New Task:
-Create an email template for magic links
