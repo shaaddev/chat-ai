@@ -41,7 +41,7 @@ export function SidebarHistory() {
 
         const sortedChats = data.sort(
           (a: Chat, b: Chat) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
         );
 
         setChats(sortedChats);
