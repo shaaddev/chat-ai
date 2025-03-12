@@ -1,4 +1,4 @@
-## shaaddev chat
+## chat ai
 
 TO-DO
 
