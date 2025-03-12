@@ -2,8 +2,6 @@ import { ChevronDown } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  // DropdownMenuGroup,
-  // DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -17,7 +15,6 @@ import {
   experimental_models,
   DEFAULT_CHAT_MODEL,
 } from "@/lib/ai/models";
-// import { setCookie, getCookie } from "cookies-next";
 
 interface ModelSelectorProps {
   onModelChange: (modelId: string) => void;
