@@ -11,7 +11,7 @@ export const auth = betterAuth({
     provider: "pg",
     schema: schema,
   }),
-  // disableSignUp: true,
+  disableSignUp: true,
   plugins: [
     emailOTP({
       async sendVerificationOTP({ email, otp, type }) {
