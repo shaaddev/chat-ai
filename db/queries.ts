@@ -1,6 +1,6 @@
 import "server-only";
 
-import { chat, message, type Message } from "./schema";
+import { chat, message, type Message, user } from "./schema";
 import { db } from ".";
 import { eq, asc, desc } from "drizzle-orm";
 
@@ -93,17 +93,12 @@ export async function getMessageById({ id }: { id: string }) {
   }
 }
 
-export async function updateChatVisiblityById({
-  chatId,
-  visibility,
-}: {
-  chatId: string;
-  visibility: "private" | "public";
-}) {
+export async function isEmail(email: string): Promise<boolean> {
   try {
-    return await db.update(chat).set({ visibility }).where(eq(chat.id, chatId));
+    const check = await db.select().from(user).where(eq(user.email, email));
+    return check.length > 0;
   } catch (error) {
-    console.error("Failed to update chat visibility in database");
+    console.error("Failed to get email from database");
     throw error;
   }
 }

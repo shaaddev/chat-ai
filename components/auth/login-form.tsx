@@ -46,8 +46,8 @@ export function LoginForm() {
           description: "Check your emails",
         });
       } else {
-        toast.error("Oh no", {
-          description: "Something went wrong. Please try again later.",
+        toast.error("Your email has been blocked!", {
+          description: "Contact the owner of this website to gain access.",
         });
         console.log(res.message);
       }
