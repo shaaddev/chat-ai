@@ -1,5 +1,13 @@
 ## chat ai
 
+Techstack:
+
+- Next.js
+- AI SDK
+- Better Auth
+- Neon (PostgreSQL)
+- Tailwind CSS x Shadcn x MagicUI
+
 TO-DO
 
 Client
