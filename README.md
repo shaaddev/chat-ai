@@ -11,7 +11,7 @@ Client
 - [x] Add model switcher
 - [x] Fix Textarea on Height
 - [x] Auth
-- [] On Scroll behaviour
+- [ ] On Scroll behaviour
 
 Server
 Basic
@@ -21,12 +21,12 @@ Basic
 
 (Optional - Future Development)
 
-- [] Add file input
+- [ ] Add file input
 
 Advance (Optional - Future Development)
 
-- [] Make it faster
-- [] Optimize
+- [ ] Make it faster
+- [ ] Optimize
 
 Database
 
@@ -42,8 +42,8 @@ Able to save messages, however, the UUID regenerates after every key down "Enter
 
 Misc - (Not needed)
 
-- [-] Terms
-- [-] Privacy Policy
+- [ ] Terms
+- [ ] Privacy Policy
 
 Notes
 Typescript is greattttt
