@@ -11,7 +11,6 @@ export const auth = betterAuth({
     provider: "pg",
     schema: schema,
   }),
-  disableSignUp: true,
   plugins: [
     emailOTP({
       async sendVerificationOTP({ email, otp, type }) {
@@ -25,6 +24,7 @@ export const auth = betterAuth({
       sendMagicLink: async ({ email, url }) => {
         await magic_link_message(email, url);
       },
+      disableSignUp: true,
     }),
     nextCookies(),
   ],
