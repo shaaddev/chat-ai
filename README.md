@@ -26,6 +26,7 @@ Basic
 
 - [x] Use AI SDK
 - [x] Add multiple models (OpenAI, Deepseek) (Note: check off when API Keys and functionality added)
+- [ ] Bonus - check out groq
 
 (Optional - Future Development)
 
