@@ -30,8 +30,8 @@ export const stable_models: model_selection[] = [
     languageModel: google("gemini-2.0-flash-exp"),
   },
   {
-    id: "chat-o1-mini",
-    name: "ChatGPT o1-mini",
+    id: "chat-o3-mini",
+    name: "ChatGPT o3-mini",
     icon: Info,
     image: Image,
     languageModel: openai("o1-mini"),
@@ -51,7 +51,7 @@ export const myProvider = customProvider({
   languageModels: {
     "google-model-1.5": google("gemini-1.5-pro-latest"),
     "google-model-2.0": google("gemini-2.0-flash-exp"),
-    "chat-o1-mini": openai("o1-mini"),
+    "chat-o3-mini": openai("o3-mini-2025-01-31"),
     "chat-4o-mini": openai("gpt-4o-mini"),
   },
 });
