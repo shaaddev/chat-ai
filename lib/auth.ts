@@ -24,7 +24,7 @@ export const auth = betterAuth({
       sendMagicLink: async ({ email, url }) => {
         await magic_link_message(email, url);
       },
-      disableSignUp: false,
+      disableSignUp: true,
     }),
     nextCookies(),
   ],
