@@ -56,9 +56,8 @@ export function ModelsPopover({ onModelChange }: ModelSelectorProps) {
           {stable_models.map((m) => (
             <DropdownMenuRadioItem
               key={m.id}
-              className="rounded-xl justify-between flex py-4"
+              className="rounded-xl justify-between flex py-4 list-none"
               value={m.id}
-              disabled={m.id === "google-model-2.0" ? true : false}
             >
               <div className="flex items-center gap-2">
                 <span className="font-medium">{m.name}</span>
