@@ -23,14 +23,14 @@ export const stable_models: model_selection[] = [
   },
   {
     id: "chat-o3-mini",
-    name: "ChatGPT o3-mini",
+    name: "o3-mini",
     icon: Info,
     image: Image,
     languageModel: openai("o1-mini"),
   },
   {
     id: "chat-4o-mini",
-    name: "ChatGPT 4o mini",
+    name: "GPT-4o-mini",
     icon: Info,
     image: Image,
     languageModel: openai("gpt-4o-mini"),
