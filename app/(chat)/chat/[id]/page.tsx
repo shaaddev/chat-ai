@@ -17,6 +17,16 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
     notFound();
   }
 
+  if (chat.visibility === "private") {
+    if (!session || !session.user) {
+      return notFound();
+    }
+
+    if (session.user.id !== chat.userId) {
+      return notFound();
+    }
+  }
+
   const messagesFromDb = await getMessagesByChatId({
     id,
   });
