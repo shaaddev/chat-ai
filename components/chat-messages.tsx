@@ -1,6 +1,9 @@
+"use client";
+
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Markdown } from "./markdown";
 import { Message } from "ai";
+import { useEffect, useRef } from "react";
 
 export interface messageProps {
   messages: Message[];
@@ -8,6 +11,18 @@ export interface messageProps {
 }
 
 export function ChatMessages({ messages }: messageProps) {
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 100);
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
   return (
     <ScrollArea className="flex-1 p-4 w-full">
       <div className="max-w-3xl mx-auto">
@@ -29,6 +44,7 @@ export function ChatMessages({ messages }: messageProps) {
             </div>
           </div>
         ))}
+        <div ref={messagesEndRef} />
       </div>
     </ScrollArea>
   );
