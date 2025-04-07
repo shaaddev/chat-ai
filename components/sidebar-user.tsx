@@ -3,8 +3,6 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -13,7 +11,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { LogOut, ChevronsUpDown, BadgeCheck } from "lucide-react";
+import { LogOut, ChevronsUpDown } from "lucide-react";
 import { sign_out } from "./auth/action";
 
 interface UserProps {
@@ -44,19 +42,7 @@ export function SidebarUser({ email }: UserProps) {
             align="end"
             sideOffset={4}
           >
-            <DropdownMenuLabel className="p-0 font-normal">
-              <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                <div className="grid flex-1 text-center text-sm leading-tight">
-                  <span className="truncate text-xs">{email}</span>
-                </div>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem className="rounded-xl">
-                <BadgeCheck />
-                Account
-              </DropdownMenuItem>
               <DropdownMenuItem
                 className="rounded-xl hover:cursor-pointer"
                 onClick={sign_out}
