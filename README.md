@@ -19,7 +19,7 @@ Client
 - [x] Add model switcher
 - [x] Fix Textarea on Height
 - [x] Auth
-- [ ] On Scroll behaviour
+- [x] On Scroll behaviour
 
 Server
 Basic
