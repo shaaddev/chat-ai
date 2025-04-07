@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -28,8 +29,10 @@ export function LoginForm() {
       email: "",
     },
   });
+  const [isPending, setIsPending] = useState(false);
 
   const onSubmit = async (values: z.infer<typeof schema>) => {
+    setIsPending(true);
     const formData = new FormData();
 
     for (const [key, value] of Object.entries(values)) {
@@ -55,6 +58,8 @@ export function LoginForm() {
       return {
         error: error,
       };
+    } finally {
+      setIsPending(false);
     }
   };
 
@@ -79,8 +84,9 @@ export function LoginForm() {
         <Button
           type="submit"
           className="w-full bg-neutral-800 text-neutral-100 rounded-xl hover:bg-neutral-900"
+          disabled={isPending}
         >
-          Continue with Email
+          {isPending ? "Sending Email..." : "Continue with Email"}
         </Button>
       </form>
     </Form>
