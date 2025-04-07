@@ -6,19 +6,20 @@ import { toast } from "sonner";
 import { ChatRequestOptions } from "ai";
 import { useCallback, useState, useRef, useEffect } from "react";
 import { LoginContent } from "./auth/login-content";
+import { useChat } from "@/components/chat-context";
 
 interface ChatInputProps {
   handleSubmit: (
     event?: {
       preventDefault?: () => void;
     },
-    chatRequestOptions?: ChatRequestOptions,
+    chatRequestOptions?: ChatRequestOptions
   ) => void;
   input: string;
   handleInputChange: (
     e:
       | React.ChangeEvent<HTMLInputElement>
-      | React.ChangeEvent<HTMLTextAreaElement>,
+      | React.ChangeEvent<HTMLTextAreaElement>
   ) => void;
   isLoading: boolean;
   chatId: string | undefined;
@@ -38,6 +39,8 @@ export function ChatInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [textareaHeight, setTextareaHeight] = useState("72px");
   const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const { refreshChats } = useChat();
+
   const submitForm = useCallback(() => {
     window.history.replaceState({}, "", `/chat/${chatId}`);
 
@@ -47,7 +50,10 @@ export function ChatInput({
     }
 
     handleSubmit(undefined);
-  }, [handleSubmit, chatId, isAuthenticated]);
+    setTimeout(() => {
+      refreshChats();
+    }, 500);
+  }, [handleSubmit, chatId, isAuthenticated, refreshChats]);
 
   const adjustTextareaHeight = useCallback(() => {
     const textarea = textareaRef.current;
@@ -66,7 +72,7 @@ export function ChatInput({
   }, [input, adjustTextareaHeight]);
 
   const customHandleInputChange = (
-    e: React.ChangeEvent<HTMLTextAreaElement>,
+    e: React.ChangeEvent<HTMLTextAreaElement>
   ) => {
     handleInputChange(e);
     adjustTextareaHeight();
@@ -94,7 +100,7 @@ export function ChatInput({
 
                 if (isLoading) {
                   toast.error(
-                    "Please wait for the model to finish its response!",
+                    "Please wait for the model to finish its response!"
                   );
                 } else {
                   if (!isAuthenticated) {

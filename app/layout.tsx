@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ViewTransitions } from "next-view-transitions";
 import { Toaster } from "@/components/ui/sonner";
+import { ChatProvider } from "@/components/chat-context";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,8 +31,10 @@ export default function RootLayout({
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased bg-neutral-900`}
         >
-          <main className="lg:mx-auto">{children}</main>
-          <Toaster position="bottom-right" className="bg-neutral-800" />
+          <ChatProvider>
+            <main className="lg:mx-auto">{children}</main>
+            <Toaster position="bottom-right" className="bg-neutral-800" />
+          </ChatProvider>
         </body>
       </html>
     </ViewTransitions>

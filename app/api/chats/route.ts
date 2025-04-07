@@ -3,6 +3,8 @@ import { getChatsByUserId } from "@/db/queries";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
     const session = await auth.api.getSession({
@@ -18,7 +20,7 @@ export async function GET() {
     console.error("Failed to fetch chats: ", error);
     return NextResponse.json(
       { error: "Faield to fetch chats" },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }
