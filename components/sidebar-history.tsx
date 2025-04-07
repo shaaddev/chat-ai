@@ -28,7 +28,7 @@ export function SidebarHistory() {
   if (loading) {
     return (
       <SidebarMenu>
-        <div className="space-y-2 px-2">
+        <div className="space-y-2 px-2 rounded-xl">
           {chats.map((chat, index) => (
             <>
               <Skeleton key={index} className="h-10 w-full" />
