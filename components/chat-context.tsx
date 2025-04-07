@@ -49,7 +49,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
       const sortedChats = data.sort(
         (a: Chat, b: Chat) =>
-          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
       );
 
       setChats(sortedChats);
