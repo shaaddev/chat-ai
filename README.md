@@ -30,7 +30,7 @@ Basic
 
 (Optional - Future Development)
 
-- [ ] Add file input
+- [ ] Add file input (Use uploadthing - figure it out)
 - [ ] Add functionality for thinking models
 
 Advance (Optional - Future Development)
