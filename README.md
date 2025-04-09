@@ -31,11 +31,12 @@ Basic
 (Optional - Future Development)
 
 - [ ] Add file input
+- [ ] Add functionality for thinking models
 
 Advance (Optional - Future Development)
 
 - [ ] Make it faster
-- [ ] Optimize
+- [x] Optimize
 
 Database
 
