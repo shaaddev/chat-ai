@@ -19,6 +19,7 @@
     "@ai-sdk/deepseek": "^0.1.8",
     "@ai-sdk/google": "^1.1.8",
     "@ai-sdk/openai": "^1.1.9",
+    "@ai-sdk/react": "^1.2.8",
     "@hookform/resolvers": "^4.0.0",
     "@mdx-js/loader": "^3.1.0",
     "@mdx-js/react": "^3.1.0",
