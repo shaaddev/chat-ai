@@ -38,7 +38,7 @@
     "@types/highlight.js": "^10.1.0",
     "@types/mdx": "^2.0.13",
     "@uploadthing/react": "^7.3.0",
-    "ai": "^4.1.16",
+    "ai": "^4.3.4",
     "better-auth": "^1.1.17",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
