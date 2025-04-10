@@ -10,6 +10,7 @@ import { generateUUID } from "@/lib/utils";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
 import { useState } from "react";
 import { Session } from "@/lib/auth";
+import type { Attachment } from "ai";
 
 interface ChatProps {
   id: string;
@@ -33,6 +34,8 @@ export function Chat({ id, initialMessages, session }: ChatProps) {
   const handleModelChange = (model: string) => {
     setSelectedModel(model);
   };
+
+  const [attachments, setAttachments] = useState<Array<Attachment>>([]);
 
   return (
     <SidebarProvider>
@@ -62,6 +65,8 @@ export function Chat({ id, initialMessages, session }: ChatProps) {
               chatId={id}
               handleModelChange={handleModelChange}
               isAuthenticated={isAuthenticated}
+              attachments={attachments}
+              setAttachments={setAttachments}
             />
           </div>
         </div>
