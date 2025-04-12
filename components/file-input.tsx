@@ -64,7 +64,7 @@ export function FileInput({
         await startUpload(files);
       }
     },
-    [startUpload, setUploadQueue, setShowLoginDialog, isAuthenticated]
+    [startUpload, setUploadQueue, setShowLoginDialog, isAuthenticated],
   );
 
   const handlePaperclipClick = () => {

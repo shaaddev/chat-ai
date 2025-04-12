@@ -48,7 +48,7 @@ export function ChatMessages({ messages }: messageProps) {
                           attachment={attachment}
                           className="size-72"
                         />
-                      )
+                      ),
                     )}
                   </div>
                 )}
