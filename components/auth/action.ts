@@ -1,7 +1,7 @@
 "use server";
 import { authClient } from "@/lib/auth-client";
 import { redirect } from "next/navigation";
-import { isEmail } from "@/db/queries";
+// import { isEmail } from "@/db/queries";
 
 export const get_email = async (formData: FormData) => {
   const { email } = Object.fromEntries(formData);
@@ -14,13 +14,13 @@ export const get_email = async (formData: FormData) => {
   }
 
   // note: comment this out to add users
-  const checkEmail = await isEmail(email as string);
+  // const checkEmail = await isEmail(email as string);
 
-  if (!checkEmail) {
-    return {
-      success: false,
-    };
-  }
+  // if (!checkEmail) {
+  //   return {
+  //     success: false,
+  //   };
+  // }
 
   try {
     await authClient.signIn.magicLink({
