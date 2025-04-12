@@ -51,10 +51,12 @@ export async function POST(req: Request) {
   await saveMessages({
     messages: [
       {
-        ...userMessage,
+        chatId: id,
+        id: userMessage.id,
+        role: "user",
+        parts: userMessage.parts,
         attachments: userMessage.experimental_attachments ?? [],
         createdAt: new Date(),
-        chatId: id,
       },
     ],
   });
@@ -99,7 +101,7 @@ export async function POST(req: Request) {
                   id: assistantId,
                   chatId: id,
                   role: assistantMessage.role,
-                  content: assistantMessage.content,
+                  parts: assistantMessage.parts,
                   attachments: assistantMessage.experimental_attachments ?? [],
                   createdAt: new Date(),
                 },
@@ -110,6 +112,7 @@ export async function POST(req: Request) {
           }
         },
       });
+      res.consumeStream();
 
       res.mergeIntoDataStream(dataStream);
     },
