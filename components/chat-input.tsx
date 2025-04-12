@@ -1,7 +1,7 @@
 import { ModelsPopover } from "./models-popover";
 import { FileInput } from "./file-input";
 import { Button } from "@/components/ui/button";
-import { Send } from "lucide-react";
+import { Send, CirclePause } from "lucide-react";
 import { toast } from "sonner";
 import { ChatRequestOptions, type Attachment } from "ai";
 import {
@@ -11,10 +11,12 @@ import {
   useEffect,
   type Dispatch,
   type SetStateAction,
+  memo,
 } from "react";
 import { LoginContent } from "./auth/login-content";
 import { useChat } from "@/components/chat-context";
 import { PreviewAttachment } from "./preview-attachment";
+import { UseChatHelpers } from "ai/react";
 
 interface ChatInputProps {
   handleSubmit: (
@@ -29,24 +31,26 @@ interface ChatInputProps {
       | React.ChangeEvent<HTMLInputElement>
       | React.ChangeEvent<HTMLTextAreaElement>
   ) => void;
-  isLoading: boolean;
+  status: UseChatHelpers["status"];
   chatId: string | undefined;
   handleModelChange: (model: string) => void;
   attachments: Array<Attachment>;
   setAttachments: Dispatch<SetStateAction<Array<Attachment>>>;
   isAuthenticated?: boolean;
+  setMessages: UseChatHelpers["setMessages"];
 }
 
 export function ChatInput({
   handleSubmit,
   input,
   handleInputChange,
-  isLoading,
+  status,
   chatId,
   handleModelChange,
   isAuthenticated,
   attachments,
   setAttachments,
+  setMessages,
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [textareaHeight, setTextareaHeight] = useState("72px");
@@ -151,7 +155,7 @@ export function ChatInput({
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
 
-                if (isLoading) {
+                if (status !== "ready") {
                   toast.error(
                     "Please wait for the model to finish its response!"
                   );
@@ -171,15 +175,15 @@ export function ChatInput({
               uploadQueue={uploadQueue}
               setUploadQueue={setUploadQueue}
               setAttachments={setAttachments}
+              isAuthenticated={isAuthenticated}
+              setShowLoginDialog={setShowLoginDialog}
             />
           </div>
-          <Button
-            type="submit"
-            className="absolute bottom-3 right-3 bg-transparent hover:bg-neutral-800 rounded-xl"
-            disabled={!input.trim()}
-          >
-            <Send className="size-5 text-white" />
-          </Button>
+          {status === "submitted" ? (
+            <StopButton stop={stop} setMessages={setMessages} />
+          ) : (
+            <SendButton input={input} uploadQueue={uploadQueue} />
+          )}
         </form>
       </div>
 
@@ -187,3 +191,47 @@ export function ChatInput({
     </div>
   );
 }
+
+function PureStopButton({
+  stop,
+  setMessages,
+}: {
+  stop: () => void;
+  setMessages: UseChatHelpers["setMessages"];
+}) {
+  return (
+    <Button
+      data-testid="stop-button"
+      className="absolute bottom-3 right-3 bg-transparent hover:bg-neutral-800 rounded-xl"
+      onClick={(e) => {
+        e.preventDefault();
+        stop();
+        setMessages((messages) => messages);
+      }}
+    >
+      <CirclePause className="size-5 text-white" />
+    </Button>
+  );
+}
+
+const StopButton = memo(PureStopButton);
+
+function PureSendButton({
+  input,
+  uploadQueue,
+}: {
+  input: string;
+  uploadQueue: string[];
+}) {
+  return (
+    <Button
+      type="submit"
+      className="absolute bottom-3 right-3 bg-transparent hover:bg-neutral-800 rounded-xl"
+      disabled={!input.trim() || uploadQueue.length > 0}
+    >
+      <Send className="size-5 text-white" />
+    </Button>
+  );
+}
+
+const SendButton = memo(PureSendButton);

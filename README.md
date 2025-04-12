@@ -30,7 +30,7 @@ Basic
 
 (Optional - Future Development)
 
-- [ ] Add file input (Use uploadthing - figure it out)
+- [x] Add file input (Use uploadthing - figure it out)
 - [ ] Add functionality for thinking models
 
 Advance (Optional - Future Development)
@@ -44,7 +44,8 @@ Database
 - [x] Neon
 - [x] Add Schema
 - [x] Add Queries
-- [x] Save Messages to DB (Kinda)
+- [x] Save Messages to DB
+- [ ] To add other users, check out @/components/auth/action.ts
 
 Able to save messages, however, the UUID regenerates after every key down "Enter"
 

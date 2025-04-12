@@ -22,14 +22,20 @@ interface ChatProps {
 export function Chat({ id, initialMessages, session }: ChatProps) {
   const [selectedModel, setSelectedModel] = useState(DEFAULT_CHAT_MODEL);
   const [isAuthenticated] = useState(session ? true : false);
-  const { messages, input, handleInputChange, handleSubmit, isLoading } =
-    useChat({
-      api: "/api/chat",
-      id,
-      body: { id, selectedChatModel: selectedModel },
-      initialMessages,
-      generateId: generateUUID,
-    });
+  const {
+    messages,
+    input,
+    handleInputChange,
+    handleSubmit,
+    status,
+    setMessages,
+  } = useChat({
+    api: "/api/chat",
+    id,
+    body: { id, selectedChatModel: selectedModel },
+    initialMessages,
+    generateId: generateUUID,
+  });
 
   const handleModelChange = (model: string) => {
     setSelectedModel(model);
@@ -53,7 +59,7 @@ export function Chat({ id, initialMessages, session }: ChatProps) {
             <h1 className="text-xl font-bold">Chatbot</h1>
           </header>
 
-          <ChatMessages isLoading={isLoading} messages={messages} />
+          <ChatMessages status={status} messages={messages} />
 
           <div className="max-w-3xl mx-auto space-y-4 w-full">
             <p className="text-center text-sm text-gray-400">shaaddev</p>
@@ -61,12 +67,13 @@ export function Chat({ id, initialMessages, session }: ChatProps) {
               input={input}
               handleInputChange={handleInputChange}
               handleSubmit={handleSubmit}
-              isLoading={isLoading}
+              status={status}
               chatId={id}
               handleModelChange={handleModelChange}
               isAuthenticated={isAuthenticated}
               attachments={attachments}
               setAttachments={setAttachments}
+              setMessages={setMessages}
             />
           </div>
         </div>

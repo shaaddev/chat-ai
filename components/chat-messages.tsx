@@ -5,10 +5,11 @@ import { Markdown } from "./markdown";
 import { Message } from "ai";
 import { useEffect, useRef } from "react";
 import { PreviewAttachment } from "./preview-attachment";
+import { UseChatHelpers } from "ai/react";
 
 export interface messageProps {
   messages: Message[];
-  isLoading?: boolean;
+  status: UseChatHelpers["status"];
 }
 
 export function ChatMessages({ messages }: messageProps) {

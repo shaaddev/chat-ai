@@ -14,12 +14,16 @@ interface FileInputProps {
   uploadQueue: string[];
   setUploadQueue: Dispatch<SetStateAction<string[]>>;
   setAttachments: Dispatch<SetStateAction<Array<Attachment>>>;
+  setShowLoginDialog: Dispatch<SetStateAction<boolean>>;
+  isAuthenticated?: boolean;
 }
 
 export function FileInput({
   uploadQueue,
   setUploadQueue,
   setAttachments,
+  isAuthenticated,
+  setShowLoginDialog,
 }: FileInputProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -52,11 +56,15 @@ export function FileInput({
       const files = Array.from(e.target.files || []);
       if (files.length === 0) return;
 
-      setUploadQueue(files.map((file) => file.name));
+      if (!isAuthenticated) {
+        setShowLoginDialog(true);
+      } else {
+        setUploadQueue(files.map((file) => file.name));
 
-      await startUpload(files);
+        await startUpload(files);
+      }
     },
-    [startUpload, setUploadQueue]
+    [startUpload, setUploadQueue, setShowLoginDialog, isAuthenticated]
   );
 
   const handlePaperclipClick = () => {
