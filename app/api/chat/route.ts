@@ -1,6 +1,7 @@
 import {
-  type Message,
+  UIMessage,
   streamText,
+  appendResponseMessages,
   createDataStreamResponse,
   smoothStream,
 } from "ai";
@@ -8,8 +9,8 @@ import { systemPrompt } from "@/lib/ai/prompts";
 import { saveChat, saveMessages, getChatById } from "@/db/queries";
 import {
   getMostRecentUserMessage,
-  sanitizeResponseMessages,
   generateUUID,
+  getTrailingMessageId,
 } from "@/lib/utils";
 import { generateTitleFromUserMessage } from "@/app/actions";
 import { myProvider, stable_models } from "@/lib/ai/models";
@@ -23,7 +24,7 @@ export async function POST(req: Request) {
     id,
     messages,
     selectedChatModel,
-  }: { id: string; messages: Array<Message>; selectedChatModel: string } =
+  }: { id: string; messages: Array<UIMessage>; selectedChatModel: string } =
     await req.json();
 
   const session = await auth.api.getSession({
@@ -48,11 +49,18 @@ export async function POST(req: Request) {
   }
 
   await saveMessages({
-    messages: [{ ...userMessage, createdAt: new Date(), chatId: id }],
+    messages: [
+      {
+        ...userMessage,
+        attachments: userMessage.experimental_attachments ?? [],
+        createdAt: new Date(),
+        chatId: id,
+      },
+    ],
   });
 
   const selectedModel = stable_models.find(
-    (model) => model.id === selectedChatModel,
+    (model) => model.id === selectedChatModel
   );
 
   if (!selectedModel) {
@@ -70,20 +78,32 @@ export async function POST(req: Request) {
         experimental_generateMessageId: generateUUID,
         onFinish: async ({ response }) => {
           try {
-            const sanitizedResponseMessages = sanitizeResponseMessages({
-              messages: response.messages,
+            const assistantId = getTrailingMessageId({
+              messages: response.messages.filter(
+                (message) => message.role === "assistant"
+              ),
+            });
+
+            if (!assistantId) {
+              throw new Error("No assistant message found!");
+            }
+
+            const [, assistantMessage] = appendResponseMessages({
+              messages: [userMessage],
+              responseMessages: response.messages,
             });
 
             await saveMessages({
-              messages: sanitizedResponseMessages.map((message) => {
-                return {
-                  id: message.id,
+              messages: [
+                {
+                  id: assistantId,
                   chatId: id,
-                  role: message.role,
-                  content: message.content,
+                  role: assistantMessage.role,
+                  content: assistantMessage.content,
+                  attachments: assistantMessage.experimental_attachments ?? [],
                   createdAt: new Date(),
-                };
-              }),
+                },
+              ],
             });
           } catch (error) {
             console.error("Failed to save chat", error);
