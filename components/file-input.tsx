@@ -27,7 +27,7 @@ export function FileInput({
     onClientUploadComplete: (res) => {
       if (res) {
         const newAttachments = res.map((file) => ({
-          url: file.url,
+          url: file.ufsUrl,
           name: file.name,
           contentType: file.type,
         }));

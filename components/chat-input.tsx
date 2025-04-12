@@ -21,13 +21,13 @@ interface ChatInputProps {
     event?: {
       preventDefault?: () => void;
     },
-    chatRequestOptions?: ChatRequestOptions,
+    chatRequestOptions?: ChatRequestOptions
   ) => void;
   input: string;
   handleInputChange: (
     e:
       | React.ChangeEvent<HTMLInputElement>
-      | React.ChangeEvent<HTMLTextAreaElement>,
+      | React.ChangeEvent<HTMLTextAreaElement>
   ) => void;
   isLoading: boolean;
   chatId: string | undefined;
@@ -97,7 +97,7 @@ export function ChatInput({
   }, [input, adjustTextareaHeight]);
 
   const customHandleInputChange = (
-    e: React.ChangeEvent<HTMLTextAreaElement>,
+    e: React.ChangeEvent<HTMLTextAreaElement>
   ) => {
     handleInputChange(e);
     adjustTextareaHeight();
@@ -105,34 +105,39 @@ export function ChatInput({
 
   return (
     <div className="relative">
-      <form
-        onSubmit={handleSubmit}
-        className="relative sm:max-w-3xl px-5 lg:px-0"
-      >
-        {(attachments.length > 0 || uploadQueue.length > 0) && (
-          <div
-            data-testid="attachments-preview"
-            className="flex flex-row gap-2 overflow-x-scroll"
-          >
-            {attachments.map((attachment) => (
-              <PreviewAttachment key={attachment.url} attachment={attachment} />
-            ))}
+      <div className="relative rounded-t-2xl shadow-lg bg-neutral-800/50 flex flex-grow flex-col">
+        <form
+          onSubmit={handleSubmit}
+          className="relative sm:max-w-3xl px-5 lg:px-0"
+        >
+          {(attachments.length > 0 || uploadQueue.length > 0) && (
+            <div
+              data-testid="attachments-preview"
+              className="flex flex-row gap-2 overflow-x-scroll p-2"
+            >
+              {attachments.map((attachment) => (
+                <PreviewAttachment
+                  key={attachment.url}
+                  attachment={attachment}
+                  className="size-24"
+                />
+              ))}
 
-            {uploadQueue.map((filename) => (
-              <PreviewAttachment
-                key={filename}
-                attachment={{
-                  url: "",
-                  name: filename,
-                  contentType: "",
-                }}
-                isUploading={true}
-              />
-            ))}
-          </div>
-        )}
+              {uploadQueue.map((filename) => (
+                <PreviewAttachment
+                  key={filename}
+                  attachment={{
+                    url: "",
+                    name: filename,
+                    contentType: "",
+                  }}
+                  isUploading={true}
+                  className="size-24"
+                />
+              ))}
+            </div>
+          )}
 
-        <div className="relative rounded-t-2xl shadow-lg bg-neutral-800/50 flex flex-grow flex-col">
           <textarea
             ref={textareaRef}
             value={input}
@@ -148,7 +153,7 @@ export function ChatInput({
 
                 if (isLoading) {
                   toast.error(
-                    "Please wait for the model to finish its response!",
+                    "Please wait for the model to finish its response!"
                   );
                 } else {
                   if (!isAuthenticated) {
@@ -175,8 +180,8 @@ export function ChatInput({
           >
             <Send className="size-5 text-white" />
           </Button>
-        </div>
-      </form>
+        </form>
+      </div>
 
       <LoginContent open={showLoginDialog} onOpenChange={setShowLoginDialog} />
     </div>

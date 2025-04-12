@@ -13,6 +13,7 @@ export const get_email = async (formData: FormData) => {
     };
   }
 
+  // note: comment this out to add users
   const checkEmail = await isEmail(email as string);
 
   if (!checkEmail) {
@@ -30,37 +31,6 @@ export const get_email = async (formData: FormData) => {
     return {
       success: true,
       email: email as string,
-    };
-  } catch (error) {
-    return {
-      success: false,
-      redirectUrl: "/",
-      error: error,
-    };
-  }
-};
-
-export const confirm_otp = async (formData: FormData, email: string) => {
-  const { otp } = Object.fromEntries(formData);
-
-  if (!otp) {
-    return {
-      success: false,
-      message: "Missing required fields",
-      error: "Invalid message",
-    };
-  }
-
-  try {
-    const { data } = await authClient.signIn.emailOtp({
-      email: email,
-      otp: otp as string,
-    });
-
-    return {
-      data: data,
-      success: true,
-      redirectUrl: "/",
     };
   } catch (error) {
     return {

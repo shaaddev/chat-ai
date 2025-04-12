@@ -4,15 +4,19 @@ import { Loader } from "lucide-react";
 export const PreviewAttachment = ({
   attachment,
   isUploading = false,
+  className,
 }: {
   attachment: Attachment;
   isUploading?: boolean;
+  className?: string;
 }) => {
   const { name, url, contentType } = attachment;
 
   return (
     <div data-testid="input-attachment-preview" className="flex flex-col gap-2">
-      <div className="w-20 h-16 aspect-video bg-muted rounded-md relative flex flex-col items-center justify-center">
+      <div
+        className={`${className} aspect-video bg-muted rounded-2xl relative flex flex-col items-center justify-center`}
+      >
         {contentType ? (
           contentType.startsWith("image") ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -20,7 +24,7 @@ export const PreviewAttachment = ({
               key={url}
               src={url}
               alt={name ?? "An image attachment"}
-              className="rounded-md size-full object-cover"
+              className="rounded-2xl size-full object-cover"
             />
           ) : (
             <div className="" />
@@ -38,7 +42,6 @@ export const PreviewAttachment = ({
           </div>
         )}
       </div>
-      <div className="text-xs text-zinc-500 max-w-16 truncate">{name}</div>
     </div>
   );
 };
