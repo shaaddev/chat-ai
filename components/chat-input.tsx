@@ -21,13 +21,13 @@ interface ChatInputProps {
     event?: {
       preventDefault?: () => void;
     },
-    chatRequestOptions?: ChatRequestOptions
+    chatRequestOptions?: ChatRequestOptions,
   ) => void;
   input: string;
   handleInputChange: (
     e:
       | React.ChangeEvent<HTMLInputElement>
-      | React.ChangeEvent<HTMLTextAreaElement>
+      | React.ChangeEvent<HTMLTextAreaElement>,
   ) => void;
   isLoading: boolean;
   chatId: string | undefined;
@@ -97,7 +97,7 @@ export function ChatInput({
   }, [input, adjustTextareaHeight]);
 
   const customHandleInputChange = (
-    e: React.ChangeEvent<HTMLTextAreaElement>
+    e: React.ChangeEvent<HTMLTextAreaElement>,
   ) => {
     handleInputChange(e);
     adjustTextareaHeight();
@@ -148,7 +148,7 @@ export function ChatInput({
 
                 if (isLoading) {
                   toast.error(
-                    "Please wait for the model to finish its response!"
+                    "Please wait for the model to finish its response!",
                   );
                 } else {
                   if (!isAuthenticated) {

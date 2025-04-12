@@ -2,7 +2,6 @@ import { Paperclip } from "lucide-react";
 import { toast } from "sonner";
 import type { Attachment } from "ai";
 import {
-  useState,
   useRef,
   useCallback,
   type Dispatch,
@@ -45,6 +44,7 @@ export function FileInput({
       }
       const { error } = await res.json();
       toast.error(error);
+      // eslint-disable-next-line
     } catch (error) {
       toast.error("Failed to upload file, please try again!");
     }
@@ -60,7 +60,7 @@ export function FileInput({
         const uploadPromises = files.map((file) => uploadFile(file));
         const uploadedAttachments = await Promise.all(uploadPromises);
         const successfullyUploadedAttachments = uploadedAttachments.filter(
-          (attachment) => attachment !== undefined
+          (attachment) => attachment !== undefined,
         );
 
         setAttachments((currentAttachments) => [
@@ -73,7 +73,7 @@ export function FileInput({
         setUploadQueue([]);
       }
     },
-    [setAttachments]
+    [setAttachments, setUploadQueue],
   );
 
   const handlePaperclipClick = () => {
@@ -96,6 +96,7 @@ export function FileInput({
         className="text-neutral-300 hover:text-neutral-100"
         onClick={handlePaperclipClick}
         aria-label="Attach files"
+        disabled
       >
         <Paperclip className="size-4" />
       </button>
