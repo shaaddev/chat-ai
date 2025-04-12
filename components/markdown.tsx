@@ -79,6 +79,24 @@ const components: Partial<Components> = {
       </h6>
     );
   },
+  table: (props) => (
+    <div className="my-6 w-full overflow-y-auto rounded-xl">
+      <table className="w-full" {...props} />
+    </div>
+  ),
+  tr: (props) => <tr className="m-0 border-t p-0 " {...props} />,
+  th: (props) => (
+    <th
+      className="border border-neutral-400 px-4 py-2 text-left font-bold [&[align=center]]:text-center [&[align=right]]:text-right"
+      {...props}
+    />
+  ),
+  td: (props) => (
+    <td
+      className="border px-4 py-2 text-left [&[align=center]]:text-center [&[align=right]]:text-right"
+      {...props}
+    />
+  ),
 };
 
 const remarkPlugins = [remarkGfm];
@@ -93,5 +111,5 @@ const NonMemoizedMarkdown = ({ children }: { children: string }) => {
 
 export const Markdown = memo(
   NonMemoizedMarkdown,
-  (prevProps, nextProps) => prevProps.children === nextProps.children,
+  (prevProps, nextProps) => prevProps.children === nextProps.children
 );
