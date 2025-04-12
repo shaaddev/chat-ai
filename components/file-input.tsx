@@ -8,6 +8,7 @@ import {
   type SetStateAction,
   type ChangeEvent,
 } from "react";
+import { useUploadThing } from "@/lib/uploadthing/uploadthing";
 
 interface FileInputProps {
   uploadQueue: string[];
@@ -22,58 +23,40 @@ export function FileInput({
 }: FileInputProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const uploadFile = async (file: File) => {
-    const formData = new FormData();
-    formData.append("file", file);
+  const { startUpload, isUploading } = useUploadThing("imageUploader", {
+    onClientUploadComplete: (res) => {
+      if (res) {
+        const newAttachments = res.map((file) => ({
+          url: file.url,
+          name: file.name,
+          contentType: file.type,
+        }));
 
-    try {
-      const res = await fetch("/api/files/upload", {
-        method: "POST",
-        body: formData,
-      });
+        setAttachments((currentAttachments) => [
+          ...currentAttachments,
+          ...newAttachments,
+        ]);
 
-      if (res.ok) {
-        const data = res.json();
-        const { url, pathname, contentType } = data;
-
-        return {
-          url,
-          name: pathname,
-          contentType: contentType,
-        };
+        setUploadQueue([]);
+        toast.success("Files uploaded successfully!");
       }
-      const { error } = await res.json();
-      toast.error(error);
-      // eslint-disable-next-line
-    } catch (error) {
-      toast.error("Failed to upload file, please try again!");
-    }
-  };
+    },
+    onUploadError: (error) => {
+      toast.error(`Error uploadthing file: ${error.message}`);
+      setUploadQueue([]);
+    },
+  });
 
   const handleFileChange = useCallback(
     async (e: ChangeEvent<HTMLInputElement>) => {
       const files = Array.from(e.target.files || []);
+      if (files.length === 0) return;
 
       setUploadQueue(files.map((file) => file.name));
 
-      try {
-        const uploadPromises = files.map((file) => uploadFile(file));
-        const uploadedAttachments = await Promise.all(uploadPromises);
-        const successfullyUploadedAttachments = uploadedAttachments.filter(
-          (attachment) => attachment !== undefined,
-        );
-
-        setAttachments((currentAttachments) => [
-          ...currentAttachments,
-          ...successfullyUploadedAttachments,
-        ]);
-      } catch (error) {
-        console.error("Error uploading files!", error);
-      } finally {
-        setUploadQueue([]);
-      }
+      await startUpload(files);
     },
-    [setAttachments, setUploadQueue],
+    [startUpload, setUploadQueue]
   );
 
   const handlePaperclipClick = () => {
@@ -96,7 +79,7 @@ export function FileInput({
         className="text-neutral-300 hover:text-neutral-100"
         onClick={handlePaperclipClick}
         aria-label="Attach files"
-        disabled
+        disabled={isUploading}
       >
         <Paperclip className="size-4" />
       </button>
