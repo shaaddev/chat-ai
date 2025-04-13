@@ -31,7 +31,7 @@ export function ChatMessages({ messages }: messageProps) {
         {messages.map((message) => (
           <div
             key={message.id}
-            className={`mb-4 flex ${
+            className={` flex ${
               message.role === "user" ? "justify-end" : "justify-start"
             }`}
           >

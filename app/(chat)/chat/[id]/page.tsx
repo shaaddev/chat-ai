@@ -1,9 +1,10 @@
 import { Chat } from "@/components/chat";
 import { notFound } from "next/navigation";
 import { getChatById, getMessagesByChatId } from "@/db/queries";
-import { convertToUIMessages } from "@/lib/utils";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import { Attachment, UIMessage } from "ai";
+import { Message } from "@/db/schema";
 
 export default async function Page(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
@@ -30,6 +31,18 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
   const messagesFromDb = await getMessagesByChatId({
     id,
   });
+
+  function convertToUIMessages(messages: Array<Message>): Array<UIMessage> {
+    return messages.map((message) => ({
+      id: message.id,
+      parts: message.parts as UIMessage["parts"],
+      role: message.role as UIMessage["role"],
+      content: "",
+      createdAt: message.createdAt,
+      experimental_attachments:
+        (message.attachments as Array<Attachment>) ?? [],
+    }));
+  }
 
   return (
     <>
