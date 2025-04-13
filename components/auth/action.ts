@@ -42,10 +42,11 @@ export const get_email = async (formData: FormData) => {
 };
 
 export const sign_out = async () => {
+  // await auth.api.signOut()
   await authClient.signOut({
     fetchOptions: {
       onSuccess: () => {
-        redirect("/");
+        redirect("/logout-success");
       },
     },
   });
