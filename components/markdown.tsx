@@ -80,20 +80,22 @@ const components: Partial<Components> = {
     );
   },
   table: (props) => (
-    <div className="my-6 w-full overflow-y-auto rounded-xl">
-      <table className="w-full" {...props} />
+    <div className="my-6 w-full overflow-y-auto rounded-xl border border-muted shadow-sm">
+      <table className="w-full border-collapse text-sm" {...props} />
     </div>
   ),
-  tr: (props) => <tr className="m-0 border-t p-0 " {...props} />,
+  tr: (props) => (
+    <tr className="m-0 border-t border-muted p-0 even:bg-muted/50" {...props} />
+  ),
   th: (props) => (
     <th
-      className="border border-neutral-400 px-4 py-2 text-left font-bold [&[align=center]]:text-center [&[align=right]]:text-right"
+      className="border-b border-muted bg-muted/80 px-4 py-3 text-left font-medium text-muted-foreground [&[align=center]]:text-center [&[align=right]]:text-right"
       {...props}
     />
   ),
   td: (props) => (
     <td
-      className="border px-4 py-2 text-left [&[align=center]]:text-center [&[align=right]]:text-right"
+      className="border-b border-muted px-4 py-3 text-left [&[align=center]]:text-center [&[align=right]]:text-right"
       {...props}
     />
   ),
