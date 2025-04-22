@@ -12,7 +12,8 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { LogOut, ChevronsUpDown } from "lucide-react";
-import { sign_out } from "./auth/action";
+import { authClient } from "@/lib/auth-client";
+import { useRouter } from "next/navigation";
 
 interface UserProps {
   email: string;
@@ -20,6 +21,7 @@ interface UserProps {
 
 export function SidebarUser({ email }: UserProps) {
   const { isMobile } = useSidebar();
+  const router = useRouter();
 
   return (
     <SidebarMenu>
@@ -45,7 +47,15 @@ export function SidebarUser({ email }: UserProps) {
             <DropdownMenuGroup>
               <DropdownMenuItem
                 className="rounded-xl hover:cursor-pointer"
-                onClick={sign_out}
+                onClick={async () =>
+                  await authClient.signOut({
+                    fetchOptions: {
+                      onSuccess: () => {
+                        router.push("/logout-success");
+                      },
+                    },
+                  })
+                }
               >
                 <LogOut />
                 Log Out

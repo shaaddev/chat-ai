@@ -1,6 +1,5 @@
 "use server";
 import { authClient } from "@/lib/auth-client";
-import { redirect } from "next/navigation";
 import { isEmail } from "@/db/queries";
 
 export const get_email = async (formData: FormData) => {
@@ -39,15 +38,4 @@ export const get_email = async (formData: FormData) => {
       error: error,
     };
   }
-};
-
-export const sign_out = async () => {
-  // await auth.api.signOut()
-  await authClient.signOut({
-    fetchOptions: {
-      onSuccess: () => {
-        redirect("/logout-success");
-      },
-    },
-  });
 };
