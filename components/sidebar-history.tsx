@@ -10,8 +10,9 @@ import {
   SidebarMenuButton,
 } from "@/components/ui/sidebar";
 import { useChat } from "@/components/chat-context";
+import { Session } from "@/lib/auth";
 
-export function SidebarHistory() {
+export function SidebarHistory({ session }: { session: Session | null }) {
   const pathname = usePathname();
   const router = useRouter();
   const { chats, loading, deleteChat } = useChat();
@@ -42,9 +43,7 @@ export function SidebarHistory() {
   return (
     <SidebarMenu>
       <div className="space-y-2 px-2">
-        {chats.length === 0 ? (
-          <div className="text-sm text-neutral-400 px-2 py-1">No chats yet</div>
-        ) : (
+        {session &&
           chats.map((chat) => (
             <SidebarMenuItem
               key={chat.id}
@@ -77,7 +76,9 @@ export function SidebarHistory() {
                 </Button>
               </SidebarMenuButton>
             </SidebarMenuItem>
-          ))
+          ))}
+        {!session && (
+          <div className="text-sm text-neutral-400 px-2 py-1">No chats yet</div>
         )}
       </div>
     </SidebarMenu>

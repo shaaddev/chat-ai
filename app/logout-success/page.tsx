@@ -2,7 +2,7 @@ import { Link } from "next-view-transitions";
 import { Button } from "@/components/ui/button";
 import { MoveLeft } from "lucide-react";
 
-export default async function Page() {
+export default function Page() {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen gap-8 bg-neutral-900">
       <p className="font-bold text-xl">

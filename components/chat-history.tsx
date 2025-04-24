@@ -18,7 +18,7 @@ export function ChatHistory({ session }: { session: Session | null }) {
         <NewChat />
       </SidebarHeader>
       <SidebarContent>
-        <SidebarHistory />
+        <SidebarHistory session={session} />
       </SidebarContent>
       <SidebarFooter className="border-t p-4 mt-5">
         {session ? (
