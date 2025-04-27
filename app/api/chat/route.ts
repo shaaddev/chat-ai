@@ -31,16 +31,16 @@ export async function POST(req: Request) {
     headers: await headers(),
   });
 
-  const userMessage = getMostRecentUserMessage(messages);
+  const message = getMostRecentUserMessage(messages);
 
-  if (!userMessage) {
+  if (!message) {
     return new Response("No user message found", { status: 400 });
   }
 
   const chat = await getChatById({ id });
 
   if (!chat && session) {
-    const title = await generateTitleFromUserMessage({ message: userMessage });
+    const title = await generateTitleFromUserMessage({ message: message });
     await saveChat({ id, userId: session.user.id, title });
   } else {
     if (chat.userId !== session?.user.id) {
@@ -52,17 +52,17 @@ export async function POST(req: Request) {
     messages: [
       {
         chatId: id,
-        id: userMessage.id,
+        id: message.id,
         role: "user",
-        parts: userMessage.parts,
-        attachments: userMessage.experimental_attachments ?? [],
+        parts: message.parts,
+        attachments: message.experimental_attachments ?? [],
         createdAt: new Date(),
       },
     ],
   });
 
   const selectedModel = stable_models.find(
-    (model) => model.id === selectedChatModel,
+    (model) => model.id === selectedChatModel
   );
 
   if (!selectedModel) {
@@ -82,7 +82,7 @@ export async function POST(req: Request) {
           try {
             const assistantId = getTrailingMessageId({
               messages: response.messages.filter(
-                (message) => message.role === "assistant",
+                (message) => message.role === "assistant"
               ),
             });
 
@@ -91,7 +91,7 @@ export async function POST(req: Request) {
             }
 
             const [, assistantMessage] = appendResponseMessages({
-              messages: [userMessage],
+              messages: [message],
               responseMessages: response.messages,
             });
 
