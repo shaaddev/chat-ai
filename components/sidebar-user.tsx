@@ -14,6 +14,7 @@ import {
 import { LogOut, ChevronsUpDown } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 interface UserProps {
   email: string;
@@ -22,6 +23,20 @@ interface UserProps {
 export function SidebarUser({ email }: UserProps) {
   const { isMobile } = useSidebar();
   const router = useRouter();
+
+  const handleLogout = async () => {
+    await authClient.signOut({
+      fetchOptions: {
+        onSuccess: () => {
+          toast.success("Logged out successfully");
+          router.refresh();
+        },
+        onError: () => {
+          toast.error("Failed to log out");
+        },
+      },
+    });
+  };
 
   return (
     <SidebarMenu>
@@ -47,15 +62,7 @@ export function SidebarUser({ email }: UserProps) {
             <DropdownMenuGroup>
               <DropdownMenuItem
                 className="rounded-xl hover:cursor-pointer"
-                onClick={async () =>
-                  await authClient.signOut({
-                    fetchOptions: {
-                      onSuccess: () => {
-                        router.push("/logout-success");
-                      },
-                    },
-                  })
-                }
+                onClick={handleLogout}
               >
                 <LogOut />
                 Log Out
