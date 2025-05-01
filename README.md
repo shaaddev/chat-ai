@@ -6,7 +6,7 @@ Techstack:
 - AI SDK
 - Better Auth
 - Neon (PostgreSQL)
-- Tailwind CSS x Shadcn x MagicUI
+- Tailwind CSS x Shadcn
 
 TO-DO
 
@@ -45,6 +45,9 @@ Database
 - [x] Add Schema
 - [x] Add Queries
 - [x] Save Messages to DB
+
+Note:
+
 - [ ] To add other users, check out @/components/auth/action.ts
 
 Able to save messages, however, the UUID regenerates after every key down "Enter"
