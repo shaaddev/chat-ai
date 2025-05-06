@@ -29,6 +29,7 @@ export function SidebarUser({ email }: UserProps) {
       fetchOptions: {
         onSuccess: () => {
           toast.success("Logged out successfully");
+          router.push("/");
           router.refresh();
         },
         onError: () => {
