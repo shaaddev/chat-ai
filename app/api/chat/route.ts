@@ -62,8 +62,10 @@ export async function POST(req: Request) {
   });
 
   const selectedModel = stable_models.find(
-    (model) => model.id === selectedChatModel,
+    (model) => model.id === selectedChatModel
   );
+
+  console.log("selectedModel", selectedModel);
 
   if (!selectedModel) {
     return new Response("Invalid model selected", { status: 400 });
@@ -82,7 +84,7 @@ export async function POST(req: Request) {
           try {
             const assistantId = getTrailingMessageId({
               messages: response.messages.filter(
-                (message) => message.role === "assistant",
+                (message) => message.role === "assistant"
               ),
             });
 

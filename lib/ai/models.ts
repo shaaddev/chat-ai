@@ -14,7 +14,7 @@ interface model_selection {
 
 export const stable_models: model_selection[] = [
   {
-    id: "google-model-2.0",
+    id: "google-model-2-0",
     name: "Gemini 2.0 Flash",
     icon: Info,
     image: Image,
@@ -37,11 +37,11 @@ export const stable_models: model_selection[] = [
   },
 ];
 
-export const DEFAULT_CHAT_MODEL: string = "google-model-2.0";
+export const DEFAULT_CHAT_MODEL: string = "google-model-2-0";
 
 export const myProvider = customProvider({
   languageModels: {
-    "google-model-2.0": google("gemini-2.0-flash"),
+    "google-model-2-0": google("gemini-2.0-flash"),
     "chat-o3-mini": openai("o3-mini-2025-01-31"),
     "chat-4o-mini": openai("gpt-4o-mini"),
   },

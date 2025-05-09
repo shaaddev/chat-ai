@@ -15,13 +15,19 @@ import type { Attachment } from "ai";
 interface ChatProps {
   id: string;
   session: Session | null;
-  selectedChatModel?: string;
+  initialChatModel: string;
   initialMessages?: Array<Message>;
 }
 
-export function Chat({ id, initialMessages, session }: ChatProps) {
+export function Chat({
+  id,
+  initialChatModel,
+  initialMessages,
+  session,
+}: ChatProps) {
   const [selectedModel, setSelectedModel] = useState(DEFAULT_CHAT_MODEL);
   const [isAuthenticated] = useState(session ? true : false);
+
   const {
     messages,
     input,
@@ -32,10 +38,16 @@ export function Chat({ id, initialMessages, session }: ChatProps) {
   } = useChat({
     api: "/api/chat",
     id,
-    body: { id, selectedChatModel: selectedModel },
+    experimental_prepareRequestBody: (body) => ({
+      id,
+      message: body.messages.at(-1),
+      selectedChatModel: initialChatModel,
+    }),
     initialMessages,
     generateId: generateUUID,
   });
+
+  console.log("CHAT MODEL", selectedModel);
 
   const handleModelChange = (model: string) => {
     setSelectedModel(model);
