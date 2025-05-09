@@ -1,7 +1,8 @@
 "use server";
 
 import { Message, generateText } from "ai";
-import { google } from "@ai-sdk/google";
+import { cookies } from "next/headers";
+import { myProvider } from "@/lib/ai/models";
 
 // update the models to make it modular in the future
 export async function generateTitleFromUserMessage({
@@ -10,7 +11,7 @@ export async function generateTitleFromUserMessage({
   message: Message;
 }) {
   const { text: title } = await generateText({
-    model: google("gemini-1.5-pro"),
+    model: myProvider.languageModel("title-model"),
     system: `\n
     - you will generate a short title based on the first message a user begins a conversation with
     - ensure it is not more than 80 characters long
@@ -20,4 +21,9 @@ export async function generateTitleFromUserMessage({
   });
 
   return title;
+}
+
+export async function saveChatModelAsCookie(model: string) {
+  const cookieStore = await cookies();
+  cookieStore.set("chat-model", model);
 }

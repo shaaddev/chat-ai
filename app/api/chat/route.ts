@@ -65,8 +65,6 @@ export async function POST(req: Request) {
     (model) => model.id === selectedChatModel
   );
 
-  console.log("selectedModel", selectedModel);
-
   if (!selectedModel) {
     return new Response("Invalid model selected", { status: 400 });
   }

@@ -23,17 +23,17 @@ interface ChatInputProps {
     event?: {
       preventDefault?: () => void;
     },
-    chatRequestOptions?: ChatRequestOptions,
+    chatRequestOptions?: ChatRequestOptions
   ) => void;
   input: string;
   handleInputChange: (
     e:
       | React.ChangeEvent<HTMLInputElement>
-      | React.ChangeEvent<HTMLTextAreaElement>,
+      | React.ChangeEvent<HTMLTextAreaElement>
   ) => void;
   status: UseChatHelpers["status"];
   chatId: string | undefined;
-  handleModelChange: (model: string) => void;
+  initialChatModel: string;
   attachments: Array<Attachment>;
   setAttachments: Dispatch<SetStateAction<Array<Attachment>>>;
   isAuthenticated?: boolean;
@@ -46,7 +46,7 @@ export function ChatInput({
   handleInputChange,
   status,
   chatId,
-  handleModelChange,
+  initialChatModel,
   isAuthenticated,
   attachments,
   setAttachments,
@@ -101,7 +101,7 @@ export function ChatInput({
   }, [input, adjustTextareaHeight]);
 
   const customHandleInputChange = (
-    e: React.ChangeEvent<HTMLTextAreaElement>,
+    e: React.ChangeEvent<HTMLTextAreaElement>
   ) => {
     handleInputChange(e);
     adjustTextareaHeight();
@@ -110,10 +110,7 @@ export function ChatInput({
   return (
     <div className="relative">
       <div className="relative rounded-t-2xl shadow-lg bg-neutral-800/50 flex flex-grow flex-col">
-        <form
-          onSubmit={handleSubmit}
-          className="relative sm:max-w-3xl px-5 lg:px-0"
-        >
+        <form className="relative sm:max-w-3xl px-5 lg:px-0">
           {(attachments.length > 0 || uploadQueue.length > 0) && (
             <div
               data-testid="attachments-preview"
@@ -157,7 +154,7 @@ export function ChatInput({
 
                 if (status !== "ready") {
                   toast.error(
-                    "Please wait for the model to finish its response!",
+                    "Please wait for the model to finish its response!"
                   );
                 } else {
                   if (!isAuthenticated) {
@@ -170,7 +167,7 @@ export function ChatInput({
             }}
           />
           <div className="flex flex-row gap-5 items-center py-2 px-5">
-            <ModelsPopover onModelChange={handleModelChange} />
+            <ModelsPopover selectedModelId={initialChatModel} />
             <FileInput
               uploadQueue={uploadQueue}
               setUploadQueue={setUploadQueue}
@@ -182,7 +179,11 @@ export function ChatInput({
           {status === "submitted" ? (
             <StopButton stop={stop} setMessages={setMessages} />
           ) : (
-            <SendButton input={input} uploadQueue={uploadQueue} />
+            <SendButton
+              input={input}
+              uploadQueue={uploadQueue}
+              submitForm={submitForm}
+            />
           )}
         </form>
       </div>
@@ -217,9 +218,11 @@ function PureStopButton({
 const StopButton = memo(PureStopButton);
 
 function PureSendButton({
+  submitForm,
   input,
   uploadQueue,
 }: {
+  submitForm: () => void;
   input: string;
   uploadQueue: string[];
 }) {
@@ -228,6 +231,10 @@ function PureSendButton({
       type="submit"
       className="absolute bottom-3 right-3 bg-transparent hover:bg-neutral-800 rounded-xl"
       disabled={!input.trim() || uploadQueue.length > 0}
+      onClick={(e) => {
+        e.preventDefault();
+        submitForm();
+      }}
     >
       <Send className="size-5 text-white" />
     </Button>

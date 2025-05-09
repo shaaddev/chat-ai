@@ -1,7 +1,7 @@
 import { Info, Image, FlaskConical, LucideIcon } from "lucide-react";
 import { openai } from "@ai-sdk/openai";
 import { google } from "@ai-sdk/google";
-import { LanguageModelV1, customProvider } from "ai";
+import { customProvider } from "ai";
 
 interface model_selection {
   id: string;
@@ -9,7 +9,6 @@ interface model_selection {
   icon: LucideIcon;
   image: LucideIcon;
   unstable?: LucideIcon;
-  languageModel: LanguageModelV1;
 }
 
 export const stable_models: model_selection[] = [
@@ -19,21 +18,18 @@ export const stable_models: model_selection[] = [
     icon: Info,
     image: Image,
     unstable: FlaskConical,
-    languageModel: google("gemini-2.0-flash"),
   },
   {
     id: "chat-o3-mini",
     name: "o3-mini",
     icon: Info,
     image: Image,
-    languageModel: openai("o3-mini-2025-01-31"),
   },
   {
     id: "chat-4o-mini",
     name: "GPT-4o-mini",
     icon: Info,
     image: Image,
-    languageModel: openai("gpt-4o-mini"),
   },
 ];
 
@@ -44,6 +40,7 @@ export const myProvider = customProvider({
     "google-model-2-0": google("gemini-2.0-flash"),
     "chat-o3-mini": openai("o3-mini-2025-01-31"),
     "chat-4o-mini": openai("gpt-4o-mini"),
+    "title-model": openai("o3-mini"),
   },
 });
 

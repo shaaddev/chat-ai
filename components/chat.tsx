@@ -7,10 +7,10 @@ import { ChatHistory } from "./chat-history";
 import { ChatInput } from "./chat-input";
 import { ChatMessages } from "./chat-messages";
 import { generateUUID } from "@/lib/utils";
-import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
 import { useState } from "react";
 import { Session } from "@/lib/auth";
 import type { Attachment } from "ai";
+import { toast } from "sonner";
 
 interface ChatProps {
   id: string;
@@ -25,7 +25,6 @@ export function Chat({
   initialMessages,
   session,
 }: ChatProps) {
-  const [selectedModel, setSelectedModel] = useState(DEFAULT_CHAT_MODEL);
   const [isAuthenticated] = useState(session ? true : false);
 
   const {
@@ -38,20 +37,18 @@ export function Chat({
   } = useChat({
     api: "/api/chat",
     id,
-    experimental_prepareRequestBody: (body) => ({
+    body: {
       id,
-      message: body.messages.at(-1),
       selectedChatModel: initialChatModel,
-    }),
+    },
     initialMessages,
     generateId: generateUUID,
+    onError: (err) => {
+      toast.error("Error", {
+        description: err.message,
+      });
+    },
   });
-
-  console.log("CHAT MODEL", selectedModel);
-
-  const handleModelChange = (model: string) => {
-    setSelectedModel(model);
-  };
 
   const [attachments, setAttachments] = useState<Array<Attachment>>([]);
 
@@ -81,7 +78,7 @@ export function Chat({
               handleSubmit={handleSubmit}
               status={status}
               chatId={id}
-              handleModelChange={handleModelChange}
+              initialChatModel={initialChatModel}
               isAuthenticated={isAuthenticated}
               attachments={attachments}
               setAttachments={setAttachments}
