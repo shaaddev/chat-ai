@@ -23,10 +23,8 @@ export function ModelsPopover({ selectedModelId }: ModelSelectorProps) {
 
   const selectedChatModel = useMemo(
     () => stable_models.find((model) => model.id === optimisticModelId),
-    [optimisticModelId],
+    [optimisticModelId]
   );
-
-  console.log("SELECTED CHAT MODEL", selectedChatModel);
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
