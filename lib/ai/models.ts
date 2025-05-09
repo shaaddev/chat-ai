@@ -40,7 +40,7 @@ export const myProvider = customProvider({
     "google-model-2-0": google("gemini-2.0-flash"),
     "chat-o3-mini": openai("o3-mini-2025-01-31"),
     "chat-4o-mini": openai("gpt-4o-mini"),
-    "title-model": openai("o3-mini"),
+    "title-model": google("gemini-2.0-flash"),
   },
 });
 
