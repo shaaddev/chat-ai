@@ -1,5 +1,5 @@
 import type { Attachment } from "ai";
-import { Loader } from "lucide-react";
+import { File, Loader } from "lucide-react";
 import { ViewAttachmentDialog } from "./view-attachment-dialog";
 
 export const PreviewAttachment = ({
@@ -30,7 +30,12 @@ export const PreviewAttachment = ({
               />
             </ViewAttachmentDialog>
           ) : (
-            <div className="" />
+            <ViewAttachmentDialog attachment={attachment}>
+              <div className="rounded-2xl size-full bg-muted flex flex-col gap-2 items-center justify-center">
+                <File className="size-12" />
+                <small className="text-xs text-zinc-500">{name}</small>
+              </div>
+            </ViewAttachmentDialog>
           )
         ) : (
           <div className="" />
