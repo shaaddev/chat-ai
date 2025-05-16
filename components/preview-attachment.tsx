@@ -1,5 +1,6 @@
 import type { Attachment } from "ai";
 import { Loader } from "lucide-react";
+import { ViewAttachmentDialog } from "./view-attachment-dialog";
 
 export const PreviewAttachment = ({
   attachment,
@@ -19,13 +20,15 @@ export const PreviewAttachment = ({
       >
         {contentType ? (
           contentType.startsWith("image") ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              key={url}
-              src={url}
-              alt={name ?? "An image attachment"}
-              className="rounded-2xl size-full object-cover"
-            />
+            <ViewAttachmentDialog attachment={attachment}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                key={url}
+                src={url}
+                alt={name ?? "An image attachment"}
+                className="rounded-2xl size-full object-cover"
+              />
+            </ViewAttachmentDialog>
           ) : (
             <div className="" />
           )
