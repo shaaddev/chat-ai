@@ -26,7 +26,7 @@ export const PreviewAttachment = ({
                 key={url}
                 src={url}
                 alt={name ?? "An image attachment"}
-                className="rounded-2xl size-full object-cover"
+                className="rounded-2xl w-full object-cover"
               />
             </ViewAttachmentDialog>
           ) : (
