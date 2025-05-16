@@ -6,6 +6,7 @@ import "highlight.js/styles/github-dark.css";
 import { Check, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ComponentPropsWithoutRef } from "react";
+import { toast } from "sonner";
 
 type CodeBlockProps = ComponentPropsWithoutRef<"code"> & {
   inline?: boolean;
@@ -33,6 +34,7 @@ export function CodeBlock({
   const copyToClipboard = async () => {
     if (typeof children === "string") {
       await navigator.clipboard.writeText(children);
+      toast.success("Copied to clipboard");
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
