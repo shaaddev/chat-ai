@@ -45,7 +45,7 @@ export function ChatMessages({ messages }: messageProps) {
                     <PreviewAttachment
                       key={`${message.id}-attachment-${index}`}
                       attachment={attachment}
-                      className="size-72"
+                      className=" size-80"
                     />
                   ))}
                 </div>

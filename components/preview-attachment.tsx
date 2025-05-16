@@ -1,6 +1,7 @@
 import type { Attachment } from "ai";
 import { File, Loader } from "lucide-react";
 import { ViewAttachmentDialog } from "./view-attachment-dialog";
+import { cn } from "@/lib/utils";
 
 export const PreviewAttachment = ({
   attachment,
@@ -16,7 +17,11 @@ export const PreviewAttachment = ({
   return (
     <div data-testid="input-attachment-preview" className="flex flex-col gap-2">
       <div
-        className={`${className} aspect-video bg-muted rounded-2xl relative flex flex-col items-center justify-center`}
+        className={cn(
+          className,
+          "aspect-video bg-muted rounded-2xl relative flex flex-col items-center justify-center",
+          contentType?.startsWith("image") && "bg-transparent"
+        )}
       >
         {contentType ? (
           contentType.startsWith("image") ? (
