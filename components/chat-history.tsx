@@ -12,9 +12,8 @@ import { Session } from "@/lib/auth";
 
 export function ChatHistory({ session }: { session: Session | null }) {
   return (
-    <Sidebar className="w-64 border-r border-neutral-800">
-      <SidebarHeader className="p-4 flex flex-row items-center justify-between border-b mb-5">
-        <h2 className="text-lg font-semibold">Chat History</h2>
+    <Sidebar className="w-64 border-none">
+      <SidebarHeader className="p-2 flex flex-row items-center justify-start mb-5">
         <NewChat />
       </SidebarHeader>
       <SidebarContent>

@@ -58,32 +58,34 @@ export function Chat({
         <ChatHistory session={session} />
 
         <div className="flex flex-col flex-1 w-full">
-          <header className="flex items-center p-4 border-b border-neutral-800">
+          <header className="flex items-center p-4 gap-2">
             <SidebarTrigger>
               <Button variant="ghost" size="icon" className="mr-2">
-                <Menu className="h-5 w-5" />
+                <Menu className="size-5 inline-block" />
                 <span className="sr-only">Toggle sidebar</span>
               </Button>
             </SidebarTrigger>
-            <h1 className="text-xl font-bold">Chatbot</h1>
+            <h1 className="text-xl font-bold">chat</h1>
           </header>
 
-          <ChatMessages status={status} messages={messages} />
+          <div className="flex flex-col flex-1 w-full border-l border-t rounded-tl-2xl overflow-hidden">
+            <ChatMessages status={status} messages={messages} />
 
-          <div className="max-w-3xl mx-auto space-y-4 w-full">
-            <p className="text-center text-sm text-gray-400">shaaddev</p>
-            <ChatInput
-              input={input}
-              handleInputChange={handleInputChange}
-              handleSubmit={handleSubmit}
-              status={status}
-              chatId={id}
-              initialChatModel={initialChatModel}
-              isAuthenticated={isAuthenticated}
-              attachments={attachments}
-              setAttachments={setAttachments}
-              setMessages={setMessages}
-            />
+            <div className="max-w-3xl mx-auto space-y-4 w-full">
+              <p className="text-center text-sm text-gray-400">shaaddev</p>
+              <ChatInput
+                input={input}
+                handleInputChange={handleInputChange}
+                handleSubmit={handleSubmit}
+                status={status}
+                chatId={id}
+                initialChatModel={initialChatModel}
+                isAuthenticated={isAuthenticated}
+                attachments={attachments}
+                setAttachments={setAttachments}
+                setMessages={setMessages}
+              />
+            </div>
           </div>
         </div>
       </div>

@@ -20,7 +20,7 @@ export const PreviewAttachment = ({
         className={cn(
           className,
           "aspect-video bg-muted rounded-2xl relative flex flex-col items-center justify-center",
-          contentType?.startsWith("image") && "bg-transparent"
+          contentType?.startsWith("image") && "bg-transparent",
         )}
       >
         {contentType ? (
