@@ -61,7 +61,7 @@ export function SidebarUser({ email, avatar, name }: UserProps) {
                   {name?.charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
-              <div className="grid flex-1 text-center text-sm leading-tight">
+              <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">{name}</span>
               </div>
               <ChevronsUpDown className="ml-auto size-4" />
@@ -82,10 +82,10 @@ export function SidebarUser({ email, avatar, name }: UserProps) {
                   </AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">{email}</span>
                   <span className="truncate text-xs text-muted-foreground">
                     {name}
                   </span>
+                  <span className="truncate font-semibold">{email}</span>
                 </div>
               </div>
             </DropdownMenuLabel>
