@@ -12,7 +12,7 @@ export function ViewAttachmentDialog({
 
   return (
     <Dialog>
-      <DialogTrigger>{children}</DialogTrigger>
+      <DialogTrigger className="cursor-pointer">{children}</DialogTrigger>
       <DialogContent className="border-opacity-5 border max-w-[90vw] md:max-w-[80vw] lg:max-w-[70vw]">
         {contentType?.startsWith("image") ? (
           <>

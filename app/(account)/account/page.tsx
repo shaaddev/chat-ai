@@ -23,7 +23,7 @@ export default async function Page() {
   const { email, name, image } = user_info[0];
 
   return (
-    <div className="">
+    <div className="w-full">
       <Account user_info={{ email, name, image }} />
     </div>
   );

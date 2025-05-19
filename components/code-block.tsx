@@ -43,7 +43,7 @@ export function CodeBlock({
   if (language === "plaintext") {
     return (
       <code
-        className="bg-background border border-white/20 text-primary rounded px-1 py-0.5 font-mono text-sm"
+        className="bg-background border border-white/20 text-primary-foreground rounded px-1 py-0.5 font-mono text-sm"
         {...props}
       >
         {children}

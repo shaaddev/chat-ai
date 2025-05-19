@@ -58,7 +58,7 @@ export function Profile({ user_info }: { user_info: UserInfo }) {
   };
 
   return (
-    <Card className="rounded-2xl">
+    <Card className="rounded-2xl ">
       <CardHeader>
         <CardTitle>Profile Information</CardTitle>
         <CardDescription>

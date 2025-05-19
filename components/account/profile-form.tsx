@@ -42,7 +42,7 @@ export function ProfileForm({
         <div className="flex flex-col items-center space-y-2">
           <Label
             htmlFor="picture"
-            className="cursor-pointer text-sm font-medium text-primary"
+            className="cursor-pointer text-sm font-medium text-primary-foreground hover:text-primary-foreground/90 transition-all duration-200 hover:cursor-pointer"
           >
             Change profile picture
           </Label>
@@ -81,7 +81,7 @@ export function ProfileForm({
 
       <Button
         type="submit"
-        className="w-full sm:w-auto rounded-2xl"
+        className="w-full sm:w-auto rounded-2xl bg-primary-foreground text-primary hover:bg-primary-foreground/90 transition-all duration-200 hover:cursor-pointer"
         disabled={isPending}
       >
         {isPending ? "Updating..." : "Update"}

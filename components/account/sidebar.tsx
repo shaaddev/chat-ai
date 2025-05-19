@@ -47,7 +47,7 @@ export function AccountSidebar() {
         </Button>
         <Button
           variant="ghost"
-          className="justify-start text-red-500 hover:bg-red-50 hover:text-red-600 rounded-2xl"
+          className="justify-start text-red-500 hover:bg-red-50 hover:text-red-600 rounded-2xl hover:cursor-pointer"
           onClick={handleLogout}
         >
           <LogOutIcon className="mr-2 h-4 w-4" />

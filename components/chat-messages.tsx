@@ -26,7 +26,7 @@ export function ChatMessages({ messages }: messageProps) {
   }, [messages]);
 
   return (
-    <ScrollArea className="flex-1 p-4 w-full">
+    <ScrollArea className="flex-1 p-4 w-full overflow-auto">
       <div className="max-w-3xl mx-auto">
         {messages.map((message) => (
           <div
