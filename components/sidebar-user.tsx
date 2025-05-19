@@ -58,11 +58,11 @@ export function SidebarUser({ email, avatar, name }: UserProps) {
               <Avatar className="h-8 w-8 rounded-lg grayscale">
                 <AvatarImage src={avatar} alt={name} />
                 <AvatarFallback className="rounded-2xl text-white">
-                  {(name?.charAt(0) || email.charAt(0)).toUpperCase()}
+                  {name?.charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-center text-sm leading-tight">
-                <span className="truncate font-semibold">{email}</span>
+                <span className="truncate font-semibold">{name}</span>
               </div>
               <ChevronsUpDown className="ml-auto size-4" />
             </SidebarMenuButton>
@@ -78,7 +78,7 @@ export function SidebarUser({ email, avatar, name }: UserProps) {
                 <Avatar className="size-8 rounded-2xl grayscale">
                   <AvatarImage src={avatar} alt={name} />
                   <AvatarFallback className="rounded-lg text-white">
-                    {(name?.charAt(0) || email.charAt(0)).toUpperCase()}
+                    {name?.charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
