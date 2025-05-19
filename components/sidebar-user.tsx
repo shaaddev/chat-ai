@@ -11,7 +11,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { LogOut, ChevronsUpDown } from "lucide-react";
+import { LogOut, ChevronsUpDown, User } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -61,6 +61,13 @@ export function SidebarUser({ email }: UserProps) {
             sideOffset={4}
           >
             <DropdownMenuGroup>
+              <DropdownMenuItem
+                className="rounded-xl hover:cursor-pointer"
+                onClick={() => router.push("/account")}
+              >
+                <User />
+                Account Settings
+              </DropdownMenuItem>
               <DropdownMenuItem
                 className="rounded-xl hover:cursor-pointer"
                 onClick={handleLogout}
