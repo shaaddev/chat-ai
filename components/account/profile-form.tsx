@@ -12,6 +12,7 @@ interface ProfileFormProps {
   handleImageUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   fullName: string;
   email: string;
+  isPending: boolean;
 }
 
 export function ProfileForm({
@@ -20,6 +21,7 @@ export function ProfileForm({
   handleImageUpload,
   fullName,
   email,
+  isPending,
 }: ProfileFormProps) {
   const { register, setValue } = useForm();
 
@@ -77,8 +79,12 @@ export function ProfileForm({
         />
       </div>
 
-      <Button type="submit" className="w-full sm:w-auto rounded-2xl">
-        Update
+      <Button
+        type="submit"
+        className="w-full sm:w-auto rounded-2xl"
+        disabled={isPending}
+      >
+        {isPending ? "Updating..." : "Update"}
       </Button>
     </form>
   );

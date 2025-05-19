@@ -7,6 +7,8 @@ import {
 } from "@/components/ui/card";
 import { ProfileForm } from "./profile-form";
 import { useState } from "react";
+import { updateUser } from "./action";
+import { toast } from "sonner";
 
 interface UserInfo {
   email: string;
@@ -16,11 +18,32 @@ interface UserInfo {
 
 export function Profile({ user_info }: { user_info: UserInfo }) {
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [isPending, setIsPending] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, this would send the form data to the server
-    alert("Profile updated successfully!");
+    setIsPending(true);
+    const formData = new FormData(e.target as HTMLFormElement);
+
+    try {
+      const res = await updateUser(formData);
+
+      if (res.success) {
+        toast.success("Success!", {
+          description: "Profile updated successfully!",
+        });
+      } else {
+        toast.error("Failed to update profile", {
+          description: "Please try again.",
+        });
+      }
+    } catch (error) {
+      return {
+        error: error,
+      };
+    } finally {
+      setIsPending(false);
+    }
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -49,6 +72,7 @@ export function Profile({ user_info }: { user_info: UserInfo }) {
           handleImageUpload={handleImageUpload}
           fullName={user_info.name}
           email={user_info.email}
+          isPending={isPending}
         />
       </CardContent>
     </Card>
