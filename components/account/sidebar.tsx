@@ -1,11 +1,28 @@
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
+import { Link } from "next-view-transitions";
 import { HomeIcon, UserIcon, LogOutIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { authClient } from "@/lib/auth-client";
+import { toast } from "sonner";
 
 export function AccountSidebar() {
   const router = useRouter();
+
+  const handleLogout = async () => {
+    await authClient.signOut({
+      fetchOptions: {
+        onSuccess: () => {
+          toast.success("Logged out successfully");
+          router.push("/");
+          router.refresh();
+        },
+        onError: () => {
+          toast.error("Failed to log out");
+        },
+      },
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -31,10 +48,7 @@ export function AccountSidebar() {
         <Button
           variant="ghost"
           className="justify-start text-red-500 hover:bg-red-50 hover:text-red-600 rounded-2xl"
-          onClick={() => {
-            // In a real app, this would log the user out
-            router.push("/");
-          }}
+          onClick={handleLogout}
         >
           <LogOutIcon className="mr-2 h-4 w-4" />
           Log Out
