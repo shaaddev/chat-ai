@@ -68,7 +68,7 @@ export function SidebarUser({ email, avatar, name }: UserProps) {
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-xl"
+            className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-xl"
             side={isMobile ? "bottom" : "right"}
             align="end"
             sideOffset={4}

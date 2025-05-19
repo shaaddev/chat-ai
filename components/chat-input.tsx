@@ -109,7 +109,7 @@ export function ChatInput({
 
   return (
     <div className="relative">
-      <div className="relative rounded-t-2xl shadow-lg bg-neutral-800/50 flex flex-grow flex-col">
+      <div className="relative rounded-t-2xl shadow-lg bg-neutral-800/50 flex grow flex-col">
         <form className="relative sm:max-w-3xl px-5 lg:px-0">
           {(attachments.length > 0 || uploadQueue.length > 0) && (
             <div
@@ -144,7 +144,7 @@ export function ChatInput({
             value={input}
             onChange={customHandleInputChange}
             placeholder="Type your message here..."
-            className="w-full resize-none bg-transparent border-0 focus:ring-0 text-base text-neutral-100 placeholder-neutral-400 p-6 pt-4  outline-none disabled:opacity-0 "
+            className="w-full resize-none bg-transparent border-0 focus:ring-0 text-base text-neutral-100 placeholder-neutral-400 p-6 pt-4  outline-hidden disabled:opacity-0 "
             rows={1}
             autoFocus
             style={{ height: textareaHeight }}

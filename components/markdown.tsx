@@ -80,7 +80,7 @@ const components: Partial<Components> = {
     );
   },
   table: (props) => (
-    <div className="my-6 w-full overflow-y-auto rounded-xl border border-muted shadow-sm">
+    <div className="my-6 w-full overflow-y-auto rounded-xl border border-muted shadow-xs">
       <table className="w-full border-collapse text-sm" {...props} />
     </div>
   ),

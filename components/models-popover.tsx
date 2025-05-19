@@ -28,7 +28,10 @@ export function ModelsPopover({ selectedModelId }: ModelSelectorProps) {
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
-      <DropdownMenuTrigger asChild className="outline-none focus:outline-none">
+      <DropdownMenuTrigger
+        asChild
+        className="outline-hidden focus:outline-hidden"
+      >
         <button
           data-testid="model-selector"
           type="button"
@@ -38,7 +41,7 @@ export function ModelsPopover({ selectedModelId }: ModelSelectorProps) {
           <ChevronDown className="size-4" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] min-w-96 rounded-xl">
+      <DropdownMenuContent className="w-(--radix-dropdown-menu-trigger-width) min-w-96 rounded-xl">
         <DropdownMenuLabel className=" font-normal">
           <div className="flex-1 text-left leading-tight">
             <span>Standard Models</span>
