@@ -8,7 +8,13 @@ import {
 import { ProfileForm } from "./profile-form";
 import { useState } from "react";
 
-export function Profile() {
+interface UserInfo {
+  email: string;
+  name: string;
+  image: string | null;
+}
+
+export function Profile({ user_info }: { user_info: UserInfo }) {
   const [profileImage, setProfileImage] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -41,6 +47,8 @@ export function Profile() {
           profileImage={profileImage}
           handleSubmit={handleSubmit}
           handleImageUpload={handleImageUpload}
+          fullName={user_info.name}
+          email={user_info.email}
         />
       </CardContent>
     </Card>
