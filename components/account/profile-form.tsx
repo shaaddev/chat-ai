@@ -73,14 +73,6 @@ export function ProfileForm({
         />
       </div>
 
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <Label htmlFor="username">Username</Label>
-          <span className="text-xs text-muted-foreground">(Optional)</span>
-        </div>
-        <Input id="username" placeholder="johndoe" className="rounded-2xl" />
-      </div>
-
       <Button type="submit" className="w-full sm:w-auto rounded-2xl">
         Update
       </Button>

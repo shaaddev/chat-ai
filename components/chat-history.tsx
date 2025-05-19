@@ -21,7 +21,11 @@ export function ChatHistory({ session }: { session: Session | null }) {
       </SidebarContent>
       <SidebarFooter className="border-t p-4 mt-5">
         {session ? (
-          <SidebarUser email={session?.user.email} />
+          <SidebarUser
+            email={session?.user.email}
+            // avatar={session?.user.avatar}
+            name={session?.user.name}
+          />
         ) : (
           <LoginDialog />
         )}
