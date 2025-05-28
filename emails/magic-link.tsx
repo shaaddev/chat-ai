@@ -33,12 +33,14 @@ export default function MagicLinkEmail({ email, link }: MagicLinkProps) {
               <Text className="text-sm">Hello {email},</Text>
               <Text>We have received a sign-in attempt.</Text>
               <Text>To complete the sign-in process; click the link below</Text>
-              <Button
-                className="text-md font-bold rounded-xl py-3 px-5 bg-neutral-900 text-slate-50 text-center"
-                href={`${link}`}
-              >
-                Open Chat
-              </Button>
+              <Section className="flex items-center justify-center">
+                <Button
+                  className="text-md font-bold rounded-xl py-3 px-5 bg-neutral-900 text-slate-50 text-center"
+                  href={`${link}`}
+                >
+                  Open Chat
+                </Button>
+              </Section>
             </Section>
             <Hr className="border-[#cccccc] mt-5" />
             <Text className="text-[#8898aa] leading-7 text-xs text-center">
