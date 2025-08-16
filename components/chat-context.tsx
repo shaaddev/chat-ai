@@ -14,8 +14,8 @@ import { toast } from "sonner";
 interface Chat {
   id: string;
   title: string;
-  updatedAt: Date;
   createdAt: Date;
+  updatedAt: Date;
 }
 
 interface ChatContextType {
@@ -26,6 +26,8 @@ interface ChatContextType {
   deleteChat: (chatId: string) => Promise<void>;
   addOptimisticChat: (chat: Chat) => void;
   setChatLoading: (chatId: string, loading: boolean) => void;
+  updateChatTitle: (chatId: string, title: string) => void;
+  refreshSpecificChat: (chatId: string) => Promise<void>;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -100,6 +102,31 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const updateChatTitle = useCallback((chatId: string, title: string) => {
+    setChats((prevChats) =>
+      prevChats.map((chat) =>
+        chat.id === chatId ? { ...chat, title, updatedAt: new Date() } : chat,
+      ),
+    );
+  }, []);
+
+  const refreshSpecificChat = useCallback(async (chatId: string) => {
+    try {
+      const res = await fetch(`/api/chats/${chatId}`, {
+        cache: "no-store",
+      });
+
+      if (res.ok) {
+        const updatedChat = await res.json();
+        setChats((prevChats) =>
+          prevChats.map((chat) => (chat.id === chatId ? updatedChat : chat)),
+        );
+      }
+    } catch (error) {
+      console.error("Error fetching specific chat: ", error);
+    }
+  }, []);
+
   const deleteChat = useCallback(async (chatId: string) => {
     try {
       const res = fetch(`/api/chats/${chatId}`, {
@@ -127,6 +154,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       deleteChat,
       addOptimisticChat,
       setChatLoading,
+      updateChatTitle,
+      refreshSpecificChat,
     }),
     [
       chats,
@@ -136,6 +165,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       deleteChat,
       addOptimisticChat,
       setChatLoading,
+      updateChatTitle,
+      refreshSpecificChat,
     ],
   );
 

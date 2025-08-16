@@ -56,7 +56,7 @@ export function ChatInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [textareaHeight, setTextareaHeight] = useState("72px");
   const [showLoginDialog, setShowLoginDialog] = useState(false);
-  const { refreshChats, addOptimisticChat, setChatLoading } = useChat();
+  const { addOptimisticChat, setChatLoading } = useChat();
   const [uploadQueue, setUploadQueue] = useState<Array<string>>([]);
 
   const submitForm = useCallback(() => {
@@ -74,8 +74,8 @@ export function ChatInput({
     addOptimisticChat({
       id: chatId!,
       title: input.trim().slice(0, 80) || "New chat",
-      updatedAt: new Date(),
       createdAt: new Date(),
+      updatedAt: new Date(),
     });
 
     try {
@@ -90,13 +90,12 @@ export function ChatInput({
 
     setAttachments([]);
 
-    // Refresh chats to get the actual data from server
-    refreshChats();
+    // Don't refresh chats immediately - let the optimistic update stay
+    // The chat will be properly saved when the AI response finishes
   }, [
     handleSubmit,
     chatId,
     isAuthenticated,
-    refreshChats,
     addOptimisticChat,
     setChatLoading,
     attachments,

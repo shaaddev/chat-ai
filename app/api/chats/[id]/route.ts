@@ -1,5 +1,27 @@
 import { NextResponse } from "next/server";
-import { deleteChatById } from "@/db/queries";
+import { deleteChatById, getChatById } from "@/db/queries";
+
+export async function GET(
+  req: Request,
+  { params }: { params: { id: string } },
+) {
+  try {
+    const { id } = await params;
+    const chat = await getChatById({ id });
+
+    if (!chat) {
+      return NextResponse.json({ error: "Chat not found" }, { status: 404 });
+    }
+
+    return NextResponse.json(chat);
+  } catch (error) {
+    console.error("Failed to fetch chat:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch chat" },
+      { status: 500 },
+    );
+  }
+}
 
 export async function DELETE(
   req: Request,

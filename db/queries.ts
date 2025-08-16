@@ -17,6 +17,7 @@ export async function saveChat({
     return await db.insert(chat).values({
       id,
       createdAt: new Date(),
+      updatedAt: new Date(),
       userId,
       title,
     });
@@ -43,7 +44,7 @@ export async function getChatsByUserId({ id }: { id: string }) {
       .select()
       .from(chat)
       .where(eq(chat.userId, id))
-      .orderBy(desc(chat.createdAt));
+      .orderBy(desc(chat.updatedAt));
     return chats;
   } catch (error) {
     console.error("Failed to fetch chats:", error);
@@ -63,6 +64,15 @@ export async function getChatById({ id }: { id: string }) {
 
 export async function saveMessages({ messages }: { messages: Array<Message> }) {
   try {
+    // Update the chat's updatedAt timestamp when messages are saved
+    if (messages.length > 0) {
+      const chatId = messages[0].chatId;
+      await db
+        .update(chat)
+        .set({ updatedAt: new Date() })
+        .where(eq(chat.id, chatId));
+    }
+
     return await db.insert(message).values(messages);
   } catch (error) {
     console.error("Failed to save messsages in database", error);

@@ -16,6 +16,9 @@ import { generateTitleFromUserMessage } from "@/app/actions";
 import { myProvider, stable_models } from "@/lib/ai/models";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
+import { db } from "@/db";
+import { chat } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 export const maxDuration = 30;
 
@@ -32,24 +35,31 @@ export async function POST(req: Request) {
       headers: await headers(),
     });
 
-    console.log("Session:", session ? "Authenticated" : "Not authenticated");
-    console.log("Selected model:", selectedChatModel);
-    console.log("Messages count:", messages.length);
-
     const message = getMostRecentUserMessage(messages);
 
     if (!message) {
       return new Response("No user message found", { status: 400 });
     }
 
-    const chat = await getChatById({ id });
+    const existingChat = await getChatById({ id });
 
-    if (!chat && session) {
+    if (!existingChat && session) {
       const title = await generateTitleFromUserMessage({ message: message });
       await saveChat({ id, userId: session.user.id, title });
-    } else if (chat) {
-      if (chat.userId !== session?.user.id) {
+    } else if (existingChat) {
+      if (existingChat.userId !== session?.user.id) {
         return new Response("Unauthorized", { status: 401 });
+      }
+      // Update the chat title if it's still the default "New chat" title
+      if (
+        existingChat.title === "New chat" ||
+        existingChat.title === message.content?.slice(0, 80)
+      ) {
+        const title = await generateTitleFromUserMessage({ message: message });
+        await db
+          .update(chat)
+          .set({ title, updatedAt: new Date() })
+          .where(eq(chat.id, id));
       }
     } else if (!session) {
       return new Response("Unauthorized", { status: 401 });

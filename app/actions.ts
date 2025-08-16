@@ -1,6 +1,6 @@
 "use server";
 
-import { Message, streamText } from "ai";
+import { Message, generateText } from "ai";
 import { cookies } from "next/headers";
 import { myProvider } from "@/lib/ai/models";
 
@@ -10,7 +10,7 @@ export async function generateTitleFromUserMessage({
 }: {
   message: Message;
 }) {
-  const { text: title } = await streamText({
+  const { text: title } = await generateText({
     model: myProvider.languageModel("title-model"),
     system: `\n
     - you will generate a short title based on the first message a user begins a conversation with

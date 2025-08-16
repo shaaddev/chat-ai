@@ -73,6 +73,7 @@ export function ChatMessages({ messages }: messageProps) {
             </div>
           </div>
         ))}
+
         <div ref={messagesEndRef} />
       </div>
     </ScrollArea>

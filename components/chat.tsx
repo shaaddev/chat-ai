@@ -27,7 +27,8 @@ export function Chat({
   session,
 }: ChatProps) {
   const [isAuthenticated] = useState(session ? true : false);
-  const { setChatLoading } = useChatContext();
+  const { setChatLoading, refreshChats } = useChatContext();
+  const [isNewChat, setIsNewChat] = useState(initialMessages?.length === 0);
 
   const {
     messages,
@@ -57,7 +58,15 @@ export function Chat({
     if (status === "streaming" || status === "ready" || status === "error") {
       setChatLoading(id, false);
     }
-  }, [status, id, setChatLoading]);
+
+    // Only refresh the specific chat when the AI response is complete AND this is a new chat
+    // This prevents flickering when navigating to existing chats
+    if (status === "streaming" && isNewChat) {
+      // Add a small delay to ensure the title generation has completed
+      refreshChats();
+      setIsNewChat(false); // Prevent multiple refreshes
+    }
+  }, [status, id, setChatLoading, refreshChats, isNewChat]);
 
   const [attachments, setAttachments] = useState<Array<Attachment>>([]);
 
