@@ -7,10 +7,11 @@ import { ChatHistory } from "./chat-history";
 import { ChatInput } from "./chat-input";
 import { ChatMessages } from "./chat-messages";
 import { generateUUID } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Session } from "@/lib/auth";
 import type { Attachment } from "@/lib/types";
 import { toast } from "sonner";
+import { useChat as useChatContext } from "@/components/chat-context";
 
 interface ChatProps {
   id: string;
@@ -26,6 +27,7 @@ export function Chat({
   session,
 }: ChatProps) {
   const [isAuthenticated] = useState(session ? true : false);
+  const { setChatLoading } = useChatContext();
 
   const {
     messages,
@@ -49,6 +51,13 @@ export function Chat({
       });
     },
   });
+
+  // Clear loading state when AI starts responding or finishes
+  useEffect(() => {
+    if (status === "streaming" || status === "ready" || status === "error") {
+      setChatLoading(id, false);
+    }
+  }, [status, id, setChatLoading]);
 
   const [attachments, setAttachments] = useState<Array<Attachment>>([]);
 

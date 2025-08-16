@@ -56,7 +56,7 @@ export function ChatInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [textareaHeight, setTextareaHeight] = useState("72px");
   const [showLoginDialog, setShowLoginDialog] = useState(false);
-  const { refreshChats, addOptimisticChat } = useChat();
+  const { refreshChats, addOptimisticChat, setChatLoading } = useChat();
   const [uploadQueue, setUploadQueue] = useState<Array<string>>([]);
 
   const submitForm = useCallback(() => {
@@ -67,6 +67,9 @@ export function ChatInput({
       return;
     }
 
+    // Set loading state for this chat
+    setChatLoading(chatId!, true);
+
     // Add optimistic chat to sidebar immediately
     addOptimisticChat({
       id: chatId!,
@@ -75,9 +78,15 @@ export function ChatInput({
       createdAt: new Date(),
     });
 
-    handleSubmit(undefined, {
-      experimental_attachments: attachments,
-    } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+    try {
+      handleSubmit(undefined, {
+        experimental_attachments: attachments,
+      } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+    } catch (error) {
+      // Clear loading state on error
+      setChatLoading(chatId!, false);
+      throw error;
+    }
 
     setAttachments([]);
 
@@ -89,6 +98,7 @@ export function ChatInput({
     isAuthenticated,
     refreshChats,
     addOptimisticChat,
+    setChatLoading,
     attachments,
     setAttachments,
     input,

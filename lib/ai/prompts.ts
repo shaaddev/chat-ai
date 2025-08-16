@@ -13,7 +13,10 @@ export const systemPrompt = ({
 }: {
   selectedChatModel: string;
 }) => {
-  if (selectedChatModel === "chat-o1-mini" || "chat-4o-mini") {
+  if (
+    selectedChatModel === "chat-o3-mini" ||
+    selectedChatModel === "chat-4o-mini"
+  ) {
     return openAIPrompt;
   } else {
     return regularPrompt;

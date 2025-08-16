@@ -43,24 +43,3 @@ export const myProvider = customProvider({
     "title-model": google("gemini-2.0-flash"),
   },
 });
-
-export const experimental_models = [
-  {
-    name: "Deekseek r1",
-    icon: Info,
-    unstable: FlaskConical,
-    languageModel: "",
-  },
-  {
-    name: "Deepseek v3",
-    icon: Info,
-    unstable: FlaskConical,
-    languageModel: "",
-  },
-  {
-    name: "Deepseek v3 (old)",
-    icon: Info,
-    unstable: FlaskConical,
-    languageModel: "",
-  },
-];

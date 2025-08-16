@@ -12,6 +12,7 @@ import {
 import { useChat } from "@/components/chat-context";
 import { Session } from "@/lib/auth";
 import { memo } from "react";
+import { Loader2 } from "lucide-react";
 
 interface SidebarHistoryProps {
   session: Session | null;
@@ -20,7 +21,7 @@ interface SidebarHistoryProps {
 function SidebarHistoryComponent({ session }: SidebarHistoryProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { chats, loading, deleteChat } = useChat();
+  const { chats, loading, loadingChats, deleteChat } = useChat();
 
   const handleDelete = async (chatId: string) => {
     await deleteChat(chatId);
@@ -61,6 +62,9 @@ function SidebarHistoryComponent({ session }: SidebarHistoryProps) {
                 <div>
                   <MessageSquareText className="mr-2 size-4 shrink-0" />
                   <span className="truncate">{chat.title}</span>
+                  {loadingChats.has(chat.id) && (
+                    <Loader2 className="absolute right-8 top-1/2 transform -translate-y-1/2 size-4 animate-spin text-muted-foreground" />
+                  )}
                   <Button
                     variant="ghost"
                     size="icon"

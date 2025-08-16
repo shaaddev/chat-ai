@@ -1,4 +1,4 @@
-import { Chat } from "@/components/chat";
+import { DynamicChat } from "@/components/dynamic-chat";
 import { notFound } from "next/navigation";
 import { getChatById, getMessagesByChatId } from "@/db/queries";
 import { auth } from "@/lib/auth";
@@ -19,16 +19,6 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
 
   if (!chat && !session) {
     notFound();
-  }
-
-  if (chat.visibility === "private") {
-    if (!session || !session.user) {
-      return notFound();
-    }
-
-    if (session.user.id !== chat.userId) {
-      return notFound();
-    }
   }
 
   const messagesFromDb = await getMessagesByChatId({
@@ -53,7 +43,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
   if (!modelIdFromCookie) {
     return (
       <div className="flex flex-col min-h-screen w-full">
-        <Chat
+        <DynamicChat
           id={chat.id}
           initialChatModel={DEFAULT_CHAT_MODEL}
           initialMessages={convertToUIMessages(messagesFromDb)}
@@ -64,7 +54,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
   }
   return (
     <>
-      <Chat
+      <DynamicChat
         id={chat.id}
         initialChatModel={modelIdFromCookie.value}
         initialMessages={convertToUIMessages(messagesFromDb)}

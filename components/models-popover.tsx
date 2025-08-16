@@ -7,9 +7,9 @@ import {
   DropdownMenuTrigger,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-import { ImageTooltip, UnstableTooltip } from "./model-helpful-tooltips";
+import { ImageTooltip } from "./model-helpful-tooltips";
 import { useState, useOptimistic, useMemo, startTransition } from "react";
-import { stable_models, experimental_models } from "@/lib/ai/models";
+import { stable_models } from "@/lib/ai/models";
 import { saveChatModelAsCookie } from "@/app/actions";
 
 interface ModelSelectorProps {
@@ -77,27 +77,6 @@ export function ModelsPopover({ selectedModelId }: ModelSelectorProps) {
           );
         })}
         <DropdownMenuSeparator />
-        <DropdownMenuLabel className=" font-normal">
-          <div className="flex-1 text-left leading-tight">
-            <span>Experimental Models</span>
-          </div>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        {experimental_models.map((m) => (
-          <DropdownMenuItem
-            key={m.name}
-            className="rounded-xl justify-between flex py-4 hover:cursor-pointer"
-            disabled
-          >
-            <div className="flex items-center gap-2">
-              <span className="font-medium">{m.name}</span>
-              <m.icon className="size-4" />
-            </div>
-            <UnstableTooltip>
-              <m.unstable className="size-4 text-orange-600" />
-            </UnstableTooltip>
-          </DropdownMenuItem>
-        ))}
       </DropdownMenuContent>
     </DropdownMenu>
   );

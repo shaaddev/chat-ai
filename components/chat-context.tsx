@@ -21,9 +21,11 @@ interface Chat {
 interface ChatContextType {
   chats: Chat[];
   loading: boolean;
+  loadingChats: Set<string>;
   refreshChats: () => Promise<void>;
   deleteChat: (chatId: string) => Promise<void>;
   addOptimisticChat: (chat: Chat) => void;
+  setChatLoading: (chatId: string, loading: boolean) => void;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -31,6 +33,7 @@ const ChatContext = createContext<ChatContextType | undefined>(undefined);
 export function ChatProvider({ children }: { children: ReactNode }) {
   const [chats, setChats] = useState<Chat[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingChats, setLoadingChats] = useState<Set<string>>(new Set());
 
   const fetchChats = useCallback(async () => {
     try {
@@ -85,6 +88,18 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const setChatLoading = useCallback((chatId: string, loading: boolean) => {
+    setLoadingChats((prev) => {
+      const newSet = new Set(prev);
+      if (loading) {
+        newSet.add(chatId);
+      } else {
+        newSet.delete(chatId);
+      }
+      return newSet;
+    });
+  }, []);
+
   const deleteChat = useCallback(async (chatId: string) => {
     try {
       const res = fetch(`/api/chats/${chatId}`, {
@@ -107,11 +122,21 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     () => ({
       chats,
       loading,
+      loadingChats,
       refreshChats,
       deleteChat,
       addOptimisticChat,
+      setChatLoading,
     }),
-    [chats, loading, refreshChats, deleteChat, addOptimisticChat],
+    [
+      chats,
+      loading,
+      loadingChats,
+      refreshChats,
+      deleteChat,
+      addOptimisticChat,
+      setChatLoading,
+    ],
   );
 
   return (
