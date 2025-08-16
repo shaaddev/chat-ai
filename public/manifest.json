@@ -1,0 +1,17 @@
+{
+  "name": "chat - shaaddev",
+  "short_name": "chat",
+  "description": "Personal chat app for shaaddev",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#171717",
+  "theme_color": "#171717",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "16x16 32x32",
+      "type": "image/x-icon"
+    }
+  ]
+}

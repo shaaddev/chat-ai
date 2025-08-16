@@ -29,6 +29,9 @@ importers:
       '@mdx-js/react':
         specifier: ^3.1.0
         version: 3.1.0(@types/react@19.0.8)(react@19.1.0)
+      '@nanostores/react':
+        specifier: git+https://github.com/ai/react.git
+        version: git+https://github.com/ai/react.git#a6ad745cc307881916944ee4d6ba04bdda978dc6(nanostores@0.11.3)(react@19.1.0)
       '@neondatabase/serverless':
         specifier: ^0.10.4
         version: 0.10.4
@@ -1238,6 +1241,14 @@ packages:
     resolution: {integrity: sha512-x0fWaQtYp4E6sktbsdAqnehxDgEc/VwM7uLsRCYWaiGu0ykYdZPiS8zCWdnjHwyiumousxfBm4SO31eXqwEZhQ==}
     cpu: [x64]
     os: [win32]
+
+  '@nanostores/react@git+https://github.com/ai/react.git#a6ad745cc307881916944ee4d6ba04bdda978dc6':
+    resolution: {commit: a6ad745cc307881916944ee4d6ba04bdda978dc6, repo: https://github.com/ai/react.git, type: git}
+    version: 1.0.0
+    engines: {node: ^20.0.0 || >=22.0.0}
+    peerDependencies:
+      nanostores: ^0.9.0 || ^0.10.0 || ^0.11.0 || ^1.0.0
+      react: '>=18.0.0'
 
   '@neondatabase/serverless@0.10.4':
     resolution: {integrity: sha512-2nZuh3VUO9voBauuh+IGYRhGU/MskWHt1IuZvHcJw6GLjDgtqj/KViKo7SIrLdGLdot7vFbiRRw+BgEy3wT9HA==}
@@ -5801,6 +5812,11 @@ snapshots:
 
   '@msgpackr-extract/msgpackr-extract-win32-x64@3.0.3':
     optional: true
+
+  '@nanostores/react@git+https://github.com/ai/react.git#a6ad745cc307881916944ee4d6ba04bdda978dc6(nanostores@0.11.3)(react@19.1.0)':
+    dependencies:
+      nanostores: 0.11.3
+      react: 19.1.0
 
   '@neondatabase/serverless@0.10.4':
     dependencies:

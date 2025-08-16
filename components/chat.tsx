@@ -9,7 +9,7 @@ import { ChatMessages } from "./chat-messages";
 import { generateUUID } from "@/lib/utils";
 import { useState } from "react";
 import { Session } from "@/lib/auth";
-import type { Attachment } from "ai";
+import type { Attachment } from "@/lib/types";
 import { toast } from "sonner";
 
 interface ChatProps {

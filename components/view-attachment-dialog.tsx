@@ -1,5 +1,5 @@
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
-import type { Attachment } from "ai";
+import type { Attachment } from "@/lib/types";
 
 export function ViewAttachmentDialog({
   children,

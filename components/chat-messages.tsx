@@ -2,7 +2,7 @@
 
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Markdown } from "./markdown";
-import { Message } from "ai";
+import type { Message } from "ai";
 import { useEffect, useRef } from "react";
 import { PreviewAttachment } from "./preview-attachment";
 import { UseChatHelpers } from "ai/react";

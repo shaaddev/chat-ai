@@ -3,7 +3,8 @@ import { FileInput } from "./file-input";
 import { Button } from "@/components/ui/button";
 import { Send, CirclePause } from "lucide-react";
 import { toast } from "sonner";
-import { ChatRequestOptions, type Attachment } from "ai";
+import { ChatRequestOptions } from "ai";
+import type { Attachment } from "@/lib/types";
 import {
   useCallback,
   useState,
@@ -55,7 +56,7 @@ export function ChatInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [textareaHeight, setTextareaHeight] = useState("72px");
   const [showLoginDialog, setShowLoginDialog] = useState(false);
-  const { refreshChats } = useChat();
+  const { refreshChats, addOptimisticChat } = useChat();
   const [uploadQueue, setUploadQueue] = useState<Array<string>>([]);
 
   const submitForm = useCallback(() => {
@@ -66,22 +67,31 @@ export function ChatInput({
       return;
     }
 
+    // Add optimistic chat to sidebar immediately
+    addOptimisticChat({
+      id: chatId!,
+      title: input.trim().slice(0, 80) || "New chat",
+      updatedAt: new Date(),
+      createdAt: new Date(),
+    });
+
     handleSubmit(undefined, {
       experimental_attachments: attachments,
-    });
+    } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
 
     setAttachments([]);
 
-    setTimeout(() => {
-      refreshChats();
-    }, 500);
+    // Refresh chats to get the actual data from server
+    refreshChats();
   }, [
     handleSubmit,
     chatId,
     isAuthenticated,
     refreshChats,
+    addOptimisticChat,
     attachments,
     setAttachments,
+    input,
   ]);
 
   const adjustTextareaHeight = useCallback(() => {

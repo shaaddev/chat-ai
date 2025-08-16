@@ -11,8 +11,13 @@ import {
 } from "@/components/ui/sidebar";
 import { useChat } from "@/components/chat-context";
 import { Session } from "@/lib/auth";
+import { memo } from "react";
 
-export function SidebarHistory({ session }: { session: Session | null }) {
+interface SidebarHistoryProps {
+  session: Session | null;
+}
+
+function SidebarHistoryComponent({ session }: SidebarHistoryProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { chats, loading, deleteChat } = useChat();
@@ -30,10 +35,8 @@ export function SidebarHistory({ session }: { session: Session | null }) {
     return (
       <SidebarMenu>
         <div className="space-y-2 px-2 rounded-xl">
-          {chats.map((chat, index) => (
-            <>
-              <Skeleton key={index} className="h-10 w-full" />
-            </>
+          {Array.from({ length: 3 }).map((_, index) => (
+            <Skeleton key={index} className="h-10 w-full" />
           ))}
         </div>
       </SidebarMenu>
@@ -81,3 +84,5 @@ export function SidebarHistory({ session }: { session: Session | null }) {
     </SidebarMenu>
   );
 }
+
+export const SidebarHistory = memo(SidebarHistoryComponent);

@@ -5,6 +5,8 @@ import {
   useContext,
   useState,
   useEffect,
+  useCallback,
+  useMemo,
   type ReactNode,
 } from "react";
 import { toast } from "sonner";
@@ -21,6 +23,7 @@ interface ChatContextType {
   loading: boolean;
   refreshChats: () => Promise<void>;
   deleteChat: (chatId: string) => Promise<void>;
+  addOptimisticChat: (chat: Chat) => void;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -29,7 +32,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [chats, setChats] = useState<Chat[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchChats = async () => {
+  const fetchChats = useCallback(async () => {
     try {
       setLoading(true);
       const res = await fetch("/api/chats", {
@@ -58,18 +61,31 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // initial fetch
   useEffect(() => {
     fetchChats();
+  }, [fetchChats]);
+
+  const refreshChats = useCallback(async () => {
+    await fetchChats();
+  }, [fetchChats]);
+
+  const addOptimisticChat = useCallback((chat: Chat) => {
+    setChats((prevChats) => {
+      // Check if chat already exists
+      const exists = prevChats.find((c) => c.id === chat.id);
+      if (exists) {
+        return prevChats;
+      }
+
+      // Add new chat at the beginning (most recent)
+      return [chat, ...prevChats];
+    });
   }, []);
 
-  const refreshChats = async () => {
-    await fetchChats();
-  };
-
-  const deleteChat = async (chatId: string) => {
+  const deleteChat = useCallback(async (chatId: string) => {
     try {
       const res = fetch(`/api/chats/${chatId}`, {
         method: "DELETE",
@@ -81,16 +97,25 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         error: "Failed to delete chat",
       });
 
-      setChats(chats.filter((chat) => chat.id !== chatId));
+      setChats((prevChats) => prevChats.filter((chat) => chat.id !== chatId));
     } catch (error) {
       console.error("Error deleting chat: ", error);
     }
-  };
+  }, []);
+
+  const contextValue = useMemo(
+    () => ({
+      chats,
+      loading,
+      refreshChats,
+      deleteChat,
+      addOptimisticChat,
+    }),
+    [chats, loading, refreshChats, deleteChat, addOptimisticChat],
+  );
 
   return (
-    <ChatContext.Provider value={{ chats, loading, refreshChats, deleteChat }}>
-      {children}
-    </ChatContext.Provider>
+    <ChatContext.Provider value={contextValue}>{children}</ChatContext.Provider>
   );
 }
 

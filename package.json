@@ -23,6 +23,7 @@
     "@hookform/resolvers": "^4.0.0",
     "@mdx-js/loader": "^3.1.0",
     "@mdx-js/react": "^3.1.0",
+    "@nanostores/react": "git+https://github.com/ai/react.git",
     "@neondatabase/serverless": "^0.10.4",
     "@next/mdx": "^15.1.6",
     "@radix-ui/react-accordion": "^1.2.10",

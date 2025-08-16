@@ -1,6 +1,6 @@
 import { Paperclip } from "lucide-react";
 import { toast } from "sonner";
-import type { Attachment } from "ai";
+import type { Attachment } from "@/lib/types";
 import {
   useRef,
   useCallback,
