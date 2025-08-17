@@ -3,7 +3,6 @@ import { FileInput } from "./file-input";
 import { Button } from "@/components/ui/button";
 import { Send, CirclePause } from "lucide-react";
 import { toast } from "sonner";
-import { ChatRequestOptions } from "ai";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import {
   useCallback,
@@ -100,6 +99,7 @@ export function ChatInput({
     // The chat will be properly saved when the AI response finishes
   }, [
     sendMessage,
+    setInput,
     chatId,
     isAuthenticated,
     addOptimisticChat,
@@ -177,7 +177,7 @@ export function ChatInput({
 
                 if (status !== "ready") {
                   toast.error(
-                    "Please wait for the model to finish its response!"
+                    "Please wait for the model to finish its response!",
                   );
                 } else {
                   if (!isAuthenticated) {

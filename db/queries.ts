@@ -129,7 +129,7 @@ export async function createStreamId({
   } catch (error) {
     throw new ChatSDKError(
       "bad_request:database",
-      "Failed to create stream id"
+      "Failed to create stream id",
     );
   }
 }
@@ -147,7 +147,7 @@ export async function getStreamIdsByChatId({ chatId }: { chatId: string }) {
   } catch (error) {
     throw new ChatSDKError(
       "bad_request:database",
-      "Failed to get stream ids by chat id"
+      "Failed to get stream ids by chat id",
     );
   }
 }
@@ -161,7 +161,7 @@ export async function getMessageCountByUserId({
 }) {
   try {
     const twentyFourHoursAgo = new Date(
-      Date.now() - differenceInHours * 60 * 60 * 1000
+      Date.now() - differenceInHours * 60 * 60 * 1000,
     );
 
     const [stats] = await db
@@ -172,8 +172,8 @@ export async function getMessageCountByUserId({
         and(
           eq(chat.userId, id),
           gte(message.createdAt, twentyFourHoursAgo),
-          eq(message.role, "user")
-        )
+          eq(message.role, "user"),
+        ),
       )
       .execute();
 
@@ -181,7 +181,7 @@ export async function getMessageCountByUserId({
   } catch (error) {
     throw new ChatSDKError(
       "bad_request:database",
-      "Failed to get message count by user id"
+      "Failed to get message count by user id",
     );
   }
 }

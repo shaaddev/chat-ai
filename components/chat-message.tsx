@@ -12,7 +12,7 @@ export interface messageProps {
 
 const PureChatMessage = ({ message }: messageProps) => {
   const attachmentsFromMessage = message.parts.filter(
-    (part) => part.type === "file"
+    (part) => part.type === "file",
   );
 
   return (

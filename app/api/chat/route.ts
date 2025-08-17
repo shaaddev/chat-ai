@@ -15,11 +15,7 @@ import {
   getMessagesByChatId,
   createStreamId,
 } from "@/db/queries";
-import {
-  getMostRecentUserMessage,
-  generateUUID,
-  convertToUIMessages,
-} from "@/lib/utils";
+import { generateUUID, convertToUIMessages } from "@/lib/utils";
 import { generateTitleFromUserMessage } from "@/app/actions";
 import { myProvider, stable_models } from "@/lib/ai/models";
 import { headers } from "next/headers";
@@ -47,10 +43,11 @@ export function getStreamContext() {
         waitUntil: after,
       });
       console.log(" > Resumable streams enabled");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       if (error.message.includes("REDIS_URL")) {
         console.log(
-          " > Resumable streams are disabled due to missing REDIS_URL"
+          " > Resumable streams are disabled due to missing REDIS_URL",
         );
       } else {
         console.error("Resumable stream context error:", error);
@@ -127,7 +124,7 @@ export async function POST(req: Request) {
     });
 
     const selectedModel = stable_models.find(
-      (model) => model.id === selectedChatModel
+      (model) => model.id === selectedChatModel,
     );
 
     if (!selectedModel) {
@@ -146,6 +143,7 @@ export async function POST(req: Request) {
             system: systemPrompt({ selectedChatModel }),
             messages: convertToModelMessages(uiMessages),
             experimental_transform: smoothStream({ chunking: "word" }),
+            stopWhen: stepCountIs(5),
           });
 
           // Use the stream directly instead of merging
@@ -185,7 +183,7 @@ export async function POST(req: Request) {
       },
     });
 
-    const streamContext = getStreamContext();
+    // const streamContext = getStreamContext();
 
     // Since we're temporarily disabling resumable streams, always use regular streaming
     console.log("Using regular streaming for chat:", id);
