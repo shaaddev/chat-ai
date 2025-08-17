@@ -1,8 +1,9 @@
 import "server-only";
 
-import { chat, message, type Message, user } from "./schema";
+import { chat, message, type Message, user, stream } from "./schema";
 import { db } from ".";
 import { eq, asc, desc } from "drizzle-orm";
+import { ChatSDKError } from "@/lib/errors";
 
 export async function saveChat({
   id,
@@ -31,6 +32,7 @@ export async function deleteChatById({ id }: { id: string }) {
   try {
     await db.delete(message).where(eq(message.chatId, id));
 
+    await db.delete(stream).where(eq(stream.chatId, id));
     return await db.delete(chat).where(eq(chat.id, id));
   } catch (error) {
     console.error("Failed to delete chat by id from database");
@@ -110,5 +112,42 @@ export async function isEmail(email: string): Promise<boolean> {
   } catch (error) {
     console.error("Failed to get email from database");
     throw error;
+  }
+}
+
+export async function createStreamId({
+  streamId,
+  chatId,
+}: {
+  streamId: string;
+  chatId: string;
+}) {
+  try {
+    await db
+      .insert(stream)
+      .values({ id: streamId, chatId, createdAt: new Date() });
+  } catch (error) {
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to create stream id"
+    );
+  }
+}
+
+export async function getStreamIdsByChatId({ chatId }: { chatId: string }) {
+  try {
+    const streamIds = await db
+      .select({ id: stream.id })
+      .from(stream)
+      .where(eq(stream.chatId, chatId))
+      .orderBy(asc(stream.createdAt))
+      .execute();
+
+    return streamIds.map(({ id }) => id);
+  } catch (error) {
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to get stream ids by chat id"
+    );
   }
 }

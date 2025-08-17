@@ -6,7 +6,8 @@ import {
   json,
   text,
   uuid,
-  // foreignKey,
+  foreignKey,
+  primaryKey,
   boolean,
 } from "drizzle-orm/pg-core";
 
@@ -38,6 +39,24 @@ export const message = pgTable("Message", {
 });
 
 export type Message = InferSelectModel<typeof message>;
+
+export const stream = pgTable(
+  "Stream",
+  {
+    id: uuid("id").notNull().defaultRandom(),
+    chatId: uuid("chatId").notNull(),
+    createdAt: timestamp("createdAt").notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.id] }),
+    chatRef: foreignKey({
+      columns: [table.chatId],
+      foreignColumns: [chat.id],
+    }),
+  })
+);
+
+export type Stream = InferSelectModel<typeof stream>;
 
 // better auth section - schemas
 export const user = pgTable("user", {

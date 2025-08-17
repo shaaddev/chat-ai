@@ -13,6 +13,7 @@ import {
   saveMessages,
   getChatById,
   getMessagesByChatId,
+  createStreamId,
 } from "@/db/queries";
 import {
   getMostRecentUserMessage,
@@ -26,13 +27,35 @@ import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { chat } from "@/db/schema";
 import { eq } from "drizzle-orm";
-// import {
-//   createResumableStreamContext,
-//   type ResumableStreamContext,
-// } from "resumable-stream";
-// import { after } from "next/server";
+import {
+  createResumableStreamContext,
+  type ResumableStreamContext,
+} from "resumable-stream";
+import { after } from "next/server";
 
-export const maxDuration = 30;
+export const maxDuration = 60;
+
+let globalStreamContext: ResumableStreamContext | null = null;
+
+export function getStreamContext() {
+  if (!globalStreamContext) {
+    try {
+      globalStreamContext = createResumableStreamContext({
+        waitUntil: after,
+      });
+    } catch (error: any) {
+      if (error.message.includes("REDIS_URL")) {
+        console.log(
+          " > Resumable streams are disabled due to missing REDIS_URL"
+        );
+      } else {
+        console.error(error);
+      }
+    }
+  }
+
+  return globalStreamContext;
+}
 
 export async function POST(req: Request) {
   try {
@@ -101,6 +124,9 @@ export async function POST(req: Request) {
       return new Response("Invalid model selected", { status: 400 });
     }
 
+    const streamId = generateUUID();
+    await createStreamId({ streamId, chatId: id });
+
     const stream = createUIMessageStream({
       execute: ({ writer: dataStream }) => {
         const res = streamText({
@@ -109,44 +135,44 @@ export async function POST(req: Request) {
           messages: convertToModelMessages(uiMessages),
           stopWhen: stepCountIs(5),
           experimental_transform: smoothStream({ chunking: "word" }),
-          generateId: generateUUID,
-          onFinish: async ({ messages }) => {
-            try {
-              await saveMessages({
-                messages: messages.map((message) => ({
-                  id: message.id,
-                  role: message.role,
-                  parts: message.parts,
-                  attachments: [],
-                  createdAt: new Date(),
-                  chatId: id,
-                })),
-              });
-            } catch (error) {
-              console.error("Failed to save chat", error);
-            }
-          },
         });
         res.consumeStream();
 
         dataStream.merge(res.toUIMessageStream());
+      },
+      generateId: generateUUID,
+      onFinish: async ({ messages }) => {
+        try {
+          await saveMessages({
+            messages: messages.map((message) => ({
+              id: message.id,
+              role: message.role,
+              parts: message.parts,
+              attachments: [],
+              createdAt: new Date(),
+              chatId: id,
+            })),
+          });
+        } catch (error) {
+          console.error("Failed to save chat", error);
+        }
       },
       onError: () => {
         return "Oops, an error occurred";
       },
     });
 
-    // const streamContext = getStreamContext();
+    const streamContext = getStreamContext();
 
-    // if (streamContext) {
-    //   return new Response(
-    //     await streamContext.resumableStream(streamId, () =>
-    //       stream.pipeThrough(new JsonToSseTransformStream())
-    //     )
-    //   );
-    // } else {
-    //   return new Response(stream.pipeThrough(new JsonToSseTransformStream()));
-    // }
+    if (streamContext) {
+      return new Response(
+        await streamContext.resumableStream(streamId, () =>
+          stream.pipeThrough(new JsonToSseTransformStream())
+        )
+      );
+    } else {
+      return new Response(stream.pipeThrough(new JsonToSseTransformStream()));
+    }
   } catch (error) {
     console.error("Chat API error:", error);
     return new Response("Internal server error", { status: 500 });

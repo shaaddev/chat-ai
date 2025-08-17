@@ -83,6 +83,7 @@
     "react-markdown": "^9.0.3",
     "react-resizable-panels": "^3.0.2",
     "recharts": "^2.15.3",
+    "redis": "^5.8.1",
     "remark-gfm": "^4.0.0",
     "resend": "^4.1.2",
     "resumable-stream": "^2.2.3",
