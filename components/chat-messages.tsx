@@ -8,9 +8,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface MessagesProps {
   chatId: string;
-  status: UseChatHelpers["status"];
+  status: UseChatHelpers<ChatMessage>["status"];
   messages: ChatMessage[];
-  setMessages: UseChatHelpers["setMessages"];
+  setMessages: UseChatHelpers<ChatMessage>["setMessages"];
 }
 
 function PureMessages({ chatId, messages, status }: MessagesProps) {

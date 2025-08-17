@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Send, CirclePause } from "lucide-react";
 import { toast } from "sonner";
 import { ChatRequestOptions } from "ai";
-import type { Attachment } from "@/lib/types";
+import type { Attachment, ChatMessage } from "@/lib/types";
 import {
   useCallback,
   useState,
@@ -20,31 +20,24 @@ import { PreviewAttachment } from "./preview-attachment";
 import { UseChatHelpers } from "@ai-sdk/react";
 
 interface ChatInputProps {
-  handleSubmit: (
-    event?: {
-      preventDefault?: () => void;
-    },
-    chatRequestOptions?: ChatRequestOptions
-  ) => void;
+  setInput: Dispatch<SetStateAction<string>>;
   input: string;
-  handleInputChange: (
-    e:
-      | React.ChangeEvent<HTMLInputElement>
-      | React.ChangeEvent<HTMLTextAreaElement>
-  ) => void;
-  status: UseChatHelpers["status"];
+  sendMessage: UseChatHelpers<ChatMessage>["sendMessage"];
+  stop: () => void;
+  status: UseChatHelpers<ChatMessage>["status"];
   chatId: string | undefined;
   initialChatModel: string;
   attachments: Array<Attachment>;
   setAttachments: Dispatch<SetStateAction<Array<Attachment>>>;
   isAuthenticated?: boolean;
-  setMessages: UseChatHelpers["setMessages"];
+  setMessages: UseChatHelpers<ChatMessage>["setMessages"];
 }
 
 export function ChatInput({
-  handleSubmit,
+  setInput,
   input,
-  handleInputChange,
+  sendMessage,
+  stop,
   status,
   chatId,
   initialChatModel,
@@ -79,9 +72,21 @@ export function ChatInput({
     });
 
     try {
-      handleSubmit(undefined, {
-        experimental_attachments: attachments,
-      } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
+      sendMessage({
+        role: "user",
+        parts: [
+          ...attachments.map((attachment) => ({
+            type: "file" as const,
+            name: attachment.name,
+            mediaType: attachment.contentType,
+            url: attachment.url,
+          })),
+          {
+            type: "text",
+            text: input,
+          },
+        ],
+      });
     } catch (error) {
       // Clear loading state on error
       setChatLoading(chatId!, false);
@@ -89,11 +94,12 @@ export function ChatInput({
     }
 
     setAttachments([]);
+    setInput("");
 
     // Don't refresh chats immediately - let the optimistic update stay
     // The chat will be properly saved when the AI response finishes
   }, [
-    handleSubmit,
+    sendMessage,
     chatId,
     isAuthenticated,
     addOptimisticChat,
@@ -119,10 +125,8 @@ export function ChatInput({
     adjustTextareaHeight();
   }, [input, adjustTextareaHeight]);
 
-  const customHandleInputChange = (
-    e: React.ChangeEvent<HTMLTextAreaElement>
-  ) => {
-    handleInputChange(e);
+  const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value);
     adjustTextareaHeight();
   };
 
@@ -161,7 +165,7 @@ export function ChatInput({
           <textarea
             ref={textareaRef}
             value={input}
-            onChange={customHandleInputChange}
+            onChange={handleInput}
             placeholder="Type your message here..."
             className="w-full resize-none bg-transparent border-0 focus:ring-0 text-base text-neutral-100 placeholder-neutral-400 p-6 pt-4  outline-hidden disabled:opacity-0 "
             rows={1}
@@ -217,7 +221,7 @@ function PureStopButton({
   setMessages,
 }: {
   stop: () => void;
-  setMessages: UseChatHelpers["setMessages"];
+  setMessages: UseChatHelpers<ChatMessage>["setMessages"];
 }) {
   return (
     <Button

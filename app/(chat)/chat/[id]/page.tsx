@@ -3,11 +3,9 @@ import { notFound } from "next/navigation";
 import { getChatById, getMessagesByChatId } from "@/db/queries";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import { UIMessage } from "ai";
-import type { Attachment } from "@/lib/types";
-import { Message } from "@/db/schema";
 import { cookies } from "next/headers";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
+import { convertToUIMessages } from "@/lib/utils";
 
 export default async function Page(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
@@ -25,17 +23,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
     id,
   });
 
-  function convertToUIMessages(messages: Array<Message>): Array<UIMessage> {
-    return messages.map((message) => ({
-      id: message.id,
-      parts: message.parts as UIMessage["parts"],
-      role: message.role as UIMessage["role"],
-      content: "",
-      createdAt: message.createdAt,
-      experimental_attachments:
-        (message.attachments as Array<Attachment>) ?? [],
-    }));
-  }
+  const uiMessages = convertToUIMessages(messagesFromDb);
 
   const cookieStore = await cookies();
   const modelIdFromCookie = cookieStore.get("chat-model");
@@ -46,7 +34,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
         <DynamicChat
           id={chat.id}
           initialChatModel={DEFAULT_CHAT_MODEL}
-          initialMessages={convertToUIMessages(messagesFromDb)}
+          initialMessages={uiMessages}
           session={session}
         />
       </div>
@@ -57,7 +45,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
       <DynamicChat
         id={chat.id}
         initialChatModel={modelIdFromCookie.value}
-        initialMessages={convertToUIMessages(messagesFromDb)}
+        initialMessages={uiMessages}
         session={session}
       />
     </>

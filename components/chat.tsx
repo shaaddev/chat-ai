@@ -1,23 +1,25 @@
 "use client";
-import { useChat, type Message } from "@ai-sdk/react";
+import { useChat } from "@ai-sdk/react";
+import type { ChatMessage } from "@/lib/types";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { ChatHistory } from "./chat-history";
 import { ChatInput } from "./chat-input";
 import { Messages } from "./chat-messages";
-import { generateUUID } from "@/lib/utils";
+import { fetchWithErrorHandlers, generateUUID } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { Session } from "@/lib/auth";
 import type { Attachment } from "@/lib/types";
 import { toast } from "sonner";
 import { useChat as useChatContext } from "@/components/chat-context";
+import { DefaultChatTransport } from "ai";
 
 interface ChatProps {
   id: string;
   session: Session | null;
   initialChatModel: string;
-  initialMessages?: Array<Message>;
+  initialMessages: ChatMessage[];
 }
 
 export function Chat({
@@ -29,29 +31,33 @@ export function Chat({
   const [isAuthenticated] = useState(session ? true : false);
   const { setChatLoading, refreshChats } = useChatContext();
   const [isNewChat, setIsNewChat] = useState(initialMessages?.length === 0);
+  const [input, setInput] = useState("");
 
-  const {
-    messages,
-    input,
-    handleInputChange,
-    handleSubmit,
-    status,
-    setMessages,
-  } = useChat({
-    api: "/api/chat",
-    id,
-    body: {
+  const { messages, sendMessage, status, setMessages, stop } =
+    useChat<ChatMessage>({
       id,
-      selectedChatModel: initialChatModel,
-    },
-    initialMessages,
-    generateId: generateUUID,
-    onError: (err) => {
-      toast.error("Error", {
-        description: err.message,
-      });
-    },
-  });
+      messages: initialMessages,
+      generateId: generateUUID,
+      transport: new DefaultChatTransport({
+        api: "/api/chat",
+        fetch: fetchWithErrorHandlers,
+        prepareSendMessagesRequest({ messages, id, body }) {
+          return {
+            body: {
+              id,
+              message: messages.at(-1),
+              selectedChatModel: initialChatModel,
+              ...body,
+            },
+          };
+        },
+      }),
+      onError: (err) => {
+        toast.error("Error", {
+          description: err.message,
+        });
+      },
+    });
 
   // Clear loading state when AI starts responding or finishes
   useEffect(() => {
@@ -98,10 +104,11 @@ export function Chat({
               <p className="text-center text-sm text-gray-400">shaaddev</p>
               <ChatInput
                 input={input}
-                handleInputChange={handleInputChange}
-                handleSubmit={handleSubmit}
+                setInput={setInput}
+                sendMessage={sendMessage}
                 status={status}
                 chatId={id}
+                stop={stop}
                 initialChatModel={initialChatModel}
                 isAuthenticated={isAuthenticated}
                 attachments={attachments}

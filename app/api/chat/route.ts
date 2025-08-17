@@ -32,24 +32,28 @@ import {
   type ResumableStreamContext,
 } from "resumable-stream";
 import { after } from "next/server";
+import { ChatSDKError } from "@/lib/errors";
+import { postRequestBodySchema, type PostRequestBody } from "./schema";
 
 export const maxDuration = 60;
 
 let globalStreamContext: ResumableStreamContext | null = null;
 
 export function getStreamContext() {
+  // Original code (uncomment when Redis is configured):
   if (!globalStreamContext) {
     try {
       globalStreamContext = createResumableStreamContext({
         waitUntil: after,
       });
+      console.log(" > Resumable streams enabled");
     } catch (error: any) {
       if (error.message.includes("REDIS_URL")) {
         console.log(
           " > Resumable streams are disabled due to missing REDIS_URL"
         );
       } else {
-        console.error(error);
+        console.error("Resumable stream context error:", error);
       }
     }
   }
@@ -58,23 +62,29 @@ export function getStreamContext() {
 }
 
 export async function POST(req: Request) {
+  let requestBody: PostRequestBody;
+
+  try {
+    const json = await req.json();
+    console.log("JSON", json);
+    requestBody = postRequestBodySchema.parse(json);
+    console.log("REQUEST BODY", requestBody);
+  } catch (error) {
+    console.log("ERROR", error);
+    return new ChatSDKError("bad_request:api").toResponse();
+  }
+
   try {
     const {
       id,
-      messages,
+      message,
       selectedChatModel,
-    }: { id: string; messages: Array<ChatMessage>; selectedChatModel: string } =
-      await req.json();
+    }: { id: string; message: ChatMessage; selectedChatModel: string } =
+      requestBody;
 
     const session = await auth.api.getSession({
       headers: await headers(),
     });
-
-    const message = getMostRecentUserMessage(messages);
-
-    if (!message) {
-      return new Response("No user message found", { status: 400 });
-    }
 
     const existingChat = await getChatById({ id });
 
@@ -128,17 +138,30 @@ export async function POST(req: Request) {
     await createStreamId({ streamId, chatId: id });
 
     const stream = createUIMessageStream({
-      execute: ({ writer: dataStream }) => {
-        const res = streamText({
-          model: myProvider.languageModel(selectedChatModel),
-          system: systemPrompt({ selectedChatModel }),
-          messages: convertToModelMessages(uiMessages),
-          stopWhen: stepCountIs(5),
-          experimental_transform: smoothStream({ chunking: "word" }),
-        });
-        res.consumeStream();
+      execute: async ({ writer: dataStream }) => {
+        try {
+          console.log("Starting stream execution for chat:", id);
+          const res = streamText({
+            model: myProvider.languageModel(selectedChatModel),
+            system: systemPrompt({ selectedChatModel }),
+            messages: convertToModelMessages(uiMessages),
+            experimental_transform: smoothStream({ chunking: "word" }),
+          });
 
-        dataStream.merge(res.toUIMessageStream());
+          // Use the stream directly instead of merging
+          for await (const chunk of res.toUIMessageStream()) {
+            console.log("Writing chunk:", chunk.type);
+            dataStream.write(chunk);
+          }
+          console.log("Stream execution completed for chat:", id);
+        } catch (error) {
+          console.error("Stream execution error:", error);
+          dataStream.write({
+            type: "error",
+            errorText:
+              "An error occurred while generating the response. Please try again.",
+          });
+        }
       },
       generateId: generateUUID,
       onFinish: async ({ messages }) => {
@@ -164,15 +187,15 @@ export async function POST(req: Request) {
 
     const streamContext = getStreamContext();
 
-    if (streamContext) {
-      return new Response(
-        await streamContext.resumableStream(streamId, () =>
-          stream.pipeThrough(new JsonToSseTransformStream())
-        )
-      );
-    } else {
-      return new Response(stream.pipeThrough(new JsonToSseTransformStream()));
-    }
+    // Since we're temporarily disabling resumable streams, always use regular streaming
+    console.log("Using regular streaming for chat:", id);
+    return new Response(stream.pipeThrough(new JsonToSseTransformStream()), {
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      },
+    });
   } catch (error) {
     console.error("Chat API error:", error);
     return new Response("Internal server error", { status: 500 });
