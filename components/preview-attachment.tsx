@@ -1,4 +1,4 @@
-import type { Attachment } from "ai";
+import type { Attachment } from "@/lib/types";
 import { File, Loader } from "lucide-react";
 import { ViewAttachmentDialog } from "./view-attachment-dialog";
 import { cn } from "@/lib/utils";
@@ -20,7 +20,7 @@ export const PreviewAttachment = ({
         className={cn(
           className,
           "aspect-video bg-muted rounded-2xl relative flex flex-col items-center justify-center",
-          contentType?.startsWith("image") && "bg-transparent",
+          contentType?.startsWith("image") && "bg-transparent"
         )}
       >
         {contentType ? (

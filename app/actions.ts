@@ -1,6 +1,6 @@
 "use server";
 
-import { Message, generateText } from "ai";
+import { UIMessage, generateText } from "ai";
 import { cookies } from "next/headers";
 import { myProvider } from "@/lib/ai/models";
 
@@ -8,7 +8,7 @@ import { myProvider } from "@/lib/ai/models";
 export async function generateTitleFromUserMessage({
   message,
 }: {
-  message: Message;
+  message: UIMessage;
 }) {
   const { text: title } = await generateText({
     model: myProvider.languageModel("title-model"),

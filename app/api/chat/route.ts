@@ -1,16 +1,23 @@
 import {
-  UIMessage,
   streamText,
-  appendResponseMessages,
-  createDataStreamResponse,
+  convertToModelMessages,
+  createUIMessageStream,
   smoothStream,
+  JsonToSseTransformStream,
+  stepCountIs,
 } from "ai";
+import { ChatMessage } from "@/lib/types";
 import { systemPrompt } from "@/lib/ai/prompts";
-import { saveChat, saveMessages, getChatById } from "@/db/queries";
+import {
+  saveChat,
+  saveMessages,
+  getChatById,
+  getMessagesByChatId,
+} from "@/db/queries";
 import {
   getMostRecentUserMessage,
   generateUUID,
-  getTrailingMessageId,
+  convertToUIMessages,
 } from "@/lib/utils";
 import { generateTitleFromUserMessage } from "@/app/actions";
 import { myProvider, stable_models } from "@/lib/ai/models";
@@ -19,6 +26,11 @@ import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { chat } from "@/db/schema";
 import { eq } from "drizzle-orm";
+// import {
+//   createResumableStreamContext,
+//   type ResumableStreamContext,
+// } from "resumable-stream";
+// import { after } from "next/server";
 
 export const maxDuration = 30;
 
@@ -28,7 +40,7 @@ export async function POST(req: Request) {
       id,
       messages,
       selectedChatModel,
-    }: { id: string; messages: Array<UIMessage>; selectedChatModel: string } =
+    }: { id: string; messages: Array<ChatMessage>; selectedChatModel: string } =
       await req.json();
 
     const session = await auth.api.getSession({
@@ -53,7 +65,7 @@ export async function POST(req: Request) {
       // Update the chat title if it's still the default "New chat" title
       if (
         existingChat.title === "New chat" ||
-        existingChat.title === message.content?.slice(0, 80)
+        existingChat.title === message.parts[0].type.slice(0, 80)
       ) {
         const title = await generateTitleFromUserMessage({ message: message });
         await db
@@ -65,6 +77,9 @@ export async function POST(req: Request) {
       return new Response("Unauthorized", { status: 401 });
     }
 
+    const messagesFromDb = await getMessagesByChatId({ id });
+    const uiMessages = [...convertToUIMessages(messagesFromDb), message];
+
     await saveMessages({
       messages: [
         {
@@ -72,58 +87,40 @@ export async function POST(req: Request) {
           id: message.id,
           role: "user",
           parts: message.parts,
-          attachments: message.experimental_attachments ?? [],
+          attachments: [],
           createdAt: new Date(),
         },
       ],
     });
 
     const selectedModel = stable_models.find(
-      (model) => model.id === selectedChatModel,
+      (model) => model.id === selectedChatModel
     );
 
     if (!selectedModel) {
       return new Response("Invalid model selected", { status: 400 });
     }
 
-    return createDataStreamResponse({
-      execute: (dataStream) => {
+    const stream = createUIMessageStream({
+      execute: ({ writer: dataStream }) => {
         const res = streamText({
           model: myProvider.languageModel(selectedChatModel),
           system: systemPrompt({ selectedChatModel }),
-          messages,
-          maxSteps: 5,
+          messages: convertToModelMessages(uiMessages),
+          stopWhen: stepCountIs(5),
           experimental_transform: smoothStream({ chunking: "word" }),
-          experimental_generateMessageId: generateUUID,
-          onFinish: async ({ response }) => {
+          generateId: generateUUID,
+          onFinish: async ({ messages }) => {
             try {
-              const assistantId = getTrailingMessageId({
-                messages: response.messages.filter(
-                  (message) => message.role === "assistant",
-                ),
-              });
-
-              if (!assistantId) {
-                throw new Error("No assistant message found!");
-              }
-
-              const [, assistantMessage] = appendResponseMessages({
-                messages: [message],
-                responseMessages: response.messages,
-              });
-
               await saveMessages({
-                messages: [
-                  {
-                    id: assistantId,
-                    chatId: id,
-                    role: assistantMessage.role,
-                    parts: assistantMessage.parts,
-                    attachments:
-                      assistantMessage.experimental_attachments ?? [],
-                    createdAt: new Date(),
-                  },
-                ],
+                messages: messages.map((message) => ({
+                  id: message.id,
+                  role: message.role,
+                  parts: message.parts,
+                  attachments: [],
+                  createdAt: new Date(),
+                  chatId: id,
+                })),
               });
             } catch (error) {
               console.error("Failed to save chat", error);
@@ -132,12 +129,24 @@ export async function POST(req: Request) {
         });
         res.consumeStream();
 
-        res.mergeIntoDataStream(dataStream);
+        dataStream.merge(res.toUIMessageStream());
       },
       onError: () => {
         return "Oops, an error occurred";
       },
     });
+
+    // const streamContext = getStreamContext();
+
+    // if (streamContext) {
+    //   return new Response(
+    //     await streamContext.resumableStream(streamId, () =>
+    //       stream.pipeThrough(new JsonToSseTransformStream())
+    //     )
+    //   );
+    // } else {
+    //   return new Response(stream.pipeThrough(new JsonToSseTransformStream()));
+    // }
   } catch (error) {
     console.error("Chat API error:", error);
     return new Response("Internal server error", { status: 500 });

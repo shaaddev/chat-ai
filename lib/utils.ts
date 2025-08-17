@@ -1,6 +1,14 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import type { UIMessage, CoreAssistantMessage, CoreToolMessage } from "ai";
+import type {
+  UIMessage,
+  CoreAssistantMessage,
+  CoreToolMessage,
+  UIMessagePart,
+} from "ai";
+import { ChatMessage } from "./types";
+import { formatISO } from "date-fns";
+import { Message as DbMessage } from "@/db/schema";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -24,7 +32,7 @@ export const fetcher = async (url: string) => {
 
   if (!res.ok) {
     const error = new Error(
-      "An error occurred while fetching the data.",
+      "An error occurred while fetching the data."
     ) as ApplicationError;
 
     error.info = await res.json();
@@ -71,7 +79,7 @@ export function sanitizeResponseMessages({
         ? toolResultIds.includes(content.toolCallId)
         : content.type === "text"
           ? content.text.length > 0
-          : true,
+          : true
     );
 
     // if (reasoning) {
@@ -86,7 +94,7 @@ export function sanitizeResponseMessages({
   });
 
   return messagesBySanitizedContent.filter(
-    (message) => message.content.length > 0,
+    (message) => message.content.length > 0
   );
 }
 
@@ -100,4 +108,15 @@ export function getTrailingMessageId({
   if (!trailingMessage) return null;
 
   return trailingMessage.id;
+}
+
+export function convertToUIMessages(messages: DbMessage[]): ChatMessage[] {
+  return messages.map((message) => ({
+    id: message.id,
+    role: message.role as "user" | "assistant" | "system",
+    parts: message.parts as UIMessagePart,
+    metadata: {
+      createdAt: formatISO(message.createdAt),
+    },
+  }));
 }

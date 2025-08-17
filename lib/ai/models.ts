@@ -45,7 +45,7 @@ export const myProvider = customProvider({
   languageModels: {
     "google-model-2-0": google("gemini-2.0-flash"),
     "chat-5-mini": openai("gpt-5-mini"),
-    "chat-o3-mini": openai("o3-mini-2025-01-31"),
+    "chat-o3-mini": openai("o3-mini"),
     "chat-4o-mini": openai("gpt-4o-mini"),
     "title-model": google("gemini-2.0-flash"),
   },

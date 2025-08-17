@@ -1,11 +1,11 @@
 "use client";
-import { useChat, type Message } from "ai/react";
+import { useChat, type Message } from "@ai-sdk/react";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { ChatHistory } from "./chat-history";
 import { ChatInput } from "./chat-input";
-import { ChatMessages } from "./chat-messages";
+import { Messages } from "./chat-messages";
 import { generateUUID } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { Session } from "@/lib/auth";
@@ -87,7 +87,12 @@ export function Chat({
           </header>
 
           <div className="flex flex-col flex-1 w-full border-l border-t rounded-tl-2xl overflow-hidden">
-            <ChatMessages status={status} messages={messages} />
+            <Messages
+              status={status}
+              messages={messages}
+              setMessages={setMessages}
+              chatId={id}
+            />
 
             <div className="max-w-3xl mx-auto space-y-4 w-full">
               <p className="text-center text-sm text-gray-400">shaaddev</p>
