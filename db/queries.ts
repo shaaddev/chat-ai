@@ -2,7 +2,7 @@ import "server-only";
 
 import { chat, message, type Message, user, stream } from "./schema";
 import { db } from ".";
-import { eq, asc, desc, and, gte, count } from "drizzle-orm";
+import { eq, asc, desc } from "drizzle-orm";
 import { ChatSDKError } from "@/lib/errors";
 
 export async function saveChat({
@@ -148,40 +148,6 @@ export async function getStreamIdsByChatId({ chatId }: { chatId: string }) {
     throw new ChatSDKError(
       "bad_request:database",
       "Failed to get stream ids by chat id",
-    );
-  }
-}
-
-export async function getMessageCountByUserId({
-  id,
-  differenceInHours,
-}: {
-  id: string;
-  differenceInHours: number;
-}) {
-  try {
-    const twentyFourHoursAgo = new Date(
-      Date.now() - differenceInHours * 60 * 60 * 1000,
-    );
-
-    const [stats] = await db
-      .select({ count: count(message.id) })
-      .from(message)
-      .innerJoin(chat, eq(message.chatId, chat.id))
-      .where(
-        and(
-          eq(chat.userId, id),
-          gte(message.createdAt, twentyFourHoursAgo),
-          eq(message.role, "user"),
-        ),
-      )
-      .execute();
-
-    return stats?.count ?? 0;
-  } catch (error) {
-    throw new ChatSDKError(
-      "bad_request:database",
-      "Failed to get message count by user id",
     );
   }
 }
