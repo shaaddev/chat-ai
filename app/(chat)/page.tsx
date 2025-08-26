@@ -3,7 +3,7 @@ import { generateUUID } from "@/lib/utils";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
-import { DynamicChat } from "@/components/dynamic-chat";
+import { Chat } from "@/components/chat";
 
 export default async function Page() {
   const id = generateUUID();
@@ -17,7 +17,7 @@ export default async function Page() {
   if (!modelIdFromCookie) {
     return (
       <div className="flex flex-col min-h-screen w-full">
-        <DynamicChat
+        <Chat
           id={id}
           initialChatModel={DEFAULT_CHAT_MODEL}
           initialMessages={[]}
@@ -29,7 +29,7 @@ export default async function Page() {
 
   return (
     <div className="flex flex-col min-h-screen w-full">
-      <DynamicChat
+      <Chat
         id={id}
         initialChatModel={modelIdFromCookie.value}
         initialMessages={[]}

@@ -16,7 +16,6 @@ import {
 import { LogOut, ChevronsUpDown, User } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
-import { useTransitionRouter } from "next-view-transitions";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
@@ -30,7 +29,6 @@ export function SidebarUser({ email, avatar, name }: UserProps) {
   const { isMobile } = useSidebar();
   const router = useRouter();
 
-  const transitionRouter = useTransitionRouter();
   const handleLogout = async () => {
     await authClient.signOut({
       fetchOptions: {
@@ -93,7 +91,7 @@ export function SidebarUser({ email, avatar, name }: UserProps) {
             <DropdownMenuGroup>
               <DropdownMenuItem
                 className="rounded-xl hover:cursor-pointer"
-                onClick={() => transitionRouter.push("/account")}
+                onClick={() => router.push("/account")}
               >
                 <User />
                 Account Settings

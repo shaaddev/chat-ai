@@ -1,6 +1,6 @@
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { Link } from "next-view-transitions";
+import Link from "next/link";
 import { HomeIcon, UserIcon, LogOutIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";

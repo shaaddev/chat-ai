@@ -4,7 +4,7 @@ import Link from "next/link";
 
 type AnchorProps = ComponentPropsWithoutRef<"a">;
 
-export const CustomLink = ({ href, children, ...otherProps }: AnchorProps) => {
+const CustomLink = ({ href, children, ...otherProps }: AnchorProps) => {
   const className = "text-blue-500 hover:text-primary/80 hover:underline";
   if (href?.startsWith("/")) {
     return (

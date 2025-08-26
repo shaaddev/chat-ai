@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { ViewTransitions } from "next-view-transitions";
 import { Toaster } from "@/components/ui/sonner";
 import { ChatProvider } from "@/components/chat-context";
 import { PerformanceMonitor } from "@/components/performance-monitor";
@@ -49,31 +48,30 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ViewTransitions>
-      <html lang="en" suppressHydrationWarning>
-        <head>
-          <link rel="preconnect" href="https://fonts.googleapis.com" />
-          <link
-            rel="preconnect"
-            href="https://fonts.gstatic.com"
-            crossOrigin="anonymous"
-          />
-          <link rel="dns-prefetch" href="//fonts.googleapis.com" />
-          <link rel="manifest" href="/manifest.json" />
-        </head>
-        <body
-          className={`${geistSans.variable} ${geistMono.variable} antialiased bg-neutral-900`}
-        >
-          <ChatProvider>
-            <main className="lg:mx-auto">{children}</main>
-            <Toaster position="bottom-right" className="bg-neutral-800" />
-          </ChatProvider>
-          {process.env.NODE_ENV === "development" && <PerformanceMonitor />}
-          <Script
-            id="service-worker"
-            strategy="afterInteractive"
-            dangerouslySetInnerHTML={{
-              __html: `
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
+        <link rel="dns-prefetch" href="//fonts.googleapis.com" />
+        <link rel="manifest" href="/manifest.json" />
+      </head>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-neutral-900`}
+      >
+        <ChatProvider>
+          <main className="lg:mx-auto">{children}</main>
+          <Toaster position="bottom-right" className="bg-neutral-800" />
+        </ChatProvider>
+        {process.env.NODE_ENV === "development" && <PerformanceMonitor />}
+        <Script
+          id="service-worker"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
                 if ('serviceWorker' in navigator) {
                   window.addEventListener('load', function() {
                     navigator.serviceWorker.register('/sw.js')
@@ -86,10 +84,9 @@ export default function RootLayout({
                   });
                 }
               `,
-            }}
-          />
-        </body>
-      </html>
-    </ViewTransitions>
+          }}
+        />
+      </body>
+    </html>
   );
 }
