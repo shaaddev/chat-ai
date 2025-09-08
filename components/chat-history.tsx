@@ -7,8 +7,8 @@ import {
 import { SidebarHistory } from "./sidebar-history";
 import { SidebarUser } from "./sidebar-user";
 import { NewChat } from "./new-chat-btn";
-import { LoginDialog } from "./auth/login-dialog";
 import { Session } from "@/lib/auth";
+import { LoginBtn } from "./auth/login-btn";
 
 export function ChatHistory({ session }: { session: Session | null }) {
   return (
@@ -27,7 +27,7 @@ export function ChatHistory({ session }: { session: Session | null }) {
             name={session?.user.name}
           />
         ) : (
-          <LoginDialog />
+          <LoginBtn />
         )}
       </SidebarFooter>
     </Sidebar>
