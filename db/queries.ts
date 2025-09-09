@@ -126,6 +126,7 @@ export async function createStreamId({
     await db
       .insert(stream)
       .values({ id: streamId, chatId, createdAt: new Date() });
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (error) {
     throw new ChatSDKError(
       "bad_request:database",
@@ -144,6 +145,7 @@ export async function getStreamIdsByChatId({ chatId }: { chatId: string }) {
       .execute();
 
     return streamIds.map(({ id }) => id);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (error) {
     throw new ChatSDKError(
       "bad_request:database",
