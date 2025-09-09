@@ -15,6 +15,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { get_email } from "./action";
 import { AlertCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { OTPForm } from "./otp-form";
 
 const schema = z.object({
   email: z.string().min(1, {
@@ -22,7 +24,13 @@ const schema = z.object({
   }),
 });
 
-export function LoginForm() {
+export function LoginForm({
+  isOtpStep,
+  setIsOtpStep,
+}: {
+  isOtpStep: boolean;
+  setIsOtpStep: (isOtpStep: boolean) => void;
+}) {
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -32,6 +40,7 @@ export function LoginForm() {
   const [isPending, setIsPending] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [submittedEmail, setSubmittedEmail] = useState("");
 
   const onSubmit = async (values: z.infer<typeof schema>) => {
     setIsPending(true);
@@ -47,10 +56,12 @@ export function LoginForm() {
       const res = await get_email(formData);
 
       if (res.success) {
-        setSuccessMessage("Success! Check your emails");
+        setSubmittedEmail(values.email);
+        setIsOtpStep(true);
+        setSuccessMessage("");
       } else {
         setErrorMessage(
-          "Your email has been blocked! Contact the owner of this website to gain access.",
+          "Your email has been blocked! Contact the owner of this website to gain access."
         );
       }
     } catch (error) {
@@ -65,36 +76,45 @@ export function LoginForm() {
 
   return (
     <div className="w-full">
-      <Form {...form}>
-        <form
-          onSubmit={form.handleSubmit(onSubmit)}
-          className="space-y-8 text-center"
-        >
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem>
-                <FormControl>
-                  <Input
-                    placeholder="Email"
-                    {...field}
-                    className="rounded-xl"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <Button
-            type="submit"
-            className="w-full bg-neutral-800 text-neutral-100 rounded-xl hover:bg-neutral-900"
-            disabled={isPending}
+      {!isOtpStep ? (
+        <Form {...form}>
+          <form
+            onSubmit={form.handleSubmit(onSubmit)}
+            className="space-y-8 text-center"
           >
-            {isPending ? "Sending Email..." : "Continue with Email"}
-          </Button>
-        </form>
-      </Form>
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <Input
+                      placeholder="Email"
+                      {...field}
+                      className="rounded-xl"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <Button
+              type="submit"
+              className="w-full bg-neutral-800 text-neutral-100 rounded-xl hover:bg-neutral-900"
+              disabled={isPending}
+            >
+              {isPending ? "Sending Email..." : "Continue with Email"}
+            </Button>
+          </form>
+        </Form>
+      ) : (
+        <div className="space-y-6">
+          <p className="text-sm text-neutral-500 text-center">
+            If you have an account, we have sent a code to {submittedEmail}.
+          </p>
+          <OTPForm email={submittedEmail} />
+        </div>
+      )}
 
       {errorMessage && (
         <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-xl animate-in fade-in slide-in-from-bottom-2 duration-500">

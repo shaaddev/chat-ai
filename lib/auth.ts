@@ -1,10 +1,10 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "@/db";
-import { magicLink } from "better-auth/plugins";
+import { emailOTP, magicLink } from "better-auth/plugins";
 import { nextCookies } from "better-auth/next-js";
 import * as schema from "@/db/schema";
-import { magic_link_message } from "./email/resend";
+import { magic_link_message, email_otp_message } from "./email/resend";
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -15,6 +15,14 @@ export const auth = betterAuth({
     magicLink({
       sendMagicLink: async ({ email, url }) => {
         await magic_link_message(email, url);
+      },
+      disableSignUp: true,
+    }),
+    emailOTP({
+      sendVerificationOTP: async ({ email, otp, type }) => {
+        if (type === "sign-in") {
+          await email_otp_message(email, otp);
+        }
       },
       disableSignUp: true,
     }),

@@ -8,6 +8,7 @@ import { LoginForm } from "@/components/auth/login-form";
 export function Login() {
   const router = useRouter();
   const [isLogin, setIsLogin] = useState(true);
+  const [isOtpStep, setIsOtpStep] = useState(false);
 
   return (
     <div className="w-full space-y-8">
@@ -24,18 +25,22 @@ export function Login() {
           </Button>
         </div>
 
-        <p className="mt-2 text-sm text-neutral-400 text-center">
-          {isLogin ? "Don't have an account?" : "Already have an account?"}
-          <Button
-            onClick={() => setIsLogin(!isLogin)}
-            variant="link"
-            className=" text-blue-600 hover:text-blue-500 hover:underline ml-1 mb-10"
-          >
-            {isLogin ? "Sign up" : "Login"}
-          </Button>
-        </p>
+        {!isOtpStep && (
+          <p className="mt-2 text-sm text-neutral-400 text-center">
+            {isLogin ? "Don't have an account?" : "Already have an account?"}
+            <Button
+              onClick={() => setIsLogin(!isLogin)}
+              variant="link"
+              className=" text-blue-600 hover:text-blue-500 hover:underline ml-1 mb-10"
+            >
+              {isLogin ? "Sign up" : "Login"}
+            </Button>
+          </p>
+        )}
 
-        {isLogin ? <LoginForm /> : null}
+        {isLogin ? (
+          <LoginForm isOtpStep={isOtpStep} setIsOtpStep={setIsOtpStep} />
+        ) : null}
       </div>
     </div>
   );
