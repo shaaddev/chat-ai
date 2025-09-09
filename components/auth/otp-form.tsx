@@ -7,7 +7,6 @@ import { z } from "zod";
 import {
   InputOTP,
   InputOTPGroup,
-  InputOTPSeparator,
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 import {
@@ -69,6 +68,7 @@ export function OTPForm({ email }: { email: string }) {
         });
       }
     } catch (error) {
+      console.log("ERROR", error);
       toast.error("Error!", {
         description: "An error occurred while verifying your OTP.",
       });

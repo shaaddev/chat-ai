@@ -19,7 +19,7 @@ const PureChatMessage = ({ message }: messageProps) => {
     <div className="max-w-3xl mx-auto">
       <div
         key={message.id}
-        className={` flex ${
+        className={`flex ${
           message.role === "user" ? "justify-end" : "justify-start"
         }`}
       >
@@ -27,7 +27,7 @@ const PureChatMessage = ({ message }: messageProps) => {
           {attachmentsFromMessage.length > 0 && (
             <div
               data-testid={`message-attachments`}
-              className={`mt-3 flex flex-wrap gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}
+              className="mt-3 flex flex-wrap gap-3"
             >
               {attachmentsFromMessage.map((attachment) => (
                 <PreviewAttachment

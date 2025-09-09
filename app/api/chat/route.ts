@@ -63,9 +63,7 @@ export async function POST(req: Request) {
 
   try {
     const json = await req.json();
-    console.log("JSON", json);
     requestBody = postRequestBodySchema.parse(json);
-    console.log("REQUEST BODY", requestBody);
   } catch (error) {
     console.log("ERROR", error);
     return new ChatSDKError("bad_request:api").toResponse();
@@ -137,7 +135,6 @@ export async function POST(req: Request) {
     const stream = createUIMessageStream({
       execute: async ({ writer: dataStream }) => {
         try {
-          console.log("Starting stream execution for chat:", id);
           const res = streamText({
             model: myProvider.languageModel(selectedChatModel),
             system: systemPrompt({ selectedChatModel }),
@@ -148,10 +145,8 @@ export async function POST(req: Request) {
 
           // Use the stream directly instead of merging
           for await (const chunk of res.toUIMessageStream()) {
-            console.log("Writing chunk:", chunk.type);
             dataStream.write(chunk);
           }
-          console.log("Stream execution completed for chat:", id);
         } catch (error) {
           console.error("Stream execution error:", error);
           dataStream.write({

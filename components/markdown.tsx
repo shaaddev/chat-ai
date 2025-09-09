@@ -25,7 +25,7 @@ const NonMemoizedMarkdown = ({ children }: { children: string }) => {
     <Streamdown
       components={components}
       className="prose dark:prose-invert py-1 leading-10"
-      shikiTheme={["github-dark", "github-light"]}
+      shikiTheme={["houston", "houston"]}
     >
       {children}
     </Streamdown>

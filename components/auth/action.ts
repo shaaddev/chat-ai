@@ -28,7 +28,7 @@ export const get_email = async (formData: FormData) => {
     //   callbackURL: "/",
     // });
 
-    const { data, error } = await authClient.emailOtp.sendVerificationOtp({
+    await authClient.emailOtp.sendVerificationOtp({
       email: email as string,
       type: "sign-in",
     });

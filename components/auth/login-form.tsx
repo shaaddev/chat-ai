@@ -15,7 +15,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { get_email } from "./action";
 import { AlertCircle } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { OTPForm } from "./otp-form";
 
 const schema = z.object({
@@ -61,7 +60,7 @@ export function LoginForm({
         setSuccessMessage("");
       } else {
         setErrorMessage(
-          "Your email has been blocked! Contact the owner of this website to gain access."
+          "Your email has been blocked! Contact the owner of this website to gain access.",
         );
       }
     } catch (error) {
