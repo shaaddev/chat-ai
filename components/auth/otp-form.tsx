@@ -61,6 +61,7 @@ export function OTPForm({ email }: { email: string }) {
           description: "Your account has been verified!",
         });
         router.push("/");
+        router.refresh();
       } else {
         toast.error("Error!", {
           description:
