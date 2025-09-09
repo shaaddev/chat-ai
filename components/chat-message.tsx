@@ -5,6 +5,8 @@ import type { ChatMessage } from "@/lib/types";
 import { PreviewAttachment } from "./preview-attachment";
 import { memo } from "react";
 import equal from "fast-deep-equal";
+import { cn, sanitizeText } from "@/lib/utils";
+import { MessageContent } from "./message-content";
 
 export interface messageProps {
   message: ChatMessage;
@@ -50,14 +52,22 @@ const PureChatMessage = ({ message }: messageProps) => {
               return (
                 <div
                   key={key}
-                  data-testid="message-content"
-                  className={`px-5 py-2 rounded-xl flex flex-col w-full ${
-                    message.role === "user"
-                      ? "bg-neutral-800 text-neutral-300"
-                      : " text-neutral-100"
-                  }`}
+                  className={cn(
+                    "flex w-full",
+                    message.role === "user" ? "justify-end" : "justify-start",
+                  )}
                 >
-                  <Markdown>{part.text}</Markdown>
+                  <MessageContent
+                    data-testid="message-content"
+                    className={cn({
+                      "bg-neutral-800 text-neutral-300 w-fit max-w-[80%] rounded-2xl px-5 py-2 break-words":
+                        message.role === "user",
+                      " text-neutral-100 px-0 py-0 text-left":
+                        message.role === "assistant",
+                    })}
+                  >
+                    <Markdown>{sanitizeText(part.text)}</Markdown>
+                  </MessageContent>
                 </div>
               );
             }
