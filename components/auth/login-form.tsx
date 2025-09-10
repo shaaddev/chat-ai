@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { get_email } from "./action";
 import { AlertCircle } from "lucide-react";
 import { OTPForm } from "./otp-form";
+import { toast } from "sonner";
 
 const schema = z.object({
   email: z.string().min(1, {
@@ -57,6 +58,9 @@ export function LoginForm({
       if (res.success) {
         setSubmittedEmail(values.email);
         setIsOtpStep(true);
+        toast.success("Email sent", {
+          description: "Check your email for the verification code.",
+        });
         setSuccessMessage("");
       } else {
         setErrorMessage(
