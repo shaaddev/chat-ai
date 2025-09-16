@@ -18,7 +18,6 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { verify_otp } from "./action";
 import { useRouter } from "next/navigation";
@@ -92,7 +91,16 @@ export function OTPForm({ email }: { email: string }) {
               <FormItem className="flex flex-col items-center justify-center">
                 <FormLabel>One-Time Password</FormLabel>
                 <FormControl>
-                  <InputOTP maxLength={6} {...field}>
+                  <InputOTP
+                    maxLength={6}
+                    {...field}
+                    onChange={(value) => {
+                      field.onChange(value);
+                      if (value.length === 6 && !isPending) {
+                        form.handleSubmit(onSubmit)();
+                      }
+                    }}
+                  >
                     <InputOTPGroup>
                       <InputOTPSlot index={0} />
                       <InputOTPSlot index={1} />
@@ -111,10 +119,6 @@ export function OTPForm({ email }: { email: string }) {
               </FormItem>
             )}
           />
-
-          <Button type="submit" disabled={isPending}>
-            {isPending ? "Submitting..." : "Submit"}
-          </Button>
         </form>
       </Form>
     </div>
