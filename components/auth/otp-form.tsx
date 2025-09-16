@@ -21,6 +21,7 @@ import {
 import { toast } from "sonner";
 import { verify_otp } from "./action";
 import { useRouter } from "next/navigation";
+import { useChat } from "@/components/chat-context";
 
 const schema = z.object({
   pin: z.string().min(6, {
@@ -37,6 +38,7 @@ export function OTPForm({ email }: { email: string }) {
   });
   const [isPending, setIsPending] = useState(false);
   const router = useRouter();
+  const { refreshChats } = useChat();
 
   const onSubmit = async (values: z.infer<typeof schema>) => {
     setIsPending(true);
@@ -56,10 +58,12 @@ export function OTPForm({ email }: { email: string }) {
       const res = await verify_otp(formData);
 
       if (res.success) {
+        // Ensure client state sees the new session
+        await refreshChats();
         toast.success("Success!", {
           description: "Your account has been verified!",
         });
-        router.push("/");
+        router.replace("/");
         router.refresh();
       } else {
         toast.error("Error!", {
