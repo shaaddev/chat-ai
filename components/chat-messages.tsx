@@ -2,7 +2,7 @@ import { ChatMessage } from "@/lib/types";
 import { UseChatHelpers } from "@ai-sdk/react";
 import { useMessages } from "@/hooks/use-message";
 import { PreviewMessage } from "./chat-message";
-import { memo } from "react";
+import { memo, useEffect } from "react";
 import equal from "fast-deep-equal";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -14,7 +14,13 @@ interface MessagesProps {
 }
 
 function PureMessages({ chatId, messages, status }: MessagesProps) {
-  const { messagesEndRef } = useMessages({ chatId, status });
+  const { messagesEndRef, scrollToBottom } = useMessages({ chatId, status });
+
+  useEffect(() => {
+    if (status === "streaming" || status === "ready") {
+      scrollToBottom();
+    }
+  }, [messages, status, scrollToBottom]);
 
   return (
     <ScrollArea className="flex-1 p-4 w-full overflow-auto">

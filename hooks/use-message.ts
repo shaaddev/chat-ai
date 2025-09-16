@@ -21,6 +21,12 @@ export function useMessages({
     scrollToBottom();
   }, []);
 
+  useEffect(() => {
+    if (status === "streaming" || status === "ready") {
+      scrollToBottom();
+    }
+  }, [status]);
+
   return {
     scrollToBottom,
     messagesEndRef,
