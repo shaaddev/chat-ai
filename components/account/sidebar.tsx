@@ -1,12 +1,21 @@
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { HomeIcon, UserIcon, LogOutIcon } from "lucide-react";
+import { HomeIcon, UserIcon, LogOutIcon, History } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { toast } from "sonner";
 
-export function AccountSidebar() {
+export function AccountSidebar({
+  setActiveSection,
+}: {
+  setActiveSection: (section: string) => void;
+}) {
+  const sidebarItems = [
+    { id: "profile", label: "Edit Profile", icon: UserIcon },
+    { id: "usage", label: "Usage", icon: History },
+  ];
+
   const router = useRouter();
 
   const handleLogout = async () => {
@@ -33,12 +42,18 @@ export function AccountSidebar() {
 
       <Separator />
       <nav className="flex flex-col space-y-2">
-        <Button variant="ghost" className="justify-start rounded-2xl" asChild>
-          <Link href="/account">
-            <UserIcon className="mr-2 h-4 w-4" />
-            Edit Profile
-          </Link>
-        </Button>
+        {sidebarItems.map((item) => (
+          <Button
+            key={item.id}
+            variant="ghost"
+            className="justify-start rounded-2xl"
+            // asChild
+            onClick={() => setActiveSection(item.id)}
+          >
+            <item.icon className="mr-2 !size-4" />
+            {item.label}
+          </Button>
+        ))}
         <Button variant="ghost" className="justify-start rounded-2xl" asChild>
           <Link href="/">
             <HomeIcon className="mr-2 h-4 w-4" />

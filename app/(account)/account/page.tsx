@@ -24,7 +24,7 @@ export default async function Page() {
 
   return (
     <div className="w-full">
-      <Account user_info={{ email, name, image }} />
+      <Account user={{ email, name, image }} />
     </div>
   );
 }
