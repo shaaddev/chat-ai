@@ -7,6 +7,7 @@ Techstack:
 - Better Auth
 - Neon (PostgreSQL)
 - Tailwind CSS x Shadcn
+- Upstash
 
 TO-DO
 
@@ -59,10 +60,4 @@ Misc - (Not needed)
 - [ ] Terms
 - [ ] Privacy Policy
 
-Notes
-Typescript is greattttt
-
 Note: never create an interface with undefined variables, will break code in future if you do that.
-
-Magic Link works
-Email OTP doesn't
