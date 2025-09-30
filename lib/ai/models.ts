@@ -55,6 +55,6 @@ export const myProvider = customProvider({
     "chat-5-mini": openai("gpt-5-mini"),
     "chat-o3-mini": openai("o3-mini"),
     "chat-4o-mini": openai("gpt-4o-mini"),
-    "title-model": google("gemini-2.5-flash"),
+    "title-model": google("gemini-2.5-flash-lite"),
   },
 });
