@@ -13,8 +13,15 @@ interface model_selection {
 
 export const stable_models: model_selection[] = [
   {
-    id: "google-model-2-0",
-    name: "Gemini 2.0 Flash",
+    id: "google-model-2-5-flash",
+    name: "Gemini 2.5 Flash",
+    icon: Info,
+    image: Image,
+    unstable: FlaskConical,
+  },
+  {
+    id: "google-model-2-5-flash-lite",
+    name: "Gemini 2.5 Flash Lite",
     icon: Info,
     image: Image,
     unstable: FlaskConical,
@@ -39,14 +46,15 @@ export const stable_models: model_selection[] = [
   },
 ];
 
-export const DEFAULT_CHAT_MODEL: string = "google-model-2-0";
+export const DEFAULT_CHAT_MODEL: string = "google-model-2-5-flash";
 
 export const myProvider = customProvider({
   languageModels: {
-    "google-model-2-0": google("gemini-2.0-flash"),
+    "google-model-2-5-flash": google("gemini-2.5-flash"),
+    "google-model-2-5-flash-lite": google("gemini-2.5-flash-lite"),
     "chat-5-mini": openai("gpt-5-mini"),
     "chat-o3-mini": openai("o3-mini"),
     "chat-4o-mini": openai("gpt-4o-mini"),
-    "title-model": google("gemini-2.0-flash"),
+    "title-model": google("gemini-2.5-flash"),
   },
 });
