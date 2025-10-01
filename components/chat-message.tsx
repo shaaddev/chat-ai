@@ -91,15 +91,10 @@ const PureChatMessage = ({ message }: messageProps) => {
                 (() => {
                   const m = message.metadata as Record<string, unknown>;
                   const usage = (m.usage as Record<string, unknown>) || {};
-                  const totalFromUsage =
-                    (usage.totalTokens as number) ??
-                    (usage.total_tokens as number);
-                  const totalFlat =
-                    (m.totalTokens as number) ?? (m.total_tokens as number);
-                  const total = totalFromUsage ?? totalFlat;
-                  if (typeof total === "number") {
+
+                  if (typeof m.outputTokens === "number") {
                     return (
-                      <div className="mt-1 pl-1">{`Tokens: ${total ?? "N/A"}`}</div>
+                      <div className="mt-1 pl-1">{`Tokens: ${usage.outputTokens ?? "N/A"}`}</div>
                     );
                   }
                   return null;

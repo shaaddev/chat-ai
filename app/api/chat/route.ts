@@ -30,6 +30,7 @@ import {
 import { after } from "next/server";
 import { ChatSDKError } from "@/lib/errors";
 import { postRequestBodySchema, type PostRequestBody } from "./schema";
+import type { LanguageModelUsage } from "ai";
 
 export const maxDuration = 60;
 
@@ -169,53 +170,17 @@ export async function POST(req: Request) {
 
           // After streaming completes, attempt to read token usage and attach to assistant metadata
           try {
-            const anyRes = res as unknown as {
-              response?: Promise<any>; // eslint-disable-line @typescript-eslint/no-explicit-any
-              usage?: any; // eslint-disable-line @typescript-eslint/no-explicit-any
-            };
-            let usage: any = undefined; // eslint-disable-line @typescript-eslint/no-explicit-any
-            if (
-              anyRes?.response &&
-              typeof anyRes.response.then === "function"
-            ) {
-              try {
-                const final = await anyRes.response;
-                usage = final?.usage ?? usage;
-              } catch {
-                // ignore
-              }
-            }
-            if (!usage && anyRes?.usage) {
-              usage = anyRes.usage;
-            }
+            const usage: LanguageModelUsage = await res.usage;
+            const outputTokens = usage.outputTokens;
 
-            let totalTokens: number | undefined = undefined;
-            if (usage && typeof usage === "object") {
-              const u = usage as Record<string, unknown>;
-              const inputTokens =
-                (u.inputTokens as number) ?? (u.input_tokens as number);
-              const outputTokens =
-                (u.outputTokens as number) ?? (u.output_tokens as number);
-              const total =
-                (u.totalTokens as number) ?? (u.total_tokens as number);
-              if (typeof total === "number") {
-                totalTokens = total;
-              } else if (
-                typeof inputTokens === "number" &&
-                typeof outputTokens === "number"
-              ) {
-                totalTokens = inputTokens + outputTokens;
-              }
-            }
-
-            if (assistantMessageId && typeof totalTokens === "number") {
+            if (assistantMessageId && typeof outputTokens === "number") {
               dataStream.write({
                 type: "data-setMessageMetadata",
                 data: JSON.stringify({
                   id: assistantMessageId,
                   metadata: {
-                    usage: { totalTokens },
-                    totalTokens,
+                    usage: { outputTokens },
+                    outputTokens,
                   },
                 }),
               });
