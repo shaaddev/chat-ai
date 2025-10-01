@@ -14,7 +14,7 @@ export interface messageProps {
 
 const PureChatMessage = ({ message }: messageProps) => {
   const attachmentsFromMessage = message.parts.filter(
-    (part) => part.type === "file"
+    (part) => part.type === "file",
   );
 
   return (
@@ -23,7 +23,7 @@ const PureChatMessage = ({ message }: messageProps) => {
         key={message.id}
         className={`flex ${
           message.role === "user" ? "justify-end" : "justify-start"
-        }`}
+        } ${message.role === "assistant" ? "group/message" : ""}`}
       >
         <div className="flex flex-col gap-6 w-full">
           {attachmentsFromMessage.length > 0 && (
@@ -61,7 +61,7 @@ const PureChatMessage = ({ message }: messageProps) => {
                   key={key}
                   className={cn(
                     "flex w-full",
-                    message.role === "user" ? "justify-end" : "justify-start"
+                    message.role === "user" ? "justify-end" : "justify-start",
                   )}
                 >
                   <MessageContent
@@ -82,15 +82,12 @@ const PureChatMessage = ({ message }: messageProps) => {
           {message.role === "assistant" && (
             <div
               className={cn(
-                "flex w-full text-xs text-neutral-400",
-                "justify-start"
+                "flex w-full text-xs text-neutral-400 transition-opacity duration-150",
+                "justify-start opacity-0 group-hover/message:opacity-100",
               )}
             >
               {typeof message.metadata === "object" &&
                 message.metadata &&
-                // common places token usage may be included
-                // ai-sdk sometimes nests usage under metadata.usage.totalTokens
-                // also support flat metadata.total_tokens or metadata.totalTokens
                 (() => {
                   const m = message.metadata as Record<string, unknown>;
                   const usage = (m.usage as Record<string, unknown>) || {};
@@ -102,7 +99,7 @@ const PureChatMessage = ({ message }: messageProps) => {
                   const total = totalFromUsage ?? totalFlat;
                   if (typeof total === "number") {
                     return (
-                      <div className="mt-1 pl-1">{`Tokens: ${total}`}</div>
+                      <div className="mt-1 pl-1">{`Tokens: ${total ?? "N/A"}`}</div>
                     );
                   }
                   return null;

@@ -47,7 +47,7 @@ export function getStreamContext() {
     } catch (error: any) {
       if (error.message.includes("REDIS_URL")) {
         console.log(
-          " > Resumable streams are disabled due to missing REDIS_URL"
+          " > Resumable streams are disabled due to missing REDIS_URL",
         );
       } else {
         console.error("Resumable stream context error:", error);
@@ -122,7 +122,7 @@ export async function POST(req: Request) {
     });
 
     const selectedModel = stable_models.find(
-      (model) => model.id === selectedChatModel
+      (model) => model.id === selectedChatModel,
     );
 
     if (!selectedModel) {
@@ -149,11 +149,9 @@ export async function POST(req: Request) {
             // Capture the assistant message id from the first append of assistant message
             if (
               assistantMessageId === null &&
-              // @ts-ignore - chunk is a UI message stream event
               chunk?.type === "data-appendMessage"
             ) {
               try {
-                // @ts-ignore - data is a JSON string of the message
                 const appended = JSON.parse(chunk.data as string);
                 if (
                   appended?.role === "assistant" &&
@@ -172,10 +170,10 @@ export async function POST(req: Request) {
           // After streaming completes, attempt to read token usage and attach to assistant metadata
           try {
             const anyRes = res as unknown as {
-              response?: Promise<any>;
-              usage?: any;
+              response?: Promise<any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+              usage?: any; // eslint-disable-line @typescript-eslint/no-explicit-any
             };
-            let usage: any = undefined;
+            let usage: any = undefined; // eslint-disable-line @typescript-eslint/no-explicit-any
             if (
               anyRes?.response &&
               typeof anyRes.response.then === "function"
