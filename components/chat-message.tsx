@@ -35,7 +35,14 @@ const PureChatMessage = ({ message }: messageProps) => {
                 <PreviewAttachment
                   key={attachment.url}
                   attachment={{
-                    name: attachment.filename ?? "file",
+                    name:
+                      // Prefer SDK-declared filename when available
+                      ("filename" in attachment && attachment.filename) ||
+                      // Fallback to custom name if present on the object
+                      (("name" in attachment &&
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        (attachment as any).name) as string) ||
+                      "file",
                     contentType: attachment.mediaType,
                     url: attachment.url,
                   }}
