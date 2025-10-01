@@ -35,7 +35,7 @@ export function ModelsPopover({ selectedModelId }: ModelSelectorProps) {
         <button
           data-testid="model-selector"
           type="button"
-          className="inline-flex items-center gap-1 px-3 py-1 text-sm text-neutral-300 hover:text-neutral-100"
+          className="inline-flex items-center gap-1 px-2 py-1 text-sm text-neutral-300 hover:text-neutral-100"
         >
           {selectedChatModel?.name}
           <ChevronDown className="size-4" />

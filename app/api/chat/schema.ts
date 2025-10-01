@@ -28,6 +28,7 @@ export const postRequestBodySchema = z.object({
     "chat-o3-mini",
     "chat-4o-mini",
   ]),
+  useSearch: z.boolean().optional().default(false),
 });
 
 export type PostRequestBody = z.infer<typeof postRequestBodySchema>;

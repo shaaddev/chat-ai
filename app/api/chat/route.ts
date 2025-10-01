@@ -31,6 +31,7 @@ import { after } from "next/server";
 import { ChatSDKError } from "@/lib/errors";
 import { postRequestBodySchema, type PostRequestBody } from "./schema";
 import type { LanguageModelUsage } from "ai";
+import { getToolsForModel } from "@/lib/ai/tools";
 
 export const maxDuration = 60;
 
@@ -75,8 +76,13 @@ export async function POST(req: Request) {
       id,
       message,
       selectedChatModel,
-    }: { id: string; message: ChatMessage; selectedChatModel: string } =
-      requestBody;
+      useSearch,
+    }: {
+      id: string;
+      message: ChatMessage;
+      selectedChatModel: string;
+      useSearch: boolean;
+    } = requestBody;
 
     const session = await auth.api.getSession({
       headers: await headers(),
@@ -139,6 +145,7 @@ export async function POST(req: Request) {
           const res = streamText({
             model: myProvider.languageModel(selectedChatModel),
             system: systemPrompt({ selectedChatModel }),
+            tools: useSearch ? getToolsForModel(selectedChatModel) : undefined,
             messages: convertToModelMessages(uiMessages),
             experimental_transform: smoothStream({ chunking: "word" }),
             stopWhen: stepCountIs(5),

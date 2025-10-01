@@ -1,7 +1,7 @@
 import { ModelsPopover } from "./models-popover";
 import { FileInput } from "./file-input";
 import { Button } from "@/components/ui/button";
-import { Send, CirclePause } from "lucide-react";
+import { Send, CirclePause, Globe } from "lucide-react";
 import { toast } from "sonner";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import {
@@ -17,6 +17,7 @@ import { LoginContent } from "./auth/login-content";
 import { useChat } from "@/components/chat-context";
 import { PreviewAttachment } from "./preview-attachment";
 import { UseChatHelpers } from "@ai-sdk/react";
+import { cn } from "@/lib/utils";
 
 interface ChatInputProps {
   setInput: Dispatch<SetStateAction<string>>;
@@ -50,6 +51,7 @@ export function ChatInput({
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const { addOptimisticChat, setChatLoading } = useChat();
   const [uploadQueue, setUploadQueue] = useState<Array<string>>([]);
+  const [useSearch, setUseSearch] = useState(false);
 
   const submitForm = useCallback(() => {
     window.history.replaceState({}, "", `/chat/${chatId}`);
@@ -71,21 +73,24 @@ export function ChatInput({
     });
 
     try {
-      sendMessage({
-        role: "user",
-        parts: [
-          ...attachments.map((attachment) => ({
-            type: "file" as const,
-            name: attachment.name,
-            mediaType: attachment.contentType,
-            url: attachment.url,
-          })),
-          {
-            type: "text",
-            text: input,
-          },
-        ],
-      });
+      sendMessage(
+        {
+          role: "user",
+          parts: [
+            ...attachments.map((attachment) => ({
+              type: "file" as const,
+              name: attachment.name,
+              mediaType: attachment.contentType,
+              url: attachment.url,
+            })),
+            {
+              type: "text",
+              text: input,
+            },
+          ],
+        },
+        { body: { useSearch } },
+      );
     } catch (error) {
       // Clear loading state on error
       setChatLoading(chatId!, false);
@@ -107,6 +112,7 @@ export function ChatInput({
     attachments,
     setAttachments,
     input,
+    useSearch,
   ]);
 
   const adjustTextareaHeight = useCallback(() => {
@@ -191,6 +197,23 @@ export function ChatInput({
           />
           <div className="flex flex-row gap-5 items-center py-2 px-5">
             <ModelsPopover selectedModelId={initialChatModel} />
+            <Button
+              type="button"
+              size="sm"
+              variant={"outline"}
+              aria-pressed={useSearch}
+              onClick={(e) => {
+                e.preventDefault();
+                setUseSearch((v) => !v);
+              }}
+              className={cn(
+                "px-2 rounded-full bg-transparent",
+                useSearch && "bg-neutral-200 text-neutral-800",
+              )}
+            >
+              <Globe className="size-4! mr-1" />
+              Search
+            </Button>
             <FileInput
               uploadQueue={uploadQueue}
               setUploadQueue={setUploadQueue}

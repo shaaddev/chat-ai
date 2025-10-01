@@ -21,6 +21,8 @@ Client
 - [x] Fix Textarea on Height
 - [x] Auth
 - [x] On Scroll behaviour
+- [ ] Add a search button
+- [ ] Add a effort toggle
 
 Server
 Basic
