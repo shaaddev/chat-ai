@@ -47,7 +47,7 @@ export function getStreamContext() {
     } catch (error: any) {
       if (error.message.includes("REDIS_URL")) {
         console.log(
-          " > Resumable streams are disabled due to missing REDIS_URL",
+          " > Resumable streams are disabled due to missing REDIS_URL"
         );
       } else {
         console.error("Resumable stream context error:", error);
@@ -122,7 +122,7 @@ export async function POST(req: Request) {
     });
 
     const selectedModel = stable_models.find(
-      (model) => model.id === selectedChatModel,
+      (model) => model.id === selectedChatModel
     );
 
     if (!selectedModel) {
@@ -143,9 +143,87 @@ export async function POST(req: Request) {
             stopWhen: stepCountIs(5),
           });
 
-          // Use the stream directly instead of merging
+          // Forward chunks, while capturing assistant message id for later metadata
+          let assistantMessageId: string | null = null;
           for await (const chunk of res.toUIMessageStream()) {
+            // Capture the assistant message id from the first append of assistant message
+            if (
+              assistantMessageId === null &&
+              // @ts-ignore - chunk is a UI message stream event
+              chunk?.type === "data-appendMessage"
+            ) {
+              try {
+                // @ts-ignore - data is a JSON string of the message
+                const appended = JSON.parse(chunk.data as string);
+                if (
+                  appended?.role === "assistant" &&
+                  typeof appended?.id === "string"
+                ) {
+                  assistantMessageId = appended.id;
+                }
+              } catch {
+                // ignore parse failures
+              }
+            }
+
             dataStream.write(chunk);
+          }
+
+          // After streaming completes, attempt to read token usage and attach to assistant metadata
+          try {
+            const anyRes = res as unknown as {
+              response?: Promise<any>;
+              usage?: any;
+            };
+            let usage: any = undefined;
+            if (
+              anyRes?.response &&
+              typeof anyRes.response.then === "function"
+            ) {
+              try {
+                const final = await anyRes.response;
+                usage = final?.usage ?? usage;
+              } catch {
+                // ignore
+              }
+            }
+            if (!usage && anyRes?.usage) {
+              usage = anyRes.usage;
+            }
+
+            let totalTokens: number | undefined = undefined;
+            if (usage && typeof usage === "object") {
+              const u = usage as Record<string, unknown>;
+              const inputTokens =
+                (u.inputTokens as number) ?? (u.input_tokens as number);
+              const outputTokens =
+                (u.outputTokens as number) ?? (u.output_tokens as number);
+              const total =
+                (u.totalTokens as number) ?? (u.total_tokens as number);
+              if (typeof total === "number") {
+                totalTokens = total;
+              } else if (
+                typeof inputTokens === "number" &&
+                typeof outputTokens === "number"
+              ) {
+                totalTokens = inputTokens + outputTokens;
+              }
+            }
+
+            if (assistantMessageId && typeof totalTokens === "number") {
+              dataStream.write({
+                type: "data-setMessageMetadata",
+                data: JSON.stringify({
+                  id: assistantMessageId,
+                  metadata: {
+                    usage: { totalTokens },
+                    totalTokens,
+                  },
+                }),
+              });
+            }
+          } catch (err) {
+            console.error("Failed to attach token usage metadata:", err);
           }
         } catch (error) {
           console.error("Stream execution error:", error);
