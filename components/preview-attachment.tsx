@@ -34,14 +34,14 @@ export const PreviewAttachment = ({
                 className="rounded-2xl w-full object-cover"
               />
             </ViewAttachmentDialog>
-          ) : (
+          ) : contentType.startsWith("application/pdf") ? (
             <ViewAttachmentDialog attachment={attachment}>
               <div className="rounded-2xl size-full bg-muted flex flex-col gap-2 items-center justify-center">
                 <File className="size-12" />
-                <small className="text-xs text-zinc-500">{name}</small>
+                <small className="text-xs text-zinc-500">PDF Attachment</small>
               </div>
             </ViewAttachmentDialog>
-          )
+          ) : null
         ) : (
           <div className="" />
         )}
