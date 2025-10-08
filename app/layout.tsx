@@ -8,12 +8,12 @@ import Script from "next/script";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://chat.shaaddev.com"),
-  title: "chat - shaaddev",
+  title: "chat",
   description: "Personal chat app for shaaddev",
   other: {
     "apple-mobile-web-app-capable": "yes",
     "apple-mobile-web-app-status-bar-style": "default",
-    "apple-mobile-web-app-title": "chat - shaaddev",
+    "apple-mobile-web-app-title": "chat",
     "mobile-web-app-capable": "yes",
     "msapplication-config": "/browserconfig.xml",
     "msapplication-TileColor": "#000000",
