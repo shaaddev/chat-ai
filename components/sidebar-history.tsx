@@ -75,7 +75,7 @@ function SidebarHistoryComponent({ session }: SidebarHistoryProps) {
                       handleDelete(chat.id);
                     }}
                   >
-                    <Trash className="size-4 text-muted-foreground hover:text-red-600" />
+                    <Trash className="size-4 text-red-600" />
                   </Button>
                 </div>
               </SidebarMenuButton>
