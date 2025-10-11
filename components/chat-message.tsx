@@ -19,7 +19,7 @@ const PureChatMessage = ({ message }: messageProps) => {
   const [copied, setCopied] = useState(false);
 
   const attachmentsFromMessage = message.parts.filter(
-    (part) => part.type === "file"
+    (part) => part.type === "file",
   );
 
   const handleCopyMessage = async () => {
@@ -83,7 +83,7 @@ const PureChatMessage = ({ message }: messageProps) => {
                   key={key}
                   className={cn(
                     "flex w-full",
-                    message.role === "user" ? "justify-end" : "justify-start"
+                    message.role === "user" ? "justify-end" : "justify-start",
                   )}
                 >
                   <MessageContent
@@ -105,7 +105,7 @@ const PureChatMessage = ({ message }: messageProps) => {
             <div
               className={cn(
                 "flex w-full items-center gap-3 text-xs text-neutral-400 transition-opacity duration-150",
-                "justify-start opacity-0 group-hover/message:opacity-100"
+                "justify-start opacity-0 group-hover/message:opacity-100",
               )}
             >
               {typeof message.metadata === "object" &&

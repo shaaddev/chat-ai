@@ -33,7 +33,7 @@ export const fetcher = async (url: string) => {
 
   if (!res.ok) {
     const error = new Error(
-      "An error occurred while fetching the data."
+      "An error occurred while fetching the data.",
     ) as ApplicationError;
 
     error.info = await res.json();
@@ -80,7 +80,7 @@ export function sanitizeResponseMessages({
         ? toolResultIds.includes(content.toolCallId)
         : content.type === "text"
           ? content.text.length > 0
-          : true
+          : true,
     );
 
     // if (reasoning) {
@@ -95,7 +95,7 @@ export function sanitizeResponseMessages({
   });
 
   return messagesBySanitizedContent.filter(
-    (message) => message.content.length > 0
+    (message) => message.content.length > 0,
   );
 }
 
@@ -125,7 +125,7 @@ export function convertToUIMessages(messages: DbMessage[]): ChatMessage[] {
 
 export async function fetchWithErrorHandlers(
   input: RequestInfo | URL,
-  init?: RequestInit
+  init?: RequestInit,
 ) {
   try {
     const response = await fetch(input, init);

@@ -30,10 +30,19 @@ export async function saveChat({
 
 export async function deleteChatById({ id }: { id: string }) {
   try {
-    await db.delete(message).where(eq(message.chatId, id));
+    // First, get all messages to extract attachment file keys
+    const messages = await db
+      .select()
+      .from(message)
+      .where(eq(message.chatId, id));
 
+    // Then delete messages, streams, and chat
+    await db.delete(message).where(eq(message.chatId, id));
     await db.delete(stream).where(eq(stream.chatId, id));
-    return await db.delete(chat).where(eq(chat.id, id));
+    const result = await db.delete(chat).where(eq(chat.id, id));
+
+    // Return messages so we can process attachments after DB deletion
+    return { messages, result };
   } catch (error) {
     console.error("Failed to delete chat by id from database");
     throw error;

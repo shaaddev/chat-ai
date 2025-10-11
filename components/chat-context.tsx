@@ -70,7 +70,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
       const sortedChats = data.sort(
         (a: Chat, b: Chat) =>
-          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
       );
 
       setChats(sortedChats);
@@ -118,8 +118,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const updateChatTitle = useCallback((chatId: string, title: string) => {
     setChats((prevChats) =>
       prevChats.map((chat) =>
-        chat.id === chatId ? { ...chat, title, updatedAt: new Date() } : chat
-      )
+        chat.id === chatId ? { ...chat, title, updatedAt: new Date() } : chat,
+      ),
     );
   }, []);
 
@@ -132,7 +132,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       if (res.ok) {
         const updatedChat = await res.json();
         setChats((prevChats) =>
-          prevChats.map((chat) => (chat.id === chatId ? updatedChat : chat))
+          prevChats.map((chat) => (chat.id === chatId ? updatedChat : chat)),
         );
       }
     } catch (error) {
@@ -175,7 +175,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         }
       );
     },
-    [chatInputStates]
+    [chatInputStates],
   );
 
   const setChatInputState = useCallback(
@@ -191,7 +191,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         return newMap;
       });
     },
-    []
+    [],
   );
 
   const clearChatInputState = useCallback((chatId: string) => {
@@ -230,7 +230,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       getChatInputState,
       setChatInputState,
       clearChatInputState,
-    ]
+    ],
   );
 
   return (

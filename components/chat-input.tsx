@@ -94,7 +94,7 @@ export function ChatInput({
             },
           ],
         },
-        { body: { useSearch } }
+        { body: { useSearch } },
       );
     } catch (error) {
       // Clear loading state on error
@@ -193,7 +193,7 @@ export function ChatInput({
 
                 if (status !== "ready") {
                   toast.error(
-                    "Please wait for the model to finish its response!"
+                    "Please wait for the model to finish its response!",
                   );
                 } else {
                   if (!isAuthenticated) {
@@ -218,7 +218,7 @@ export function ChatInput({
               }}
               className={cn(
                 "px-2 rounded-full bg-transparent",
-                useSearch && "bg-neutral-200 text-neutral-800"
+                useSearch && "bg-neutral-200 text-neutral-800",
               )}
             >
               <Globe className="size-4! mr-1" />
