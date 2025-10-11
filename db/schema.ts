@@ -36,6 +36,7 @@ export const message = pgTable("Message", {
   parts: json("parts").notNull(),
   attachments: json("attachments").notNull(),
   createdAt: timestamp("createdAt").notNull(),
+  model: text("model"),
 });
 
 export type Message = InferSelectModel<typeof message>;
@@ -53,7 +54,7 @@ export const stream = pgTable(
       columns: [table.chatId],
       foreignColumns: [chat.id],
     }),
-  }),
+  })
 );
 
 export type Stream = InferSelectModel<typeof stream>;

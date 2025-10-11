@@ -49,7 +49,7 @@ export function getStreamContext() {
     } catch (error: any) {
       if (error.message.includes("REDIS_URL")) {
         console.log(
-          " > Resumable streams are disabled due to missing REDIS_URL",
+          " > Resumable streams are disabled due to missing REDIS_URL"
         );
       } else {
         console.error("Resumable stream context error:", error);
@@ -124,12 +124,13 @@ export async function POST(req: Request) {
           parts: message.parts,
           attachments: [],
           createdAt: new Date(),
+          model: null,
         },
       ],
     });
 
     const selectedModel = stable_models.find(
-      (model) => model.id === selectedChatModel,
+      (model) => model.id === selectedChatModel
     );
 
     if (!selectedModel) {
@@ -180,7 +181,7 @@ export async function POST(req: Request) {
             const usage: LanguageModelUsage = await res.usage;
             const outputTokens = usage.outputTokens;
 
-            if (assistantMessageId && typeof outputTokens === "number") {
+            if (assistantMessageId) {
               dataStream.write({
                 type: "data-setMessageMetadata",
                 data: JSON.stringify({
@@ -188,6 +189,7 @@ export async function POST(req: Request) {
                   metadata: {
                     usage: { outputTokens },
                     outputTokens,
+                    model: selectedChatModel,
                   },
                 }),
               });
@@ -215,6 +217,7 @@ export async function POST(req: Request) {
               attachments: [],
               createdAt: new Date(),
               chatId: id,
+              model: message.role === "assistant" ? selectedChatModel : null,
             })),
           });
         } catch (error) {
