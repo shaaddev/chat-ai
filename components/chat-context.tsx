@@ -10,12 +10,19 @@ import {
   type ReactNode,
 } from "react";
 import { toast } from "sonner";
+import type { Attachment } from "@/lib/types";
 
 interface Chat {
   id: string;
   title: string;
   createdAt: Date;
   updatedAt: Date;
+}
+
+interface ChatInputState {
+  input: string;
+  attachments: Array<Attachment>;
+  useSearch: boolean;
 }
 
 interface ChatContextType {
@@ -28,6 +35,9 @@ interface ChatContextType {
   setChatLoading: (chatId: string, loading: boolean) => void;
   updateChatTitle: (chatId: string, title: string) => void;
   refreshSpecificChat: (chatId: string) => Promise<void>;
+  getChatInputState: (chatId: string) => ChatInputState;
+  setChatInputState: (chatId: string, state: Partial<ChatInputState>) => void;
+  clearChatInputState: (chatId: string) => void;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -36,6 +46,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [chats, setChats] = useState<Chat[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingChats, setLoadingChats] = useState<Set<string>>(new Set());
+  const [chatInputStates, setChatInputStates] = useState<
+    Map<string, ChatInputState>
+  >(new Map());
 
   const fetchChats = useCallback(async () => {
     try {
@@ -57,7 +70,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
       const sortedChats = data.sort(
         (a: Chat, b: Chat) =>
-          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
       );
 
       setChats(sortedChats);
@@ -105,8 +118,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const updateChatTitle = useCallback((chatId: string, title: string) => {
     setChats((prevChats) =>
       prevChats.map((chat) =>
-        chat.id === chatId ? { ...chat, title, updatedAt: new Date() } : chat,
-      ),
+        chat.id === chatId ? { ...chat, title, updatedAt: new Date() } : chat
+      )
     );
   }, []);
 
@@ -119,7 +132,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       if (res.ok) {
         const updatedChat = await res.json();
         setChats((prevChats) =>
-          prevChats.map((chat) => (chat.id === chatId ? updatedChat : chat)),
+          prevChats.map((chat) => (chat.id === chatId ? updatedChat : chat))
         );
       }
     } catch (error) {
@@ -140,9 +153,53 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       });
 
       setChats((prevChats) => prevChats.filter((chat) => chat.id !== chatId));
+
+      // Clear input state for deleted chat
+      setChatInputStates((prev) => {
+        const newMap = new Map(prev);
+        newMap.delete(chatId);
+        return newMap;
+      });
     } catch (error) {
       console.error("Error deleting chat: ", error);
     }
+  }, []);
+
+  const getChatInputState = useCallback(
+    (chatId: string): ChatInputState => {
+      return (
+        chatInputStates.get(chatId) || {
+          input: "",
+          attachments: [],
+          useSearch: false,
+        }
+      );
+    },
+    [chatInputStates]
+  );
+
+  const setChatInputState = useCallback(
+    (chatId: string, state: Partial<ChatInputState>) => {
+      setChatInputStates((prev) => {
+        const newMap = new Map(prev);
+        const currentState = prev.get(chatId) || {
+          input: "",
+          attachments: [],
+          useSearch: false,
+        };
+        newMap.set(chatId, { ...currentState, ...state });
+        return newMap;
+      });
+    },
+    []
+  );
+
+  const clearChatInputState = useCallback((chatId: string) => {
+    setChatInputStates((prev) => {
+      const newMap = new Map(prev);
+      newMap.set(chatId, { input: "", attachments: [], useSearch: false });
+      return newMap;
+    });
   }, []);
 
   const contextValue = useMemo(
@@ -156,6 +213,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       setChatLoading,
       updateChatTitle,
       refreshSpecificChat,
+      getChatInputState,
+      setChatInputState,
+      clearChatInputState,
     }),
     [
       chats,
@@ -167,7 +227,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       setChatLoading,
       updateChatTitle,
       refreshSpecificChat,
-    ],
+      getChatInputState,
+      setChatInputState,
+      clearChatInputState,
+    ]
   );
 
   return (

@@ -31,6 +31,9 @@ interface ChatInputProps {
   setAttachments: Dispatch<SetStateAction<Array<Attachment>>>;
   isAuthenticated?: boolean;
   setMessages: UseChatHelpers<ChatMessage>["setMessages"];
+  useSearch: boolean;
+  setUseSearch: Dispatch<SetStateAction<boolean>>;
+  clearChatInputState: (chatId: string) => void;
 }
 
 export function ChatInput({
@@ -45,13 +48,15 @@ export function ChatInput({
   attachments,
   setAttachments,
   setMessages,
+  useSearch,
+  setUseSearch,
+  clearChatInputState,
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [textareaHeight, setTextareaHeight] = useState("72px");
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const { addOptimisticChat, setChatLoading } = useChat();
   const [uploadQueue, setUploadQueue] = useState<Array<string>>([]);
-  const [useSearch, setUseSearch] = useState(false);
 
   const submitForm = useCallback(() => {
     window.history.replaceState({}, "", `/chat/${chatId}`);
@@ -89,7 +94,7 @@ export function ChatInput({
             },
           ],
         },
-        { body: { useSearch } },
+        { body: { useSearch } }
       );
     } catch (error) {
       // Clear loading state on error
@@ -97,8 +102,11 @@ export function ChatInput({
       throw error;
     }
 
+    // Clear input state after successful send
+    clearChatInputState(chatId!);
     setAttachments([]);
     setInput("");
+    setUseSearch(false);
 
     // Don't refresh chats immediately - let the optimistic update stay
     // The chat will be properly saved when the AI response finishes
@@ -113,6 +121,8 @@ export function ChatInput({
     setAttachments,
     input,
     useSearch,
+    clearChatInputState,
+    setUseSearch,
   ]);
 
   const adjustTextareaHeight = useCallback(() => {
@@ -183,7 +193,7 @@ export function ChatInput({
 
                 if (status !== "ready") {
                   toast.error(
-                    "Please wait for the model to finish its response!",
+                    "Please wait for the model to finish its response!"
                   );
                 } else {
                   if (!isAuthenticated) {
@@ -208,7 +218,7 @@ export function ChatInput({
               }}
               className={cn(
                 "px-2 rounded-full bg-transparent",
-                useSearch && "bg-neutral-200 text-neutral-800",
+                useSearch && "bg-neutral-200 text-neutral-800"
               )}
             >
               <Globe className="size-4! mr-1" />

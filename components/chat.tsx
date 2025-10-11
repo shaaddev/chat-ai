@@ -29,9 +29,27 @@ export function Chat({
   session,
 }: ChatProps) {
   const [isAuthenticated] = useState(session ? true : false);
-  const { setChatLoading, refreshChats } = useChatContext();
+  const {
+    setChatLoading,
+    refreshChats,
+    getChatInputState,
+    setChatInputState,
+    clearChatInputState,
+  } = useChatContext();
   const [isNewChat, setIsNewChat] = useState(initialMessages?.length === 0);
+
+  // Get persisted input state for this chat
   const [input, setInput] = useState("");
+  const [attachments, setAttachments] = useState<Array<Attachment>>([]);
+  const [useSearch, setUseSearch] = useState(false);
+
+  // Restore input state when chat ID changes
+  useEffect(() => {
+    const persistedState = getChatInputState(id);
+    setInput(persistedState.input);
+    setAttachments(persistedState.attachments);
+    setUseSearch(persistedState.useSearch);
+  }, [id, getChatInputState]);
 
   const { messages, sendMessage, status, setMessages, stop } =
     useChat<ChatMessage>({
@@ -59,6 +77,11 @@ export function Chat({
       },
     });
 
+  // Persist input state whenever it changes
+  useEffect(() => {
+    setChatInputState(id, { input, attachments, useSearch });
+  }, [id, input, attachments, useSearch, setChatInputState]);
+
   // Clear loading state when AI starts responding or finishes
   useEffect(() => {
     if (status === "streaming" || status === "ready" || status === "error") {
@@ -73,8 +96,6 @@ export function Chat({
       setIsNewChat(false); // Prevent multiple refreshes
     }
   }, [status, id, setChatLoading, refreshChats, isNewChat]);
-
-  const [attachments, setAttachments] = useState<Array<Attachment>>([]);
 
   return (
     <SidebarProvider>
@@ -114,6 +135,9 @@ export function Chat({
                 attachments={attachments}
                 setAttachments={setAttachments}
                 setMessages={setMessages}
+                useSearch={useSearch}
+                setUseSearch={setUseSearch}
+                clearChatInputState={clearChatInputState}
               />
             </div>
           </div>
