@@ -1,18 +1,18 @@
-name: "Setup and install (pnpm)"
+name: "Setup and install (bun)"
 
 runs:
   using: composite
   steps:
-    - name: setup pnpm
-      uses: pnpm/action-setup@v4
+    - name: setup bun
+      uses: oven-sh/setup-bun@v2
       with:
-        version: 9
+        bun-version: latest
 
     - name: setup node
       uses: actions/setup-node@v4
       with:
         node-version: 22
-        cache: pnpm
+        cache: bun
 
     - shell: bash
-      run: pnpm install
+      run: bun install
