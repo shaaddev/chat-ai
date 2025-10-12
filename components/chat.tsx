@@ -49,7 +49,8 @@ export function Chat({
     setInput(persistedState.input);
     setAttachments(persistedState.attachments);
     setUseSearch(persistedState.useSearch);
-  }, [id, getChatInputState]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   const { messages, sendMessage, status, setMessages, stop } =
     useChat<ChatMessage>({

@@ -12,8 +12,7 @@ export async function GET() {
     });
 
     if (!session) {
-      // Return an empty list for unauthenticated users to avoid client errors
-      return NextResponse.json([]);
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const chats = await getChatsByUserId({ id: session.user.id });
     return NextResponse.json(chats);
