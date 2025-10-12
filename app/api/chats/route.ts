@@ -12,14 +12,15 @@ export async function GET() {
     });
 
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      // Return an empty list for unauthenticated users to avoid client errors
+      return NextResponse.json([]);
     }
     const chats = await getChatsByUserId({ id: session.user.id });
     return NextResponse.json(chats);
   } catch (error) {
     console.error("Failed to fetch chats: ", error);
     return NextResponse.json(
-      { error: "Faield to fetch chats" },
+      { error: "Failed to fetch chats" },
       { status: 500 },
     );
   }
