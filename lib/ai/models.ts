@@ -1,13 +1,14 @@
 import { Info, Image, FlaskConical, LucideIcon } from "lucide-react";
 import { openai } from "@ai-sdk/openai";
 import { google } from "@ai-sdk/google";
+import { fal } from "@ai-sdk/fal";
 import { customProvider } from "ai";
 
 interface model_selection {
   id: string;
   name: string;
   icon: LucideIcon;
-  image: LucideIcon;
+  image?: LucideIcon;
   unstable?: LucideIcon;
 }
 
@@ -28,21 +29,27 @@ export const stable_models: model_selection[] = [
   },
   {
     id: "chat-5-mini",
-    name: "GPT-5-mini",
+    name: "GPT 5 mini",
     icon: Info,
     image: Image,
   },
+];
+
+export const image_models: model_selection[] = [
   {
-    id: "chat-o3-mini",
-    name: "o3-mini",
+    id: "chat-image-1-mini",
+    name: "GPT Image 1 mini",
     icon: Info,
-    image: Image,
   },
   {
-    id: "chat-4o-mini",
-    name: "GPT-4o-mini",
+    id: "chat-dall-e-3",
+    name: "Dall-E 3",
     icon: Info,
-    image: Image,
+  },
+  {
+    id: "fal-ai-image",
+    name: "Fal AI Image",
+    icon: Info,
   },
 ];
 
@@ -53,8 +60,11 @@ export const myProvider = customProvider({
     "google-model-2-5-flash": google("gemini-2.5-flash"),
     "google-model-2-5-flash-lite": google("gemini-2.5-flash-lite"),
     "chat-5-mini": openai("gpt-5-mini"),
-    "chat-o3-mini": openai("o3-mini"),
-    "chat-4o-mini": openai("gpt-4o-mini"),
     "title-model": google("gemini-2.5-flash-lite"),
+  },
+  imageModels: {
+    "chat-image-1-mini": openai.image("gpt-image-1"),
+    "chat-dall-e-3": openai.image("dall-e-3"),
+    "fal-ai-image": fal.image("fal-ai/flux/dev"),
   },
 });

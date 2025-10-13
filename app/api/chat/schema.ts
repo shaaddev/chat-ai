@@ -25,8 +25,10 @@ export const postRequestBodySchema = z.object({
     "google-model-2-5-flash",
     "google-model-2-5-flash-lite",
     "chat-5-mini",
-    "chat-o3-mini",
-    "chat-4o-mini",
+    // image models
+    "chat-image-1-mini",
+    "chat-dall-e-3",
+    "fal-ai-image",
   ]),
   useSearch: z.boolean().optional().default(false),
 });

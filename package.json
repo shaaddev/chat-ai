@@ -17,8 +17,9 @@
     "check": "concurrently --names \"prettier,lint,format\" --prefix-colors \"magenta,blue,green\" \"pnpm run format:write\" \"pnpm run lint\" \"pnpm run format:check\""
   },
   "dependencies": {
+    "@ai-sdk/fal": "^1.0.17",
     "@ai-sdk/google": "^2.0.6",
-    "@ai-sdk/openai": "^2.0.15",
+    "@ai-sdk/openai": "^2.0.50",
     "@ai-sdk/react": "^2.0.15",
     "@hookform/resolvers": "^4.0.0",
     "@mdx-js/loader": "^3.1.0",
@@ -56,7 +57,7 @@
     "@types/highlight.js": "^10.1.0",
     "@types/mdx": "^2.0.13",
     "@uploadthing/react": "^7.3.0",
-    "ai": "^5.0.15",
+    "ai": "^5.0.68",
     "better-auth": "^1.2.6",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

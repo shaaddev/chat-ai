@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ImageTooltip } from "./model-helpful-tooltips";
 import { useState, useOptimistic, useMemo, startTransition } from "react";
-import { stable_models } from "@/lib/ai/models";
+import { stable_models, image_models } from "@/lib/ai/models";
 import { saveChatModelAsCookie } from "@/app/actions";
 
 interface ModelSelectorProps {
@@ -21,10 +21,12 @@ export function ModelsPopover({ selectedModelId }: ModelSelectorProps) {
   const [optimisticModelId, setOptimisticModelId] =
     useOptimistic(selectedModelId);
 
-  const selectedChatModel = useMemo(
-    () => stable_models.find((model) => model.id === optimisticModelId),
-    [optimisticModelId],
-  );
+  const selectedChatModel = useMemo(() => {
+    if (image_models.some((model) => model.id === optimisticModelId)) {
+      return image_models.find((model) => model.id === optimisticModelId);
+    }
+    return stable_models.find((model) => model.id === optimisticModelId);
+  }, [optimisticModelId]);
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -71,12 +73,47 @@ export function ModelsPopover({ selectedModelId }: ModelSelectorProps) {
                 <m.icon className="size-4" />
               </div>
               <ImageTooltip>
-                <m.image className="size-4 text-blue-600" />
+                {m.image && <m.image className="size-4 text-blue-600" />}
               </ImageTooltip>
             </DropdownMenuItem>
           );
         })}
         <DropdownMenuSeparator />
+        <DropdownMenuLabel className="font-normal">
+          <div className="flex-1 text-left leading-tight">
+            <span>Image Models</span>
+          </div>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {image_models.map((m) => {
+          const { id } = m;
+
+          return (
+            <DropdownMenuItem
+              data-testid={`model-item-${id}`}
+              key={id}
+              className="rounded-xl justify-between flex py-4 hover:cursor-pointer"
+              onSelect={() => {
+                setOpen(false);
+
+                startTransition(() => {
+                  setOptimisticModelId(id);
+                  saveChatModelAsCookie(id);
+                });
+              }}
+              data-active={id === selectedModelId}
+              disabled
+            >
+              <div className="flex items-center gap-2">
+                <span className="font-medium">{m.name}</span>
+                <m.icon className="size-4" />
+              </div>
+              <ImageTooltip>
+                {m.image && <m.image className="size-4 text-blue-600" />}
+              </ImageTooltip>
+            </DropdownMenuItem>
+          );
+        })}
       </DropdownMenuContent>
     </DropdownMenu>
   );

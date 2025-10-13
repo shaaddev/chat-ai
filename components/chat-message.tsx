@@ -9,7 +9,7 @@ import { cn, sanitizeText } from "@/lib/utils";
 import { MessageContent } from "./message-content";
 import { Copy, Check } from "lucide-react";
 import { useState } from "react";
-import { stable_models } from "@/lib/ai/models";
+import { stable_models, image_models } from "@/lib/ai/models";
 
 export interface messageProps {
   message: ChatMessage;
@@ -35,7 +35,9 @@ const PureChatMessage = ({ message }: messageProps) => {
 
   const getModelName = (modelId: string | null | undefined) => {
     if (!modelId) return null;
-    const model = stable_models.find((m) => m.id === modelId);
+    const model =
+      stable_models.find((m) => m.id === modelId) ||
+      image_models.find((m) => m.id === modelId);
     return model?.name || modelId;
   };
 
@@ -52,6 +54,7 @@ const PureChatMessage = ({ message }: messageProps) => {
             <div
               data-testid={`message-attachments`}
               className={`mt-3 flex flex-wrap gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}
+              style={{ border: "2px dashed red" }}
             >
               {attachmentsFromMessage.map((attachment) => (
                 <PreviewAttachment
