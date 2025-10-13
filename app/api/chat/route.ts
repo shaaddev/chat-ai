@@ -32,9 +32,40 @@ import { ChatSDKError } from "@/lib/errors";
 import { postRequestBodySchema, type PostRequestBody } from "./schema";
 import type { LanguageModelUsage } from "ai";
 import { getToolsForModel } from "@/lib/ai/tools";
-import { experimental_generateImage as generateImage } from "ai";
+import { experimental_generateImage } from "ai";
+import { utapi } from "@/lib/uploadthing/core";
+import fs from "fs";
 
 export const maxDuration = 60;
+
+function getUploadThingUrlFromResult(result: unknown): string | undefined {
+  const extract = (obj: unknown): string | undefined => {
+    if (!obj || typeof obj !== "object") return undefined;
+    const rec = obj as Record<string, unknown>;
+    const data = rec["data"];
+    if (data && typeof data === "object") {
+      const drec = data as Record<string, unknown>;
+      const ufs = drec["ufsUrl"];
+      if (typeof ufs === "string") return ufs;
+      const url = drec["url"];
+      if (typeof url === "string") return url;
+    }
+    const ufs = rec["ufsUrl"];
+    if (typeof ufs === "string") return ufs;
+    const url = rec["url"];
+    if (typeof url === "string") return url;
+    return undefined;
+  };
+
+  if (Array.isArray(result)) {
+    for (const item of result) {
+      const found = extract(item);
+      if (found) return found;
+    }
+    return undefined;
+  }
+  return extract(result);
+}
 
 let globalStreamContext: ResumableStreamContext | null = null;
 
@@ -169,40 +200,37 @@ export async function POST(req: Request) {
               .slice(0, 2000);
 
             try {
-              const genResult = await generateImage({
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                model: (myProvider as any).imageModel(selectedChatModel),
-                prompt: latestUserText || "Generate an image",
+              const { image } = await experimental_generateImage({
+                model: myProvider.imageModel(selectedChatModel),
+                prompt: latestUserText,
               });
 
               // Try to determine a usable URL for the image
-              // Support both single or array responses and hosted URL or base64 payloads
-              type GeneratedImage = { url?: string; base64?: string };
-              type GeneratedImageResult =
-                | { image?: GeneratedImage; url?: string; base64?: string }
-                | { images?: GeneratedImage[]; url?: string; base64?: string };
-
-              const r = genResult as GeneratedImageResult;
-              const firstImage: GeneratedImage | undefined =
-                ("image" in r && r.image) ||
-                ("images" in r && Array.isArray(r.images) && r.images[0]) ||
-                undefined;
-              const hostedUrl: string | undefined = firstImage?.url || r.url;
-              const base64: string | undefined = firstImage?.base64 || r.base64;
-
+              const fileName = `image-${Date.now()}.png`;
+              // Decode base64 and write to disk
+              fs.writeFileSync(fileName, Buffer.from(image.base64, "base64"));
               const assistantMessageId = generateUUID();
 
               const mediaType = "image/png";
-              let url: string | undefined = hostedUrl;
-              if (!url && base64) {
-                // Default to PNG data URL
-                url = `data:${mediaType};base64,${base64}`;
+              // Upload the same file we just wrote to UploadThing
+              let uploadedUrl: string | undefined;
+              try {
+                const buffer = await fs.promises.readFile(fileName);
+                const uint8 = new Uint8Array(buffer);
+                const file = new File([uint8], fileName, { type: mediaType });
+                const uploadRes = await utapi.uploadFiles(file);
+                uploadedUrl = getUploadThingUrlFromResult(uploadRes);
+              } catch (uploadErr) {
+                console.error("UploadThing upload failed:", uploadErr);
+              } finally {
+                // Best-effort cleanup of the temp file
+                try {
+                  await fs.promises.unlink(fileName);
+                } catch {}
               }
 
-              if (!url) {
-                throw new Error(
-                  "Image generation returned no URL or base64 data",
-                );
+              if (!uploadedUrl) {
+                throw new Error("Image generation produced no upload URL");
               }
 
               // Append assistant message with the generated image as a file part
@@ -214,16 +242,10 @@ export async function POST(req: Request) {
                     type: "file",
                     mediaType: mediaType,
                     name: "generated-image",
-                    url,
+                    url: uploadedUrl,
                   },
                 ],
               };
-
-              console.log("[IMAGE_GEN] Appending image message to stream:", {
-                id: assistantMessageId,
-                urlPreview: url.substring(0, 50) + "...",
-                mediaType,
-              });
 
               dataStream.write({
                 type: "data-appendMessage",
@@ -238,7 +260,7 @@ export async function POST(req: Request) {
                     type: "file" as const,
                     mediaType,
                     name: "generated-image",
-                    url,
+                    url: uploadedUrl,
                   },
                 ],
               };
@@ -329,11 +351,6 @@ export async function POST(req: Request) {
       generateId: generateUUID,
       onFinish: async ({ messages }) => {
         try {
-          console.log(
-            "onFinish received messages:",
-            JSON.stringify(messages, null, 2),
-          );
-
           const toSave = messages.map((message) => ({
             id: message.id,
             role: message.role,
@@ -343,8 +360,6 @@ export async function POST(req: Request) {
             chatId: id,
             model: message.role === "assistant" ? selectedChatModel : null,
           }));
-
-          console.log("Messages to save:", JSON.stringify(toSave, null, 2));
 
           // If the image assistant message wasn't captured, persist it explicitly
           if (fallbackImageAssistantMessage) {
@@ -382,9 +397,10 @@ export async function POST(req: Request) {
     console.log("Using regular streaming for chat:", id);
     return new Response(stream.pipeThrough(new JsonToSseTransformStream()), {
       headers: {
-        "Content-Type": "text/plain; charset=utf-8",
+        "Content-Type": "text/event-stream; charset=utf-8",
         "Cache-Control": "no-cache",
         Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
       },
     });
   } catch (error) {

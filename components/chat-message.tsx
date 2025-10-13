@@ -54,7 +54,6 @@ const PureChatMessage = ({ message }: messageProps) => {
             <div
               data-testid={`message-attachments`}
               className={`mt-3 flex flex-wrap gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}
-              style={{ border: "2px dashed red" }}
             >
               {attachmentsFromMessage.map((attachment) => (
                 <PreviewAttachment

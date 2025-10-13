@@ -102,7 +102,7 @@ export function ModelsPopover({ selectedModelId }: ModelSelectorProps) {
                 });
               }}
               data-active={id === selectedModelId}
-              disabled
+              // disabled
             >
               <div className="flex items-center gap-2">
                 <span className="font-medium">{m.name}</span>

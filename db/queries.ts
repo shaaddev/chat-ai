@@ -75,14 +75,6 @@ export async function getChatById({ id }: { id: string }) {
 
 export async function saveMessages({ messages }: { messages: Array<Message> }) {
   try {
-    console.log("saveMessages called with", messages.length, "messages");
-    messages.forEach((msg, idx) => {
-      console.log(
-        `  Message ${idx}: id=${msg.id}, role=${msg.role}, parts=`,
-        JSON.stringify(msg.parts),
-      );
-    });
-
     // Update the chat's updatedAt timestamp when messages are saved
     if (messages.length > 0) {
       const chatId = messages[0].chatId;
