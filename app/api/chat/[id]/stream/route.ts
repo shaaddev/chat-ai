@@ -14,7 +14,7 @@ import { headers } from "next/headers";
 
 export async function GET(
   _: Request,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: chatId } = await params;
 
@@ -72,7 +72,7 @@ export async function GET(
   let stream;
   try {
     stream = await streamContext.resumableStream(recentStreamId, () =>
-      emptyDataStream.pipeThrough(new JsonToSseTransformStream()),
+      emptyDataStream.pipeThrough(new JsonToSseTransformStream())
     );
   } catch (error) {
     console.error("Resumable stream error:", error);
@@ -141,17 +141,16 @@ export async function GET(
           "Cache-Control": "no-cache",
           Connection: "keep-alive",
         },
-      },
+      }
     );
   }
 
   return new Response(stream, {
     status: 200,
     headers: {
-      "Content-Type": "text/event-stream; charset=utf-8",
+      "Content-Type": "text/plain; charset=utf-8",
       "Cache-Control": "no-cache",
       Connection: "keep-alive",
-      "X-Accel-Buffering": "no",
     },
   });
 }
