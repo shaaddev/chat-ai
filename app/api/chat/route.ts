@@ -270,7 +270,7 @@ export async function POST(req: Request) {
                 type: "data-setMessageMetadata",
                 data: JSON.stringify({
                   id: assistantMessageId,
-                  metadata: { model: selectedChatModel },
+                  metadata: { model: selectedChatModel, useSearch },
                 }),
               });
             } catch (err) {
@@ -331,6 +331,7 @@ export async function POST(req: Request) {
                       usage: { outputTokens },
                       outputTokens,
                       model: selectedChatModel,
+                      useSearch,
                     },
                   }),
                 });

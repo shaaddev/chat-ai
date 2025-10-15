@@ -7,7 +7,7 @@ import { memo } from "react";
 import equal from "fast-deep-equal";
 import { cn, sanitizeText } from "@/lib/utils";
 import { MessageContent } from "./message-content";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check, Globe } from "lucide-react";
 import { useState } from "react";
 import { stable_models, image_models } from "@/lib/ai/models";
 
@@ -116,6 +116,7 @@ const PureChatMessage = ({ message }: messageProps) => {
                   const m = message.metadata as Record<string, unknown>;
                   const modelId = m.model as string | null | undefined;
                   const modelName = getModelName(modelId);
+                  const usedSearch = Boolean(m.useSearch);
 
                   return (
                     <div className="mt-1 flex items-center gap-3">
@@ -141,6 +142,14 @@ const PureChatMessage = ({ message }: messageProps) => {
                           <span className="text-neutral-300 font-medium">
                             {modelName}
                           </span>
+                        </div>
+                      )}
+                      {usedSearch && (
+                        <div
+                          className="flex items-center gap-1.5 rounded-md bg-neutral-800 px-2 py-1"
+                          title="Used web search"
+                        >
+                          <Globe className="size-3.5" />
                         </div>
                       )}
                     </div>
