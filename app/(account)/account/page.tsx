@@ -1,15 +1,12 @@
 import { eq } from "drizzle-orm";
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { Account } from "@/components/account/account";
 import { db } from "@/db";
 import { user } from "@/db/schema";
-import { auth } from "@/lib/auth";
+import { auth } from "@/app/auth";
 
 export default async function Page() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await auth();
 
   if (!session) {
     redirect("/");

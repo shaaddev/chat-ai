@@ -1,13 +1,12 @@
 import { createUIMessageStream, JsonToSseTransformStream } from "ai";
 import { differenceInSeconds } from "date-fns";
-import { headers } from "next/headers";
 import {
   getChatById,
   getMessagesByChatId,
   getStreamIdsByChatId,
 } from "@/db/queries";
 import type { Chat } from "@/db/schema";
-import { auth } from "@/lib/auth";
+import { auth } from "@/app/auth";
 import { ChatSDKError } from "@/lib/errors";
 import type { ChatMessage } from "@/lib/types";
 import { getStreamContext } from "../../route";
@@ -29,9 +28,7 @@ export async function GET(
     return new ChatSDKError("bad_request:api").toResponse();
   }
 
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await auth();
 
   if (!session?.user) {
     return new ChatSDKError("unauthorized:chat").toResponse();

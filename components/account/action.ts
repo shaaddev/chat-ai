@@ -1,10 +1,9 @@
 "use server";
 
 import { eq } from "drizzle-orm";
-import { headers } from "next/headers";
 import { db } from "@/db";
 import { user } from "@/db/schema";
-import { auth } from "@/lib/auth";
+import { auth } from "@/app/auth";
 
 export const updateUser = async (formData: FormData) => {
   const new_fullName = formData.get("new_fullName") as string;
@@ -14,9 +13,7 @@ export const updateUser = async (formData: FormData) => {
     return { error: "Missing required fields" };
   }
 
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await auth();
 
   if (!session) {
     return { error: "Unauthorized" };

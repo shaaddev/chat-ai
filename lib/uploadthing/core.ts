@@ -1,7 +1,6 @@
-import { headers } from "next/headers";
 import { createUploadthing, type FileRouter } from "uploadthing/next";
 import { UploadThingError, UTApi } from "uploadthing/server";
-import { auth } from "@/lib/auth";
+import { auth } from "@/app/auth";
 
 export const utapi = new UTApi();
 
@@ -20,9 +19,7 @@ export const ourFileRouter = {
     },
   })
     .middleware(async () => {
-      const session = await auth.api.getSession({
-        headers: await headers(),
-      });
+      const session = await auth();
 
       if (!session) throw new UploadThingError("Unauthorized");
 

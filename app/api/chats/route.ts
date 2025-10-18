@@ -1,15 +1,12 @@
-import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { getChatsByUserId } from "@/db/queries";
-import { auth } from "@/lib/auth";
+import { auth } from "@/app/auth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    const session = await auth();
 
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

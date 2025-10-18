@@ -10,7 +10,6 @@ import {
 } from "ai";
 import { eq } from "drizzle-orm";
 import fs from "fs";
-import { headers } from "next/headers";
 import { after } from "next/server";
 import {
   createResumableStreamContext,
@@ -29,7 +28,7 @@ import { chat } from "@/db/schema";
 import { image_models, myProvider, stable_models } from "@/lib/ai/models";
 import { systemPrompt } from "@/lib/ai/prompts";
 import { getToolsForModel } from "@/lib/ai/tools";
-import { auth } from "@/lib/auth";
+import { auth } from "@/app/auth";
 import { ChatSDKError } from "@/lib/errors";
 import type { ChatMessage } from "@/lib/types";
 import { utapi } from "@/lib/uploadthing/core";
@@ -117,9 +116,7 @@ export async function POST(req: Request) {
       useSearch: boolean;
     } = requestBody;
 
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    const session = await auth();
 
     const existingChat = await getChatById({ id });
 
