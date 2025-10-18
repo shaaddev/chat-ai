@@ -1,7 +1,7 @@
-import type { Attachment } from "@/lib/types";
 import { File, Loader } from "lucide-react";
-import { ViewAttachmentDialog } from "./view-attachment-dialog";
+import type { Attachment } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { ViewAttachmentDialog } from "./view-attachment-dialog";
 
 export const PreviewAttachment = ({
   attachment,

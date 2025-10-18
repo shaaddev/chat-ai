@@ -1,10 +1,10 @@
-import { Separator } from "@/components/ui/separator";
-import { Button } from "@/components/ui/button";
+import { History, HomeIcon, LogOutIcon, UserIcon } from "lucide-react";
 import Link from "next/link";
-import { HomeIcon, UserIcon, LogOutIcon, History } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { authClient } from "@/lib/auth-client";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { authClient } from "@/lib/auth-client";
 
 export function AccountSidebar({
   setActiveSection,

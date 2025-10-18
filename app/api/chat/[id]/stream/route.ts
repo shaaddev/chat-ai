@@ -1,16 +1,16 @@
-import { auth } from "@/lib/auth";
+import { createUIMessageStream, JsonToSseTransformStream } from "ai";
+import { differenceInSeconds } from "date-fns";
+import { headers } from "next/headers";
 import {
   getChatById,
   getMessagesByChatId,
   getStreamIdsByChatId,
 } from "@/db/queries";
 import type { Chat } from "@/db/schema";
+import { auth } from "@/lib/auth";
 import { ChatSDKError } from "@/lib/errors";
 import type { ChatMessage } from "@/lib/types";
-import { createUIMessageStream, JsonToSseTransformStream } from "ai";
 import { getStreamContext } from "../../route";
-import { differenceInSeconds } from "date-fns";
-import { headers } from "next/headers";
 
 export async function GET(
   _: Request,

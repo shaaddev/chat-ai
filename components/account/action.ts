@@ -1,10 +1,10 @@
 "use server";
 
-import { auth } from "@/lib/auth";
+import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import { db } from "@/db";
 import { user } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { auth } from "@/lib/auth";
 
 export const updateUser = async (formData: FormData) => {
   const new_fullName = formData.get("new_fullName") as string;

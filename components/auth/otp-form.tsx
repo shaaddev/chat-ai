@@ -1,14 +1,12 @@
 "use client";
 
-import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 import { z } from "zod";
-import {
-  InputOTP,
-  InputOTPGroup,
-  InputOTPSlot,
-} from "@/components/ui/input-otp";
+import { useChat } from "@/components/chat-context";
 import {
   Form,
   FormControl,
@@ -18,10 +16,12 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { toast } from "sonner";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from "@/components/ui/input-otp";
 import { verify_otp } from "./action";
-import { useRouter } from "next/navigation";
-import { useChat } from "@/components/chat-context";
 
 const schema = z.object({
   pin: z.string().min(6, {

@@ -1,18 +1,17 @@
 "use client";
 
+import { Loader2, MessageSquareText, Trash } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import { MessageSquareText, Trash } from "lucide-react";
+import { memo } from "react";
+import { useChat } from "@/components/chat-context";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   SidebarMenu,
-  SidebarMenuItem,
   SidebarMenuButton,
+  SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { useChat } from "@/components/chat-context";
-import { Session } from "@/lib/auth";
-import { memo } from "react";
-import { Loader2 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import type { Session } from "@/lib/auth";
 
 interface SidebarHistoryProps {
   session: Session | null;

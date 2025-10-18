@@ -1,4 +1,3 @@
-import React from "react";
 import {
   Body,
   Container,
@@ -6,9 +5,10 @@ import {
   Hr,
   Html,
   Section,
-  Text,
   Tailwind,
+  Text,
 } from "@react-email/components";
+import React from "react";
 
 type OtpEmailProps = {
   email?: string;

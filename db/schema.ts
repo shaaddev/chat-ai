@@ -1,14 +1,14 @@
-import { InferSelectModel } from "drizzle-orm";
+import type { InferSelectModel } from "drizzle-orm";
 import {
-  pgTable,
-  varchar,
-  timestamp,
-  json,
-  text,
-  uuid,
-  foreignKey,
-  primaryKey,
   boolean,
+  foreignKey,
+  json,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  uuid,
+  varchar,
 } from "drizzle-orm/pg-core";
 
 export const chat = pgTable("Chat", {

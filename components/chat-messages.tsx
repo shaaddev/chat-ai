@@ -1,10 +1,10 @@
-import { ChatMessage } from "@/lib/types";
-import { UseChatHelpers } from "@ai-sdk/react";
-import { useMessages } from "@/hooks/use-message";
-import { PreviewMessage } from "./chat-message";
-import { memo, useEffect } from "react";
+import type { UseChatHelpers } from "@ai-sdk/react";
 import equal from "fast-deep-equal";
+import { memo, useEffect } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useMessages } from "@/hooks/use-message";
+import type { ChatMessage } from "@/lib/types";
+import { PreviewMessage } from "./chat-message";
 
 interface MessagesProps {
   chatId: string;

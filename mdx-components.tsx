@@ -1,6 +1,6 @@
 import type { MDXComponents } from "mdx/types";
-import React, { ComponentPropsWithoutRef } from "react";
 import Link from "next/link";
+import React, { type ComponentPropsWithoutRef } from "react";
 
 type AnchorProps = ComponentPropsWithoutRef<"a">;
 

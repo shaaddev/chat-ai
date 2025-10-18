@@ -1,19 +1,18 @@
 "use client";
 import { useChat } from "@ai-sdk/react";
-import type { ChatMessage } from "@/lib/types";
+import { DefaultChatTransport } from "ai";
 import { Menu } from "lucide-react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import { useChat as useChatContext } from "@/components/chat-context";
 import { Button } from "@/components/ui/button";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import type { Session } from "@/lib/auth";
+import type { Attachment, ChatMessage } from "@/lib/types";
+import { fetchWithErrorHandlers, generateUUID } from "@/lib/utils";
 import { ChatHistory } from "./chat-history";
 import { ChatInput } from "./chat-input";
 import { Messages } from "./chat-messages";
-import { fetchWithErrorHandlers, generateUUID } from "@/lib/utils";
-import { useState, useEffect } from "react";
-import { Session } from "@/lib/auth";
-import type { Attachment } from "@/lib/types";
-import { toast } from "sonner";
-import { useChat as useChatContext } from "@/components/chat-context";
-import { DefaultChatTransport } from "ai";
 
 interface ChatProps {
   id: string;

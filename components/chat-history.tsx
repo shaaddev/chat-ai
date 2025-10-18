@@ -1,14 +1,14 @@
 import {
   Sidebar,
   SidebarContent,
-  SidebarHeader,
   SidebarFooter,
+  SidebarHeader,
 } from "@/components/ui/sidebar";
+import type { Session } from "@/lib/auth";
+import { LoginBtn } from "./auth/login-btn";
+import { NewChat } from "./new-chat-btn";
 import { SidebarHistory } from "./sidebar-history";
 import { SidebarUser } from "./sidebar-user";
-import { NewChat } from "./new-chat-btn";
-import { Session } from "@/lib/auth";
-import { LoginBtn } from "./auth/login-btn";
 
 export function ChatHistory({ session }: { session: Session | null }) {
   return (

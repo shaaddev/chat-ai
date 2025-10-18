@@ -1,9 +1,9 @@
 import "server-only";
 
-import { chat, message, type Message, user, stream } from "./schema";
-import { db } from ".";
-import { eq, asc, desc } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
 import { ChatSDKError } from "@/lib/errors";
+import { db } from ".";
+import { chat, type Message, message, stream, user } from "./schema";
 
 export async function saveChat({
   id,

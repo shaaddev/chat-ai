@@ -1,12 +1,10 @@
+import { cookies, headers } from "next/headers";
+import { notFound, redirect } from "next/navigation";
 import { Chat } from "@/components/chat";
-import { notFound } from "next/navigation";
 import { getChatById, getMessagesByChatId } from "@/db/queries";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
-import { cookies } from "next/headers";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
+import { auth } from "@/lib/auth";
 import { convertToUIMessages } from "@/lib/utils";
-import { redirect } from "next/navigation";
 
 export default async function Page(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;

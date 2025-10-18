@@ -1,23 +1,23 @@
-import { ModelsPopover } from "./models-popover";
-import { FileInput } from "./file-input";
-import { Button } from "@/components/ui/button";
-import { Send, CirclePause, Globe } from "lucide-react";
-import { toast } from "sonner";
-import type { Attachment, ChatMessage } from "@/lib/types";
+import type { UseChatHelpers } from "@ai-sdk/react";
+import { CirclePause, Globe, Send } from "lucide-react";
 import {
-  useCallback,
-  useState,
-  useRef,
-  useEffect,
   type Dispatch,
-  type SetStateAction,
   memo,
+  type SetStateAction,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
 } from "react";
-import { LoginContent } from "./auth/login-content";
+import { toast } from "sonner";
 import { useChat } from "@/components/chat-context";
-import { PreviewAttachment } from "./preview-attachment";
-import { UseChatHelpers } from "@ai-sdk/react";
+import { Button } from "@/components/ui/button";
+import type { Attachment, ChatMessage } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { LoginContent } from "./auth/login-content";
+import { FileInput } from "./file-input";
+import { ModelsPopover } from "./models-popover";
+import { PreviewAttachment } from "./preview-attachment";
 
 interface ChatInputProps {
   setInput: Dispatch<SetStateAction<string>>;

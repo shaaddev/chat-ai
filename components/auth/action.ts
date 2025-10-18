@@ -1,7 +1,7 @@
 "use server";
-import { authClient } from "@/lib/auth-client";
 import { isEmail } from "@/db/queries";
 import { auth } from "@/lib/auth";
+import { authClient } from "@/lib/auth-client";
 
 export const get_email = async (formData: FormData) => {
   const { email } = Object.fromEntries(formData);

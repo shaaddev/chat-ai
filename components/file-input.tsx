@@ -1,13 +1,13 @@
 import { Paperclip } from "lucide-react";
-import { toast } from "sonner";
-import type { Attachment } from "@/lib/types";
 import {
-  useRef,
-  useCallback,
+  type ChangeEvent,
   type Dispatch,
   type SetStateAction,
-  type ChangeEvent,
+  useCallback,
+  useRef,
 } from "react";
+import { toast } from "sonner";
+import type { Attachment } from "@/lib/types";
 import { useUploadThing } from "@/lib/uploadthing/uploadthing";
 
 interface FileInputProps {

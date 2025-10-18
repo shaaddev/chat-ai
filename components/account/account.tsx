@@ -1,7 +1,7 @@
 "use client";
-import { AccountSidebar } from "./sidebar";
-import { Profile } from "./profile";
 import { useState } from "react";
+import { Profile } from "./profile";
+import { AccountSidebar } from "./sidebar";
 import { Usage } from "./usage/usage";
 
 interface AccountProps {

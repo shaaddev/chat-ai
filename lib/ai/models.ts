@@ -1,8 +1,8 @@
-import { Info, Image, FlaskConical, LucideIcon } from "lucide-react";
-import { openai } from "@ai-sdk/openai";
-import { google } from "@ai-sdk/google";
 import { fal } from "@ai-sdk/fal";
+import { google } from "@ai-sdk/google";
+import { openai } from "@ai-sdk/openai";
 import { customProvider } from "ai";
+import { FlaskConical, Image, Info, type LucideIcon } from "lucide-react";
 
 interface model_selection {
   id: string;

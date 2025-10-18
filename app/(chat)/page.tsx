@@ -1,9 +1,8 @@
-import { cookies } from "next/headers";
-import { generateUUID } from "@/lib/utils";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
-import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
+import { cookies, headers } from "next/headers";
 import { Chat } from "@/components/chat";
+import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
+import { auth } from "@/lib/auth";
+import { generateUUID } from "@/lib/utils";
 
 export default async function Page() {
   const id = generateUUID();

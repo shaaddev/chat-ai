@@ -1,15 +1,15 @@
-import React from "react";
 import {
   Body,
+  Button,
   Container,
   Head,
   Hr,
   Html,
   Section,
-  Text,
   Tailwind,
-  Button,
+  Text,
 } from "@react-email/components";
+import React from "react";
 
 type MagicLinkProps = {
   email: string;

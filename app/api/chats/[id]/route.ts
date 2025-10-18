@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { deleteChatById, getChatById } from "@/db/queries";
 import {
-  extractFileKeysFromMessages,
   deleteFilesFromUploadThing,
+  extractFileKeysFromMessages,
 } from "@/lib/uploadthing/utils";
 
 export async function GET(

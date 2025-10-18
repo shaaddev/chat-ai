@@ -1,6 +1,6 @@
+import type { UseChatHelpers } from "@ai-sdk/react";
 import { useEffect, useRef } from "react";
-import { UseChatHelpers } from "@ai-sdk/react";
-import { ChatMessage } from "@/lib/types";
+import type { ChatMessage } from "@/lib/types";
 
 export function useMessages({
   chatId,

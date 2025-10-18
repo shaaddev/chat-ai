@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { toast } from "sonner";
 import {
   Card,
   CardContent,
@@ -5,10 +7,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ProfileForm } from "./profile-form";
-import { useState } from "react";
 import { updateUser } from "./action";
-import { toast } from "sonner";
+import { ProfileForm } from "./profile-form";
 
 interface UserInfo {
   email: string;

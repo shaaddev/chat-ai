@@ -1,16 +1,16 @@
 import { ChevronDown } from "lucide-react";
+import { startTransition, useMemo, useOptimistic, useState } from "react";
+import { saveChatModelAsCookie } from "@/app/actions";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import { image_models, stable_models } from "@/lib/ai/models";
 import { ImageTooltip } from "./model-helpful-tooltips";
-import { useState, useOptimistic, useMemo, startTransition } from "react";
-import { stable_models, image_models } from "@/lib/ai/models";
-import { saveChatModelAsCookie } from "@/app/actions";
 
 interface ModelSelectorProps {
   selectedModelId: string;

@@ -1,15 +1,14 @@
 "use client";
 
-import { Markdown } from "./markdown";
-import type { ChatMessage } from "@/lib/types";
-import { PreviewAttachment } from "./preview-attachment";
-import { memo } from "react";
 import equal from "fast-deep-equal";
+import { Check, Copy, Globe } from "lucide-react";
+import { memo, useState } from "react";
+import { image_models, stable_models } from "@/lib/ai/models";
+import type { ChatMessage } from "@/lib/types";
 import { cn, sanitizeText } from "@/lib/utils";
+import { Markdown } from "./markdown";
 import { MessageContent } from "./message-content";
-import { Copy, Check, Globe } from "lucide-react";
-import { useState } from "react";
-import { stable_models, image_models } from "@/lib/ai/models";
+import { PreviewAttachment } from "./preview-attachment";
 
 export interface messageProps {
   message: ChatMessage;
