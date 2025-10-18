@@ -70,7 +70,8 @@ function getUploadThingUrlFromResult(result: unknown): string | undefined {
 let globalStreamContext: ResumableStreamContext | null = null;
 
 export function getStreamContext() {
-  // Original code (uncomment when Redis is configured):
+  // Only try to initialize once
+
   if (!globalStreamContext) {
     try {
       globalStreamContext = createResumableStreamContext({
@@ -392,20 +393,12 @@ export async function POST(req: Request) {
       },
     });
 
-    const streamContext = getStreamContext();
+    // const streamContext = getStreamContext();
 
     // Use resumable streams if available, otherwise fall back to regular streaming
-    if (streamContext) {
-      console.log("Using resumable streaming for chat:", id);
-      return new Response(
-        await streamContext.resumableStream(streamId, () =>
-          stream.pipeThrough(new JsonToSseTransformStream()),
-        ),
-      );
-    } else {
-      console.log("Using regular streaming for chat:", id);
-      return new Response(stream.pipeThrough(new JsonToSseTransformStream()));
-    }
+    // by default, we are using regular streaming
+    console.log("Using regular streaming for chat:", id);
+    return new Response(stream.pipeThrough(new JsonToSseTransformStream()));
   } catch (error) {
     console.error("Chat API error:", error);
     return new Response("Internal server error", { status: 500 });
