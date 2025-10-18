@@ -392,11 +392,20 @@ export async function POST(req: Request) {
       },
     });
 
-    // const streamContext = getStreamContext();
+    const streamContext = getStreamContext();
 
-    // Since we're temporarily disabling resumable streams, always use regular streaming
-    console.log("Using regular streaming for chat:", id);
-    return new Response(stream.pipeThrough(new JsonToSseTransformStream()));
+    // Use resumable streams if available, otherwise fall back to regular streaming
+    if (streamContext) {
+      console.log("Using resumable streaming for chat:", id);
+      return new Response(
+        await streamContext.resumableStream(streamId, () =>
+          stream.pipeThrough(new JsonToSseTransformStream()),
+        ),
+      );
+    } else {
+      console.log("Using regular streaming for chat:", id);
+      return new Response(stream.pipeThrough(new JsonToSseTransformStream()));
+    }
   } catch (error) {
     console.error("Chat API error:", error);
     return new Response("Internal server error", { status: 500 });

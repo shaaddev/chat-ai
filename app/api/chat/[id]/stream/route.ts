@@ -90,22 +90,12 @@ export async function GET(
     if (!mostRecentMessage) {
       return new Response(emptyDataStream, {
         status: 200,
-        headers: {
-          "Content-Type": "text/plain; charset=utf-8",
-          "Cache-Control": "no-cache",
-          Connection: "keep-alive",
-        },
       });
     }
 
     if (mostRecentMessage.role !== "assistant") {
       return new Response(emptyDataStream, {
         status: 200,
-        headers: {
-          "Content-Type": "text/plain; charset=utf-8",
-          "Cache-Control": "no-cache",
-          Connection: "keep-alive",
-        },
       });
     }
 
@@ -114,11 +104,6 @@ export async function GET(
     if (differenceInSeconds(resumeRequestedAt, messageCreatedAt) > 15) {
       return new Response(emptyDataStream, {
         status: 200,
-        headers: {
-          "Content-Type": "text/plain; charset=utf-8",
-          "Cache-Control": "no-cache",
-          Connection: "keep-alive",
-        },
       });
     }
 
