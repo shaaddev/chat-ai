@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: setup pnpm
+      - name: setup bun
         uses: ./tooling/setup
 
       - name: install dependencies
