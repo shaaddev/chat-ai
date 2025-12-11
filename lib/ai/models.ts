@@ -62,7 +62,7 @@ export const myProvider = customProvider({
   languageModels: {
     "google-model-2-5-flash": openrouter.chat("google/gemini-2.5-flash"),
     "google-model-2-5-flash-lite": openrouter.chat(
-      "google/gemini-2.5-flash-lite"
+      "google/gemini-2.5-flash-lite",
     ),
     "chat-5-mini": openrouter.chat("openai/gpt-5-mini"),
     "title-model": openrouter.chat("google/gemini-2.5-flash-lite"),
@@ -70,7 +70,7 @@ export const myProvider = customProvider({
   imageModels: {
     "chat-image-1-mini": createImageModel("openai/gpt-5-image-mini"),
     "chat-gemini-2-5-flash-image": createImageModel(
-      "google/gemini-2.5-flash-image"
+      "google/gemini-2.5-flash-image",
     ),
   },
 });
