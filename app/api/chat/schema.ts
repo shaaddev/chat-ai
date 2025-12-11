@@ -27,8 +27,7 @@ export const postRequestBodySchema = z.object({
     "chat-5-mini",
     // image models
     "chat-image-1-mini",
-    "chat-dall-e-3",
-    "fal-ai-image",
+    "chat-gemini-2-5-flash-image",
   ]),
   useSearch: z.boolean().optional().default(false),
 });

@@ -1,8 +1,10 @@
-import { fal } from "@ai-sdk/fal";
-import { google } from "@ai-sdk/google";
-import { openai } from "@ai-sdk/openai";
 import { customProvider } from "ai";
 import { FlaskConical, Image, Info, type LucideIcon } from "lucide-react";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+
+const openrouter = createOpenRouter({
+  apiKey: process.env.OPENROUTER_API_KEY,
+});
 
 interface model_selection {
   id: string;
@@ -42,29 +44,33 @@ export const image_models: model_selection[] = [
     icon: Info,
   },
   {
-    id: "chat-dall-e-3",
-    name: "Dall-E 3",
-    icon: Info,
-  },
-  {
-    id: "fal-ai-image",
-    name: "Fal AI Image",
+    id: "chat-gemini-2-5-flash-image",
+    name: "Gemini 2.5 Flash Image (Nano Banana)",
     icon: Info,
   },
 ];
 
 export const DEFAULT_CHAT_MODEL: string = "google-model-2-5-flash";
 
+// Helper to create image model with proper typing workaround
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const createImageModel = (modelId: string): any => {
+  return Object.assign(openrouter.completion(modelId), { maxImagesPerCall: 1 });
+};
+
 export const myProvider = customProvider({
   languageModels: {
-    "google-model-2-5-flash": google("gemini-2.5-flash"),
-    "google-model-2-5-flash-lite": google("gemini-2.5-flash-lite"),
-    "chat-5-mini": openai("gpt-5-mini"),
-    "title-model": google("gemini-2.5-flash-lite"),
+    "google-model-2-5-flash": openrouter.chat("google/gemini-2.5-flash"),
+    "google-model-2-5-flash-lite": openrouter.chat(
+      "google/gemini-2.5-flash-lite"
+    ),
+    "chat-5-mini": openrouter.chat("openai/gpt-5-mini"),
+    "title-model": openrouter.chat("google/gemini-2.5-flash-lite"),
   },
   imageModels: {
-    "chat-image-1-mini": openai.image("gpt-image-1"),
-    "chat-dall-e-3": openai.image("dall-e-3"),
-    "fal-ai-image": fal.image("fal-ai/flux/dev"),
+    "chat-image-1-mini": createImageModel("openai/gpt-5-image-mini"),
+    "chat-gemini-2-5-flash-image": createImageModel(
+      "google/gemini-2.5-flash-image"
+    ),
   },
 });
