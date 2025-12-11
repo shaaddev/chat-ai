@@ -81,7 +81,7 @@ export function getStreamContext() {
     } catch (error: any) {
       if (error.message.includes("REDIS_URL")) {
         console.log(
-          " > Resumable streams are disabled due to missing REDIS_URL",
+          " > Resumable streams are disabled due to missing REDIS_URL"
         );
       } else {
         console.error("Resumable stream context error:", error);
@@ -186,7 +186,7 @@ export async function POST(req: Request) {
       execute: async ({ writer: dataStream }) => {
         try {
           const isImageModel = image_models.some(
-            (m) => m.id === selectedChatModel,
+            (m) => m.id === selectedChatModel
           );
 
           if (isImageModel) {
@@ -195,6 +195,7 @@ export async function POST(req: Request) {
               .filter((p) => p.type === "text")
               .map((p) => p.text)
               .join("\n")
+              .trim()
               .slice(0, 2000);
 
             try {
@@ -364,7 +365,7 @@ export async function POST(req: Request) {
           // If the image assistant message wasn't captured, persist it explicitly
           if (fallbackImageAssistantMessage) {
             const alreadyIncluded = toSave.some(
-              (m) => m.id === fallbackImageAssistantMessage!.id,
+              (m) => m.id === fallbackImageAssistantMessage!.id
             );
 
             if (!alreadyIncluded) {

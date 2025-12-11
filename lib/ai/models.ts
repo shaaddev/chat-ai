@@ -52,25 +52,15 @@ export const image_models: model_selection[] = [
 
 export const DEFAULT_CHAT_MODEL: string = "google-model-2-5-flash";
 
-// Helper to create image model with proper typing workaround
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const createImageModel = (modelId: string): any => {
-  return Object.assign(openrouter.completion(modelId), { maxImagesPerCall: 1 });
-};
-
 export const myProvider = customProvider({
   languageModels: {
-    "google-model-2-5-flash": openrouter.chat("google/gemini-2.5-flash"),
-    "google-model-2-5-flash-lite": openrouter.chat(
-      "google/gemini-2.5-flash-lite",
-    ),
-    "chat-5-mini": openrouter.chat("openai/gpt-5-mini"),
-    "title-model": openrouter.chat("google/gemini-2.5-flash-lite"),
+    "google-model-2-5-flash": openrouter("google/gemini-2.5-flash"),
+    "google-model-2-5-flash-lite": openrouter("google/gemini-2.5-flash-lite"),
+    "chat-5-mini": openrouter("openai/gpt-5-mini"),
+    "title-model": openrouter("google/gemini-2.5-flash-lite"),
   },
   imageModels: {
-    "chat-image-1-mini": createImageModel("openai/gpt-5-image-mini"),
-    "chat-gemini-2-5-flash-image": createImageModel(
-      "google/gemini-2.5-flash-image",
-    ),
+    "chat-image-1-mini": openrouter("openai/gpt-5-image-mini"),
+    "chat-gemini-2-5-flash-image": openrouter("google/gemini-2.5-flash-image"),
   },
 });
