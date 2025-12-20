@@ -2,7 +2,6 @@ import type { LanguageModelUsage } from "ai";
 import {
   convertToModelMessages,
   createUIMessageStream,
-  experimental_generateImage,
   JsonToSseTransformStream,
   smoothStream,
   stepCountIs,
@@ -199,38 +198,197 @@ export async function POST(req: Request) {
               .slice(0, 2000);
 
             try {
-              const { image } = await experimental_generateImage({
-                model: myProvider.imageModel(selectedChatModel),
-                prompt: latestUserText,
-              });
+              // Use OpenRouter API for image generation
+              const response = await fetch(
+                "https://openrouter.ai/api/v1/chat/completions",
+                {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+                    "Content-Type": "application/json",
+                    "HTTP-Referer":
+                      process.env.NEXT_PUBLIC_APP_URL ||
+                      "https://chat.shaaddev.com",
+                    "X-Title": "Chat AI - Shaad",
+                  },
+                  body: JSON.stringify({
+                    model: myProvider.imageModel(selectedChatModel),
+                    messages: [
+                      {
+                        role: "user",
+                        content: latestUserText,
+                      },
+                    ],
+                    modalities: ["image", "text"],
+                  }),
+                },
+              );
 
-              // Try to determine a usable URL for the image
-              const fileName = `image-${Date.now()}.png`;
-              // Decode base64 and write to disk
-              fs.writeFileSync(fileName, Buffer.from(image.base64, "base64"));
+              if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                console.error("OpenRouter image generation error:", errorData);
+
+                if (response.status === 429) {
+                  throw new Error(
+                    "Rate limit exceeded. Please try again later.",
+                  );
+                }
+
+                throw new Error(
+                  (errorData as { error?: { message?: string } })?.error
+                    ?.message || `OpenRouter API error: ${response.status}`,
+                );
+              }
+
+              const result = await response.json();
+              const resultMessage = result.choices?.[0]?.message;
+
+              // Try to extract the image from different response formats
+              let imageDataUrl: string | null = null;
+
+              // Format 1: Gemini via OpenRouter - message.images array with image_url
+              if (resultMessage?.images?.[0]?.image_url?.url) {
+                imageDataUrl = resultMessage.images[0].image_url.url;
+              }
+              // Format 2: OpenAI images/generations style (data[0].b64_json)
+              else if (result.data?.[0]?.b64_json) {
+                imageDataUrl = `data:image/png;base64,${result.data[0].b64_json}`;
+              }
+              // Format 3: Chat completions with images array at choice level
+              else if (result.choices?.[0]?.images?.[0]) {
+                const imageData = result.choices[0].images[0];
+                if (typeof imageData === "string") {
+                  imageDataUrl = imageData.startsWith("data:")
+                    ? imageData
+                    : `data:image/png;base64,${imageData}`;
+                } else if (imageData?.image_url?.url) {
+                  imageDataUrl = imageData.image_url.url;
+                } else if (
+                  imageData?.b64_json ||
+                  imageData?.base64 ||
+                  imageData?.data
+                ) {
+                  const base64 =
+                    imageData.b64_json || imageData.base64 || imageData.data;
+                  imageDataUrl = `data:image/png;base64,${base64}`;
+                }
+              }
+              // Format 4: Message content array with inline_data
+              else if (Array.isArray(resultMessage?.content)) {
+                for (const part of resultMessage.content) {
+                  if (part.inline_data?.data) {
+                    const mimeType = part.inline_data.mime_type || "image/png";
+                    imageDataUrl = `data:${mimeType};base64,${part.inline_data.data}`;
+                    break;
+                  }
+                  if (part.image_url?.url) {
+                    imageDataUrl = part.image_url.url;
+                    break;
+                  }
+                  // Format 5: type "image_url" with nested url
+                  if (part?.type === "image_url" && part?.image_url?.url) {
+                    imageDataUrl = part.image_url.url;
+                    break;
+                  }
+                }
+              }
+              // Format 6: Direct string content that is a data URL
+              else if (
+                typeof resultMessage?.content === "string" &&
+                resultMessage.content.startsWith("data:image")
+              ) {
+                imageDataUrl = resultMessage.content;
+              }
+
+              if (!imageDataUrl) {
+                console.error(
+                  "No image data found in response:",
+                  JSON.stringify(result, null, 2),
+                );
+                throw new Error("No image was generated");
+              }
+
               const assistantMessageId = generateUUID();
-
-              const mediaType = "image/png";
-              // Upload the same file we just wrote to UploadThing
               let uploadedUrl: string | undefined;
-              try {
-                const buffer = await fs.promises.readFile(fileName);
-                const uint8 = new Uint8Array(buffer);
-                const file = new File([uint8], fileName, { type: mediaType });
-                const uploadRes = await utapi.uploadFiles(file);
-                uploadedUrl = getUploadThingUrlFromResult(uploadRes);
-              } catch (uploadErr) {
-                console.error("UploadThing upload failed:", uploadErr);
-              } finally {
-                // Best-effort cleanup of the temp file
+
+              // Check if it's a data URL (base64) or external URL
+              if (imageDataUrl.startsWith("data:")) {
+                // Extract base64 and mime type from data URL
+                const dataUrlMatch = imageDataUrl.match(
+                  /^data:(image\/[^;]+);base64,(.+)$/,
+                );
+                if (!dataUrlMatch) {
+                  throw new Error("Invalid image data URL format");
+                }
+
+                const mimeType = dataUrlMatch[1];
+                const imageBase64 = dataUrlMatch[2];
+                const extension = mimeType.split("/")[1] || "png";
+                const fileName = `image-${Date.now()}.${extension}`;
+
+                // Decode base64 and upload to UploadThing
                 try {
-                  await fs.promises.unlink(fileName);
-                } catch {}
+                  fs.writeFileSync(
+                    fileName,
+                    Buffer.from(imageBase64, "base64"),
+                  );
+                  const buffer = await fs.promises.readFile(fileName);
+                  const uint8 = new Uint8Array(buffer);
+                  const file = new File([uint8], fileName, { type: mimeType });
+                  const uploadRes = await utapi.uploadFiles(file);
+                  uploadedUrl = getUploadThingUrlFromResult(uploadRes);
+                } catch (uploadErr) {
+                  console.error("UploadThing upload failed:", uploadErr);
+                } finally {
+                  // Best-effort cleanup of the temp file
+                  try {
+                    await fs.promises.unlink(fileName);
+                  } catch {}
+                }
+              } else {
+                // External URL - download and re-upload to UploadThing for persistence
+                try {
+                  const imageResponse = await fetch(imageDataUrl);
+                  if (!imageResponse.ok) {
+                    throw new Error(
+                      `Failed to fetch image: ${imageResponse.status}`,
+                    );
+                  }
+
+                  const contentType =
+                    imageResponse.headers.get("content-type") || "image/png";
+                  const extension = contentType.split("/")[1] || "png";
+                  const fileName = `image-${Date.now()}.${extension}`;
+                  const arrayBuffer = await imageResponse.arrayBuffer();
+                  const uint8 = new Uint8Array(arrayBuffer);
+
+                  // Write to temp file and upload
+                  fs.writeFileSync(fileName, Buffer.from(uint8));
+                  const file = new File([uint8], fileName, {
+                    type: contentType,
+                  });
+                  const uploadRes = await utapi.uploadFiles(file);
+                  uploadedUrl = getUploadThingUrlFromResult(uploadRes);
+
+                  // Cleanup temp file
+                  try {
+                    await fs.promises.unlink(fileName);
+                  } catch {}
+                } catch (downloadErr) {
+                  console.error(
+                    "Failed to download/upload external image:",
+                    downloadErr,
+                  );
+                  // Fallback to using the external URL directly
+                  uploadedUrl = imageDataUrl;
+                }
               }
 
               if (!uploadedUrl) {
                 throw new Error("Image generation produced no upload URL");
               }
+
+              const mediaType = "image/png";
 
               // Append assistant message with the generated image as a file part
               const messageData = {

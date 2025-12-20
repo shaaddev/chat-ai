@@ -2,11 +2,12 @@
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { Menu } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useChat as useChatContext } from "@/components/chat-context";
 import { Button } from "@/components/ui/button";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { image_models } from "@/lib/ai/models";
 import type { Session } from "@/lib/auth";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { fetchWithErrorHandlers, generateUUID } from "@/lib/utils";
@@ -82,6 +83,12 @@ export function Chat({
     setChatInputState(id, { input, attachments, useSearch });
   }, [id, input, attachments, useSearch, setChatInputState]);
 
+  // Track previous status to detect completion
+  const prevStatusRef = useRef(status);
+
+  // Check if current model is an image model
+  const isImageModel = image_models.some((m) => m.id === initialChatModel);
+
   // Clear loading state when AI starts responding or finishes
   useEffect(() => {
     if (status === "streaming" || status === "ready" || status === "error") {
@@ -95,7 +102,41 @@ export function Chat({
       refreshChats();
       setIsNewChat(false); // Prevent multiple refreshes
     }
-  }, [status, id, setChatLoading, refreshChats, isNewChat]);
+
+    // For image models, fetch fresh messages when generation completes
+    // This is needed because createUIMessageStream doesn't track manually appended messages
+    if (
+      isImageModel &&
+      (prevStatusRef.current === "submitted" ||
+        prevStatusRef.current === "streaming") &&
+      status === "ready"
+    ) {
+      // Fetch fresh messages from the server
+      fetch(`/api/chats/${id}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.messages && Array.isArray(data.messages)) {
+            setMessages(data.messages);
+          }
+        })
+        .catch((err) => {
+          console.error(
+            "Failed to fetch messages after image generation:",
+            err,
+          );
+        });
+    }
+
+    prevStatusRef.current = status;
+  }, [
+    status,
+    id,
+    setChatLoading,
+    refreshChats,
+    isNewChat,
+    isImageModel,
+    setMessages,
+  ]);
 
   return (
     <SidebarProvider>
@@ -119,6 +160,7 @@ export function Chat({
               messages={messages}
               setMessages={setMessages}
               chatId={id}
+              selectedChatModel={initialChatModel}
             />
 
             <div className="max-w-3xl mx-auto space-y-4 w-full">

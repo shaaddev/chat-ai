@@ -16,8 +16,8 @@ interface model_selection {
 
 export const stable_models: model_selection[] = [
   {
-    id: "google-model-2-5-flash",
-    name: "Gemini 2.5 Flash",
+    id: "google-model-3-flash",
+    name: "Gemini 3 Flash",
     icon: Info,
     image: Image,
     unstable: FlaskConical,
@@ -60,7 +60,9 @@ export const myProvider = customProvider({
     "title-model": openrouter("google/gemini-2.5-flash-lite"),
   },
   imageModels: {
-    "chat-image-1-mini": openrouter("openai/gpt-5-image-mini"),
-    "chat-gemini-2-5-flash-image": openrouter("google/gemini-2.5-flash-image"),
+    // @ts-expect-error - keep as string since we're using the direct API
+    "chat-image-1-mini": "openai/gpt-5-image-mini",
+    // @ts-expect-error - same as above
+    "chat-gemini-2-5-flash-image": "google/gemini-2.5-flash-image",
   },
 });

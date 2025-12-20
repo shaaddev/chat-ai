@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { deleteChatById, getChatById } from "@/db/queries";
+import { deleteChatById, getChatById, getMessagesByChatId } from "@/db/queries";
 import {
   deleteFilesFromUploadThing,
   extractFileKeysFromMessages,
 } from "@/lib/uploadthing/utils";
+import { convertToUIMessages } from "@/lib/utils";
 
 export async function GET(
   req: Request,
@@ -17,7 +18,11 @@ export async function GET(
       return NextResponse.json({ error: "Chat not found" }, { status: 404 });
     }
 
-    return NextResponse.json(chat);
+    // Also fetch messages and convert to UI format
+    const messagesFromDb = await getMessagesByChatId({ id });
+    const messages = convertToUIMessages(messagesFromDb);
+
+    return NextResponse.json({ ...chat, messages });
   } catch (error) {
     console.error("Failed to fetch chat:", error);
     return NextResponse.json(
