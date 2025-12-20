@@ -50,11 +50,11 @@ export const image_models: model_selection[] = [
   },
 ];
 
-export const DEFAULT_CHAT_MODEL: string = "google-model-2-5-flash";
+export const DEFAULT_CHAT_MODEL: string = "google-model-3-flash";
 
 export const myProvider = customProvider({
   languageModels: {
-    "google-model-2-5-flash": openrouter("google/gemini-2.5-flash"),
+    "google-model-3-flash": openrouter("google/gemini-3-flash-preview"),
     "google-model-2-5-flash-lite": openrouter("google/gemini-2.5-flash-lite"),
     "chat-5-mini": openrouter("openai/gpt-5-mini"),
     "title-model": openrouter("google/gemini-2.5-flash-lite"),
