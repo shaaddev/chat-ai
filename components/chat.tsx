@@ -117,6 +117,9 @@ export function Chat({
         .then((data) => {
           if (data.messages && Array.isArray(data.messages)) {
             setMessages(data.messages);
+            toast.success("Image generated!", {
+              description: "Your image has been created successfully.",
+            });
           }
         })
         .catch((err) => {
@@ -124,6 +127,9 @@ export function Chat({
             "Failed to fetch messages after image generation:",
             err,
           );
+          toast.error("Failed to load image", {
+            description: "Please refresh the page to see your generated image.",
+          });
         });
     }
 
