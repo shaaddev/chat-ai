@@ -10,7 +10,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { Skeleton } from "@/components/ui/skeleton";
 import type { Session } from "@/lib/auth";
 
 interface SidebarHistoryProps {
@@ -34,10 +33,8 @@ function SidebarHistoryComponent({ session }: SidebarHistoryProps) {
   if (loading) {
     return (
       <SidebarMenu>
-        <div className="space-y-2 px-2 rounded-xl">
-          {Array.from({ length: 3 }).map((_, index) => (
-            <Skeleton key={index} className="h-10 w-full" />
-          ))}
+        <div className="flex justify-center items-center py-8">
+          <Loader2 className="size-8 animate-spin text-muted-foreground" />
         </div>
       </SidebarMenu>
     );

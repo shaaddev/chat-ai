@@ -36,6 +36,10 @@ import { type PostRequestBody, postRequestBodySchema } from "./schema";
 
 export const maxDuration = 60;
 
+// Note: For App Router, body size limits are handled at the platform level
+// (e.g., Vercel.json or reverse proxy configuration)
+// Default limit is typically 4.5MB which should be sufficient for text-based chat
+
 function getUploadThingUrlFromResult(result: unknown): string | undefined {
   const extract = (obj: unknown): string | undefined => {
     if (!obj || typeof obj !== "object") return undefined;
@@ -195,7 +199,7 @@ export async function POST(req: Request) {
               .map((p) => p.text)
               .join("\n")
               .trim()
-              .slice(0, 2000);
+              .slice(0, 10000); // Allow longer prompts for image generation
 
             try {
               // Use OpenRouter API for image generation
