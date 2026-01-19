@@ -1,29 +1,31 @@
 import { redirect } from "next/navigation";
 import { Account } from "@/components/account/account";
-import { convex, api } from "@/lib/convex/server";
-import { auth } from "@/app/auth";
-import type { Id } from "@/convex/_generated/dataModel";
+import { isAuthenticated, fetchAuthQuery } from "@/lib/auth-server";
+import { api } from "@/convex/_generated/api";
 
 export default async function Page() {
-  const session = await auth();
+  try {
+    const authenticated = await isAuthenticated();
+    
+    if (!authenticated) {
+      redirect("/");
+    }
 
-  if (!session) {
+    const user = await fetchAuthQuery(api.auth.getCurrentUser);
+
+    if (!user) {
+      redirect("/");
+    }
+
+    const { email, name, image } = user;
+
+    return (
+      <div className="w-full">
+        <Account user={{ email, name, image: image ?? null }} />
+      </div>
+    );
+  } catch {
+    // Handle any auth errors by redirecting to home
     redirect("/");
   }
-
-  const user = await convex.query(api.users.getById, {
-    id: session.user.id as Id<"users">,
-  });
-
-  if (!user) {
-    redirect("/");
-  }
-
-  const { email, name, image } = user;
-
-  return (
-    <div className="w-full">
-      <Account user={{ email, name, image }} />
-    </div>
-  );
 }

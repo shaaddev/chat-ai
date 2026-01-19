@@ -3,6 +3,7 @@ import { ArrowLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { LoginForm } from "@/components/auth/login-form";
+import { SignupForm } from "@/components/auth/signup-form";
 import { Button } from "@/components/ui/button";
 
 export function Login() {
@@ -40,7 +41,9 @@ export function Login() {
 
         {isLogin ? (
           <LoginForm isOtpStep={isOtpStep} setIsOtpStep={setIsOtpStep} />
-        ) : null}
+        ) : (
+          <SignupForm isOtpStep={isOtpStep} setIsOtpStep={setIsOtpStep} />
+        )}
       </div>
     </div>
   );

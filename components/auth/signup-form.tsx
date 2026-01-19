@@ -19,12 +19,15 @@ import { authClient } from "@/lib/auth-client";
 import { OTPForm } from "./otp-form";
 
 const schema = z.object({
-  email: z.string().min(1, {
-    message: "Must enter your email",
+  name: z.string().min(1, {
+    message: "Must enter your name",
+  }),
+  email: z.string().email({
+    message: "Must enter a valid email",
   }),
 });
 
-export function LoginForm({
+export function SignupForm({
   isOtpStep,
   setIsOtpStep,
 }: {
@@ -34,6 +37,7 @@ export function LoginForm({
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
     defaultValues: {
+      name: "",
       email: "",
     },
   });
@@ -47,24 +51,51 @@ export function LoginForm({
     setErrorMessage("");
 
     try {
-      const result = await authClient.emailOtp.sendVerificationOtp({
+      // First sign up the user, then send OTP for verification
+      const signUpResult = await authClient.signUp.email({
         email: values.email,
-        type: "sign-in",
+        name: values.name,
+        password: crypto.randomUUID(), // Generate random password since we use OTP
       });
 
-      if (result.error) {
-        setErrorMessage(result.error.message || "Failed to send OTP");
+      if (signUpResult.error) {
+        // If user already exists, try sending OTP for sign-in instead
+        if (signUpResult.error.message?.includes("already exists")) {
+          const otpResult = await authClient.emailOtp.sendVerificationOtp({
+            email: values.email,
+            type: "sign-in",
+          });
+
+          if (otpResult.error) {
+            setErrorMessage(otpResult.error.message || "Failed to send OTP");
+            return;
+          }
+        } else {
+          setErrorMessage(signUpResult.error.message || "Failed to create account");
+          return;
+        }
       } else {
-        setSubmittedEmail(values.email);
-        setIsOtpStep(true);
-        toast.success("Email sent", {
-          description: "Check your email for the verification code.",
+        // Send OTP for email verification
+        const otpResult = await authClient.emailOtp.sendVerificationOtp({
+          email: values.email,
+          type: "email-verification",
         });
-        setSuccessMessage("");
+
+        if (otpResult.error) {
+          setErrorMessage(otpResult.error.message || "Failed to send verification code");
+          return;
+        }
       }
+
+      setSubmittedEmail(values.email);
+      setIsOtpStep(true);
+      toast.success("Email sent", {
+        description: "Check your email for the verification code.",
+      });
+      setSuccessMessage("");
     } catch (error) {
-      setErrorMessage("An error occurred while sending the email.");
-      console.error("Error sending OTP:", error);
+      setErrorMessage("An error occurred while creating your account.");
+      console.error("Error signing up:", error);
     } finally {
       setIsPending(false);
     }
@@ -76,8 +107,24 @@ export function LoginForm({
         <Form {...form}>
           <form
             onSubmit={form.handleSubmit(onSubmit)}
-            className="space-y-8 text-center"
+            className="space-y-4 text-center"
           >
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <Input
+                      placeholder="Name"
+                      {...field}
+                      className="rounded-xl"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <FormField
               control={form.control}
               name="email"
@@ -86,6 +133,7 @@ export function LoginForm({
                   <FormControl>
                     <Input
                       placeholder="Email"
+                      type="email"
                       {...field}
                       className="rounded-xl"
                     />
@@ -96,17 +144,17 @@ export function LoginForm({
             />
             <Button
               type="submit"
-              className="w-full bg-neutral-800 text-neutral-100 rounded-xl hover:bg-neutral-900"
+              className="w-full bg-neutral-800 text-neutral-100 rounded-xl hover:bg-neutral-900 mt-4"
               disabled={isPending}
             >
-              {isPending ? "Sending Email..." : "Continue with Email"}
+              {isPending ? "Creating Account..." : "Create Account"}
             </Button>
           </form>
         </Form>
       ) : (
         <div className="space-y-6">
           <p className="text-sm text-neutral-500 text-center">
-            If you have an account, we have sent a code to {submittedEmail}.
+            We&apos;ve sent a verification code to {submittedEmail}.
           </p>
           <OTPForm email={submittedEmail} />
         </div>

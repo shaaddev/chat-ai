@@ -21,7 +21,7 @@ import {
   InputOTPGroup,
   InputOTPSlot,
 } from "@/components/ui/input-otp";
-import { verify_otp } from "./action";
+import { authClient } from "@/lib/auth-client";
 
 const schema = z.object({
   pin: z.string().min(6, {
@@ -42,22 +42,18 @@ export function OTPForm({ email }: { email: string }) {
 
   const onSubmit = async (values: z.infer<typeof schema>) => {
     setIsPending(true);
-    const formData = new FormData();
-
-    for (const [key, value] of Object.entries(values)) {
-      if (value !== undefined && value !== null && value !== "") {
-        formData.append(key, value);
-      }
-    }
-
-    if (email) {
-      formData.append("email", email);
-    }
 
     try {
-      const res = await verify_otp(formData);
+      const result = await authClient.emailOtp.verifyEmail({
+        email,
+        otp: values.pin,
+      });
 
-      if (res.success) {
+      if (result.error) {
+        toast.error("Error!", {
+          description: result.error.message || "Invalid OTP. Please try again.",
+        });
+      } else {
         // Ensure client state sees the new session
         await refreshChats();
         toast.success("Success!", {
@@ -65,11 +61,6 @@ export function OTPForm({ email }: { email: string }) {
         });
         router.replace("/");
         router.refresh();
-      } else {
-        toast.error("Error!", {
-          description:
-            res.message || "An error occurred while verifying your OTP.",
-        });
       }
     } catch (error) {
       console.log("ERROR", error);

@@ -1,5 +1,5 @@
-// Auth types for Convex-based authentication
-// The actual auth implementation is in convex/auth.ts and components/auth/action.ts
+// Auth types for Better Auth + Convex authentication
+// The actual auth implementation is in convex/auth.ts
 
 export type Session = {
   user: {
@@ -7,10 +7,6 @@ export type Session = {
     email: string;
     name: string;
     image?: string | null;
-  };
-  session: {
-    id: string;
-    expiresAt: number;
   };
 } | null;
 

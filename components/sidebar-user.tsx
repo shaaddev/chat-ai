@@ -17,7 +17,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { logout } from "@/components/auth/action";
+import { authClient } from "@/lib/auth-client";
 
 interface UserProps {
   email: string;
@@ -30,14 +30,18 @@ export function SidebarUser({ email, avatar, name }: UserProps) {
   const router = useRouter();
 
   const handleLogout = async () => {
-    try {
-      await logout();
-      toast.success("Logged out successfully");
-      router.push("/");
-      router.refresh();
-    } catch (error) {
-      toast.error("Failed to log out");
-    }
+    await authClient.signOut({
+      fetchOptions: {
+        onSuccess: () => {
+          toast.success("Logged out successfully");
+          router.push("/");
+          router.refresh();
+        },
+        onError: () => {
+          toast.error("Failed to log out");
+        },
+      },
+    });
   };
 
   return (

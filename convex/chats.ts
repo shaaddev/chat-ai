@@ -5,7 +5,7 @@ export const create = mutation({
   args: {
     clientId: v.optional(v.string()),
     title: v.string(),
-    userId: v.id("users"),
+    userId: v.string(), // Better Auth user ID
     visibility: v.optional(v.union(v.literal("public"), v.literal("private"))),
   },
   handler: async (ctx, args) => {
@@ -60,7 +60,7 @@ export const updateTitleByClientId = mutation({
 });
 
 export const getByUserId = query({
-  args: { userId: v.id("users") },
+  args: { userId: v.string() },
   handler: async (ctx, args) => {
     return await ctx.db
       .query("chats")

@@ -65,7 +65,7 @@ export async function saveChat({
   const chatId = await convex.mutation(api.chats.create, {
     clientId: id,
     title,
-    userId: userId as Id<"users">,
+    userId: userId, // Better Auth user ID (string)
   });
   return chatId;
 }
@@ -82,7 +82,7 @@ export async function deleteChatById({ id }: { id: string }) {
 
 export async function getChatsByUserId({ id }: { id: string }) {
   const chats = await convex.query(api.chats.getByUserId, {
-    userId: id as Id<"users">,
+    userId: id, // Better Auth user ID (string)
   });
   return chats.map(convertChat).filter(Boolean) as Chat[];
 }
@@ -137,10 +137,6 @@ export async function getMessageById({ id }: { id: string }) {
     id: id as Id<"messages">,
   });
   return message ? [convertMessage(message)] : [];
-}
-
-export async function isEmail(email: string): Promise<boolean> {
-  return await convex.query(api.users.emailExists, { email });
 }
 
 export async function createStreamId({
