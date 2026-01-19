@@ -156,7 +156,7 @@ export function SignupForm({
           <p className="text-sm text-neutral-500 text-center">
             We&apos;ve sent a verification code to {submittedEmail}.
           </p>
-          <OTPForm email={submittedEmail} />
+          <OTPForm email={submittedEmail} isSignUp={true} />
         </div>
       )}
 

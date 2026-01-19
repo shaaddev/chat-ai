@@ -2,9 +2,9 @@
 
 import { v } from "convex/values";
 import { action, internalAction } from "./_generated/server";
-import { render } from "@react-email/render";
 import { components } from "./_generated/api";
 import { Resend } from "@convex-dev/resend";
+import * as ReactDOMServer from "react-dom/server";
 import OtpEmail from "../emails/otp-link";
 import MagicLinkEmail from "../emails/magic-link";
 import React from "react";
@@ -14,6 +14,11 @@ export const resend = new Resend(components.resend, {
   testMode: false,
 });
 
+// Helper to render React components to HTML string
+function renderToHtml(element: React.ReactElement): string {
+  return ReactDOMServer.renderToStaticMarkup(element);
+}
+
 // Internal action: Send OTP verification email (called from HTTP endpoint)
 export const sendOtpEmail = internalAction({
   args: {
@@ -21,7 +26,7 @@ export const sendOtpEmail = internalAction({
     otp: v.string(),
   },
   handler: async (ctx, args) => {
-    const html = await render(
+    const html = renderToHtml(
       React.createElement(OtpEmail, {
         email: args.to,
         pin: args.otp,
@@ -44,7 +49,7 @@ export const sendMagicLinkEmail = internalAction({
     link: v.string(),
   },
   handler: async (ctx, args) => {
-    const html = await render(
+    const html = renderToHtml(
       React.createElement(MagicLinkEmail, {
         email: args.to,
         link: args.link,
@@ -76,14 +81,14 @@ export const sendCustomEmail = action({
     let html: string;
 
     if (args.template === "otp" && args.data.pin) {
-      html = await render(
+      html = renderToHtml(
         React.createElement(OtpEmail, {
           email: args.data.email,
           pin: args.data.pin,
         })
       );
     } else if (args.template === "magic-link" && args.data.link && args.data.email) {
-      html = await render(
+      html = renderToHtml(
         React.createElement(MagicLinkEmail, {
           email: args.data.email,
           link: args.data.link,
