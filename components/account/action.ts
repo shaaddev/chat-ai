@@ -1,9 +1,8 @@
 "use server";
 
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { user } from "@/db/schema";
+import { convex, api } from "@/lib/convex/server";
 import { auth } from "@/app/auth";
+import type { Id } from "@/convex/_generated/dataModel";
 
 export const updateUser = async (formData: FormData) => {
   const new_fullName = formData.get("new_fullName") as string;
@@ -20,10 +19,11 @@ export const updateUser = async (formData: FormData) => {
   }
 
   try {
-    await db
-      .update(user)
-      .set({ name: new_fullName, email: new_email })
-      .where(eq(user.id, session.user.id));
+    await convex.mutation(api.users.update, {
+      id: session.user.id as Id<"users">,
+      name: new_fullName,
+      email: new_email,
+    });
 
     return {
       success: true,

@@ -7,7 +7,6 @@ import {
   stepCountIs,
   streamText,
 } from "ai";
-import { eq } from "drizzle-orm";
 import fs from "fs";
 import { after } from "next/server";
 import {
@@ -15,15 +14,14 @@ import {
   type ResumableStreamContext,
 } from "resumable-stream";
 import { generateTitleFromUserMessage } from "@/app/actions";
-import { db } from "@/db";
 import {
   createStreamId,
   getChatById,
   getMessagesByChatId,
   saveChat,
   saveMessages,
-} from "@/db/queries";
-import { chat } from "@/db/schema";
+  updateChatTitle,
+} from "@/lib/convex/queries";
 import { image_models, myProvider, stable_models } from "@/lib/ai/models";
 import { systemPrompt } from "@/lib/ai/prompts";
 import { getToolsForModel } from "@/lib/ai/tools";
@@ -136,10 +134,7 @@ export async function POST(req: Request) {
         existingChat.title === message.parts[0].type.slice(0, 80)
       ) {
         const title = await generateTitleFromUserMessage({ message: message });
-        await db
-          .update(chat)
-          .set({ title, updatedAt: new Date() })
-          .where(eq(chat.id, id));
+        await updateChatTitle({ id, title });
       }
     } else if (!session) {
       return new Response("Unauthorized", { status: 401 });

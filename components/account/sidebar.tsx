@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { authClient } from "@/lib/auth-client";
+import { logout } from "@/components/auth/action";
 
 export function AccountSidebar({
   setActiveSection,
@@ -19,18 +19,14 @@ export function AccountSidebar({
   const router = useRouter();
 
   const handleLogout = async () => {
-    await authClient.signOut({
-      fetchOptions: {
-        onSuccess: () => {
-          toast.success("Logged out successfully");
-          router.push("/");
-          router.refresh();
-        },
-        onError: () => {
-          toast.error("Failed to log out");
-        },
-      },
-    });
+    try {
+      await logout();
+      toast.success("Logged out successfully");
+      router.push("/");
+      router.refresh();
+    } catch (error) {
+      toast.error("Failed to log out");
+    }
   };
 
   return (

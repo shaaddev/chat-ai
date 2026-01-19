@@ -5,6 +5,7 @@ import Script from "next/script";
 import { ChatProvider } from "@/components/chat-context";
 import { PerformanceMonitor } from "@/components/performance-monitor";
 import { Toaster } from "@/components/ui/sonner";
+import { ConvexClientProvider } from "@/lib/convex/client";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://chat.shaaddev.com"),
@@ -62,10 +63,12 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-neutral-900`}
       >
-        <ChatProvider>
-          <main className="lg:mx-auto">{children}</main>
-          <Toaster position="bottom-right" className="bg-neutral-800" />
-        </ChatProvider>
+        <ConvexClientProvider>
+          <ChatProvider>
+            <main className="lg:mx-auto">{children}</main>
+            <Toaster position="bottom-right" className="bg-neutral-800" />
+          </ChatProvider>
+        </ConvexClientProvider>
         {process.env.NODE_ENV === "development" && <PerformanceMonitor />}
         <Script
           id="service-worker"

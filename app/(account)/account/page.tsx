@@ -1,9 +1,8 @@
-import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { Account } from "@/components/account/account";
-import { db } from "@/db";
-import { user } from "@/db/schema";
+import { convex, api } from "@/lib/convex/server";
 import { auth } from "@/app/auth";
+import type { Id } from "@/convex/_generated/dataModel";
 
 export default async function Page() {
   const session = await auth();
@@ -12,12 +11,15 @@ export default async function Page() {
     redirect("/");
   }
 
-  const user_info = await db
-    .select()
-    .from(user)
-    .where(eq(user.id, session.user.id));
+  const user = await convex.query(api.users.getById, {
+    id: session.user.id as Id<"users">,
+  });
 
-  const { email, name, image } = user_info[0];
+  if (!user) {
+    redirect("/");
+  }
+
+  const { email, name, image } = user;
 
   return (
     <div className="w-full">

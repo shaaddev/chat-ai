@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getChatsByUserId } from "@/db/queries";
+import { getChatsByUserId } from "@/lib/convex/queries";
 import { auth } from "@/app/auth";
 
 export const dynamic = "force-dynamic";

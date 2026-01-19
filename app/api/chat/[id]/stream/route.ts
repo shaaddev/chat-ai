@@ -4,8 +4,8 @@ import {
   getChatById,
   getMessagesByChatId,
   getStreamIdsByChatId,
-} from "@/db/queries";
-import type { Chat } from "@/db/schema";
+} from "@/lib/convex/queries";
+import type { Chat } from "@/lib/convex/queries";
 import { auth } from "@/app/auth";
 import { ChatSDKError } from "@/lib/errors";
 import type { ChatMessage } from "@/lib/types";
@@ -34,7 +34,7 @@ export async function GET(
     return new ChatSDKError("unauthorized:chat").toResponse();
   }
 
-  let chat: Chat;
+  let chat: Chat | null;
 
   try {
     chat = await getChatById({ id: chatId });

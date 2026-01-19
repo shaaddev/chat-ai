@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { deleteChatById, getChatById, getMessagesByChatId } from "@/db/queries";
+import { deleteChatById, getChatById, getMessagesByChatId } from "@/lib/convex/queries";
 import {
   deleteFilesFromUploadThing,
   extractFileKeysFromMessages,
@@ -8,7 +8,7 @@ import { convertToUIMessages } from "@/lib/utils";
 
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
@@ -34,7 +34,7 @@ export async function GET(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;

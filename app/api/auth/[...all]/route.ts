@@ -1,4 +1,18 @@
-import { toNextJsHandler } from "better-auth/next-js";
-import { auth } from "@/lib/auth"; // path to your auth file
+import { NextResponse } from "next/server";
 
-export const { POST, GET } = toNextJsHandler(auth);
+// Auth is now handled via Convex and server actions
+// This route is kept for backwards compatibility but returns 404
+
+export async function POST() {
+  return NextResponse.json(
+    { error: "Auth has been migrated to Convex. Use server actions instead." },
+    { status: 404 }
+  );
+}
+
+export async function GET() {
+  return NextResponse.json(
+    { error: "Auth has been migrated to Convex. Use server actions instead." },
+    { status: 404 }
+  );
+}

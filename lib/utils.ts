@@ -7,7 +7,7 @@ import type {
 import { type ClassValue, clsx } from "clsx";
 import { formatISO } from "date-fns";
 import { twMerge } from "tailwind-merge";
-import type { Message as DbMessage } from "@/db/schema";
+import type { Message as DbMessage } from "@/lib/convex/queries";
 import { ChatSDKError, type ErrorCode } from "./errors";
 import type { ChatMessage } from "./types";
 

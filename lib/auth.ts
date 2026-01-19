@@ -1,33 +1,18 @@
-import { betterAuth } from "better-auth";
-import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { nextCookies } from "better-auth/next-js";
-import { emailOTP, magicLink } from "better-auth/plugins";
-import { db } from "@/db";
-import * as schema from "@/db/schema";
-import { email_otp_message, magic_link_message } from "./email/resend";
+// Auth types for Convex-based authentication
+// The actual auth implementation is in convex/auth.ts and components/auth/action.ts
 
-export const auth = betterAuth({
-  database: drizzleAdapter(db, {
-    provider: "pg",
-    schema: schema,
-  }),
-  plugins: [
-    magicLink({
-      sendMagicLink: async ({ email, url }) => {
-        await magic_link_message(email, url);
-      },
-      disableSignUp: true,
-    }),
-    emailOTP({
-      sendVerificationOTP: async ({ email, otp, type }) => {
-        if (type === "sign-in") {
-          await email_otp_message(email, otp);
-        }
-      },
-      disableSignUp: true,
-    }),
-    nextCookies(),
-  ],
-});
+export type Session = {
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    image?: string | null;
+  };
+  session: {
+    id: string;
+    expiresAt: number;
+  };
+} | null;
 
-export type Session = typeof auth.$Infer.Session;
+// Re-export auth from app/auth.ts for convenience
+export { auth } from "@/app/auth";

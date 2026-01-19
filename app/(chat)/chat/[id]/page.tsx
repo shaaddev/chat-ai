@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { Chat } from "@/components/chat";
-import { getChatById, getMessagesByChatId } from "@/db/queries";
+import { getChatById, getMessagesByChatId } from "@/lib/convex/queries";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
 import { auth } from "@/app/auth";
 import { convertToUIMessages } from "@/lib/utils";
