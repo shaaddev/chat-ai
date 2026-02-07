@@ -51,7 +51,7 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
     plugins: [
       convex({ authConfig }),
       emailOTP({
-        disableSignUp: false,
+        disableSignUp: true,
         otpLength: 6,
         expiresIn: 300,
         sendVerificationOTP: async ({ email, otp, type }) => {
