@@ -49,7 +49,7 @@ export const updateTitleByClientId = mutation({
       .query("chats")
       .withIndex("by_clientId", (q) => q.eq("clientId", args.clientId))
       .unique();
-    
+
     if (chat) {
       await ctx.db.patch(chat._id, {
         title: args.title,

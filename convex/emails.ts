@@ -30,7 +30,7 @@ export const sendOtpEmail = internalAction({
       React.createElement(OtpEmail, {
         email: args.to,
         pin: args.otp,
-      })
+      }),
     );
 
     await resend.sendEmail(ctx, {
@@ -53,7 +53,7 @@ export const sendMagicLinkEmail = internalAction({
       React.createElement(MagicLinkEmail, {
         email: args.to,
         link: args.link,
-      })
+      }),
     );
 
     await resend.sendEmail(ctx, {
@@ -85,14 +85,18 @@ export const sendCustomEmail = action({
         React.createElement(OtpEmail, {
           email: args.data.email,
           pin: args.data.pin,
-        })
+        }),
       );
-    } else if (args.template === "magic-link" && args.data.link && args.data.email) {
+    } else if (
+      args.template === "magic-link" &&
+      args.data.link &&
+      args.data.email
+    ) {
       html = renderToHtml(
         React.createElement(MagicLinkEmail, {
           email: args.data.email,
           link: args.data.link,
-        })
+        }),
       );
     } else {
       throw new Error("Invalid template or missing data");

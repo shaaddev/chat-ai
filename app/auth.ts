@@ -14,7 +14,7 @@ export const auth = async (): Promise<Session> => {
   try {
     // First check if the user is authenticated
     const authenticated = await isAuthenticated();
-    
+
     if (!authenticated) {
       return null;
     }

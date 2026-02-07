@@ -20,9 +20,9 @@ http.route({
     }
 
     const { to, otp } = await req.json();
-    
+
     await ctx.runAction(internal.emails.sendOtpEmail, { to, otp });
-    
+
     return new Response("OK", { status: 200 });
   }),
 });
@@ -39,9 +39,9 @@ http.route({
     }
 
     const { to, link } = await req.json();
-    
+
     await ctx.runAction(internal.emails.sendMagicLinkEmail, { to, link });
-    
+
     return new Response("OK", { status: 200 });
   }),
 });

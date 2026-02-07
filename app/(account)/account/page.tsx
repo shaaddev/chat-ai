@@ -6,7 +6,7 @@ import { api } from "@/convex/_generated/api";
 export default async function Page() {
   try {
     const authenticated = await isAuthenticated();
-    
+
     if (!authenticated) {
       redirect("/");
     }

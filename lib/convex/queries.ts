@@ -3,6 +3,29 @@ import "server-only";
 import { convex, api } from "./server";
 import type { Id } from "@/convex/_generated/dataModel";
 
+// Convex document shapes (matching the schema)
+interface ConvexChatDoc {
+  _id: Id<"chats">;
+  _creationTime: number;
+  clientId?: string;
+  title: string;
+  userId: string;
+  visibility: "public" | "private";
+  createdAt: number;
+  updatedAt: number;
+}
+
+interface ConvexMessageDoc {
+  _id: Id<"messages">;
+  _creationTime: number;
+  chatId: Id<"chats">;
+  role: string;
+  parts: unknown;
+  attachments: unknown;
+  createdAt: number;
+  model?: string;
+}
+
 // Types that match the old Drizzle schema types
 export type Chat = {
   _id: string;
@@ -19,14 +42,14 @@ export type Message = {
   id: string;
   chatId: string;
   role: string;
-  parts: any;
-  attachments: any;
+  parts: unknown;
+  attachments: unknown;
   createdAt: Date;
   model: string | null;
 };
 
 // Helper to convert Convex doc to the expected shape
-function convertChat(doc: any): Chat | null {
+function convertChat(doc: ConvexChatDoc | null): Chat | null {
   if (!doc) return null;
   return {
     _id: doc._id,
@@ -39,7 +62,7 @@ function convertChat(doc: any): Chat | null {
   };
 }
 
-function convertMessage(doc: any): Message {
+function convertMessage(doc: ConvexMessageDoc): Message {
   return {
     _id: doc._id,
     id: doc._id,
@@ -102,14 +125,14 @@ export async function saveMessages({
     id?: string;
     chatId: string;
     role: string;
-    parts: any;
-    attachments: any;
+    parts: unknown;
+    attachments: unknown;
     createdAt?: Date;
     model?: string | null;
   }>;
 }) {
   if (messages.length === 0) return [];
-  
+
   const clientChatId = messages[0].chatId;
   const convexMessages = messages.map((m) => ({
     role: m.role,
@@ -140,7 +163,6 @@ export async function getMessageById({ id }: { id: string }) {
 }
 
 export async function createStreamId({
-  streamId,
   chatId,
 }: {
   streamId: string;
@@ -157,7 +179,7 @@ export async function getStreamIdsByChatId({ chatId }: { chatId: string }) {
   const streamIds = await convex.query(api.streams.getByClientChatId, {
     clientChatId: chatId,
   });
-  return streamIds.map((id: any) => id.toString());
+  return streamIds.map((id: Id<"streams">) => id.toString());
 }
 
 export async function updateChatTitle({

@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 
 export const create = mutation({
   args: {
@@ -37,12 +38,12 @@ export const createMany = mutation({
         parts: v.any(),
         attachments: v.any(),
         model: v.optional(v.string()),
-      })
+      }),
     ),
   },
   handler: async (ctx, args) => {
     const ids = [];
-    let chatIdToUpdate: string | null = null;
+    let chatIdToUpdate: Id<"chats"> | null = null;
 
     for (const msg of args.messages) {
       const messageId = await ctx.db.insert("messages", {
@@ -59,7 +60,7 @@ export const createMany = mutation({
 
     // Update the chat's updatedAt timestamp
     if (chatIdToUpdate) {
-      await ctx.db.patch(chatIdToUpdate as any, {
+      await ctx.db.patch(chatIdToUpdate, {
         updatedAt: Date.now(),
       });
     }
@@ -87,11 +88,11 @@ export const getByClientChatId = query({
       .query("chats")
       .withIndex("by_clientId", (q) => q.eq("clientId", args.clientChatId))
       .unique();
-    
+
     if (!chat) {
       return [];
     }
-    
+
     return await ctx.db
       .query("messages")
       .withIndex("by_chatId_createdAt", (q) => q.eq("chatId", chat._id))
@@ -109,7 +110,7 @@ export const createManyByClientChatId = mutation({
         parts: v.any(),
         attachments: v.any(),
         model: v.optional(v.string()),
-      })
+      }),
     ),
   },
   handler: async (ctx, args) => {
@@ -118,11 +119,11 @@ export const createManyByClientChatId = mutation({
       .query("chats")
       .withIndex("by_clientId", (q) => q.eq("clientId", args.clientChatId))
       .unique();
-    
+
     if (!chat) {
       throw new Error(`Chat not found with clientId: ${args.clientChatId}`);
     }
-    
+
     const ids = [];
     for (const msg of args.messages) {
       const messageId = await ctx.db.insert("messages", {

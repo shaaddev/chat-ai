@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { deleteChatById, getChatById, getMessagesByChatId } from "@/lib/convex/queries";
+import {
+  deleteChatById,
+  getChatById,
+  getMessagesByChatId,
+} from "@/lib/convex/queries";
 import {
   deleteFilesFromUploadThing,
   extractFileKeysFromMessages,

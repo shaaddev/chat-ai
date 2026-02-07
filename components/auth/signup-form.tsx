@@ -71,7 +71,9 @@ export function SignupForm({
             return;
           }
         } else {
-          setErrorMessage(signUpResult.error.message || "Failed to create account");
+          setErrorMessage(
+            signUpResult.error.message || "Failed to create account",
+          );
           return;
         }
       } else {
@@ -82,7 +84,9 @@ export function SignupForm({
         });
 
         if (otpResult.error) {
-          setErrorMessage(otpResult.error.message || "Failed to send verification code");
+          setErrorMessage(
+            otpResult.error.message || "Failed to send verification code",
+          );
           return;
         }
       }

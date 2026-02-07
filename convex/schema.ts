@@ -4,7 +4,7 @@ import { v } from "convex/values";
 export default defineSchema({
   // ===== Chat tables =====
   // Note: Auth tables (users, sessions, accounts, verifications) are managed by Better Auth component
-  
+
   chats: defineTable({
     clientId: v.optional(v.string()), // UUID from client for backwards compatibility
     title: v.string(),

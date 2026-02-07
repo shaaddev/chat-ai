@@ -24,7 +24,7 @@ export const createByClientChatId = mutation({
       .query("chats")
       .withIndex("by_clientId", (q) => q.eq("clientId", args.clientChatId))
       .unique();
-    
+
     if (!chat) {
       throw new Error(`Chat not found with clientId: ${args.clientChatId}`);
     }
@@ -57,7 +57,7 @@ export const getByClientChatId = query({
       .query("chats")
       .withIndex("by_clientId", (q) => q.eq("clientId", args.clientChatId))
       .unique();
-    
+
     if (!chat) {
       return [];
     }

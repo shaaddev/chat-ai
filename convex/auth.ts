@@ -8,13 +8,14 @@ import { query } from "./_generated/server";
 import authConfig from "./auth.config";
 
 const siteUrl = process.env.SITE_URL!;
-const convexSiteUrl = process.env.CONVEX_SITE_URL || process.env.NEXT_PUBLIC_CONVEX_SITE_URL;
+const convexSiteUrl =
+  process.env.CONVEX_SITE_URL || process.env.NEXT_PUBLIC_CONVEX_SITE_URL;
 const internalSecret = process.env.INTERNAL_SECRET;
 
 // Helper to call internal email endpoints
 async function sendEmailViaInternal(
   endpoint: string,
-  data: Record<string, string>
+  data: Record<string, string>,
 ) {
   if (!convexSiteUrl || !internalSecret) {
     console.error("CONVEX_SITE_URL or INTERNAL_SECRET not configured");
