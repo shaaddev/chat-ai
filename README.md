@@ -5,7 +5,7 @@ Techstack:
 - Next.js
 - AI SDK
 - Better Auth
-- Neon (PostgreSQL)
+- Convex
 - Tailwind CSS x Shadcn
 - Upstash
 
