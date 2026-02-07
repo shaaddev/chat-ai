@@ -73,10 +73,13 @@ export function ProfileForm({
           id="new_email"
           type="email"
           placeholder="john.doe@example.com"
-          required
-          className="rounded-2xl"
-          {...register("new_email", { required: true })}
+          className="rounded-2xl bg-muted cursor-not-allowed"
+          disabled
+          {...register("new_email")}
         />
+        <p className="text-xs text-muted-foreground">
+          Email cannot be changed from this page.
+        </p>
       </div>
 
       <Button

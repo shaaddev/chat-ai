@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { updateUser } from "./action";
+import { authClient } from "@/lib/auth-client";
 import { ProfileForm } from "./profile-form";
 
 interface UserInfo {
@@ -23,24 +23,39 @@ export function Profile({ user_info }: { user_info: UserInfo }) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsPending(true);
+
     const formData = new FormData(e.target as HTMLFormElement);
+    const newName = formData.get("new_fullName") as string;
+
+    if (!newName) {
+      toast.error("Name is required");
+      setIsPending(false);
+      return;
+    }
 
     try {
-      const res = await updateUser(formData);
+      const updateData: { name: string; image?: string } = { name: newName };
 
-      if (res.success) {
+      // Include the profile image if one was uploaded
+      if (profileImage) {
+        updateData.image = profileImage;
+      }
+
+      const { error } = await authClient.updateUser(updateData);
+
+      if (error) {
+        toast.error("Failed to update profile", {
+          description: error.message ?? "Please try again.",
+        });
+      } else {
         toast.success("Success!", {
           description: "Profile updated successfully!",
         });
-      } else {
-        toast.error("Failed to update profile", {
-          description: "Please try again.",
-        });
       }
-    } catch (error) {
-      return {
-        error: error,
-      };
+    } catch {
+      toast.error("Failed to update profile", {
+        description: "An unexpected error occurred. Please try again.",
+      });
     } finally {
       setIsPending(false);
     }
