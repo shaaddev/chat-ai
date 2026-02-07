@@ -10,6 +10,7 @@ export default defineSchema({
     title: v.string(),
     userId: v.string(), // References Better Auth user ID
     visibility: v.union(v.literal("public"), v.literal("private")),
+    systemPrompt: v.optional(v.string()), // Custom system prompt per chat (nullable)
     createdAt: v.number(),
     updatedAt: v.number(),
   })

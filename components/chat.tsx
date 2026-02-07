@@ -20,6 +20,7 @@ interface ChatProps {
   session: Session | null;
   initialChatModel: string;
   initialMessages: ChatMessage[];
+  initialSystemPrompt?: string;
 }
 
 export function Chat({
@@ -27,6 +28,7 @@ export function Chat({
   initialChatModel,
   initialMessages,
   session,
+  initialSystemPrompt,
 }: ChatProps) {
   const [isAuthenticated] = useState(session ? true : false);
   const {
@@ -42,6 +44,9 @@ export function Chat({
   const [input, setInput] = useState("");
   const [attachments, setAttachments] = useState<Array<Attachment>>([]);
   const [useSearch, setUseSearch] = useState(false);
+  const [customSystemPrompt, setCustomSystemPrompt] = useState<
+    string | undefined
+  >(initialSystemPrompt);
 
   // Restore input state when chat ID changes
   useEffect(() => {
@@ -66,6 +71,7 @@ export function Chat({
               id,
               message: messages.at(-1),
               selectedChatModel: initialChatModel,
+              customSystemPrompt,
               ...body,
             },
           };
@@ -186,6 +192,8 @@ export function Chat({
                 useSearch={useSearch}
                 setUseSearch={setUseSearch}
                 clearChatInputState={clearChatInputState}
+                customSystemPrompt={customSystemPrompt}
+                setCustomSystemPrompt={setCustomSystemPrompt}
               />
             </div>
           </div>

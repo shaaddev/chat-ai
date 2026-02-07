@@ -3,6 +3,7 @@ import {
   deleteChatById,
   getChatById,
   getMessagesByChatId,
+  updateChatSystemPrompt,
 } from "@/lib/convex/queries";
 import {
   deleteFilesFromUploadThing,
@@ -31,6 +32,30 @@ export async function GET(
     console.error("Failed to fetch chat:", error);
     return NextResponse.json(
       { error: "Failed to fetch chat" },
+      { status: 500 },
+    );
+  }
+}
+
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { id } = await params;
+    const body = await req.json();
+    const { systemPrompt } = body as { systemPrompt?: string };
+
+    await updateChatSystemPrompt({
+      id,
+      systemPrompt: systemPrompt || undefined,
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Failed to update chat:", error);
+    return NextResponse.json(
+      { error: "Failed to update chat" },
       { status: 500 },
     );
   }

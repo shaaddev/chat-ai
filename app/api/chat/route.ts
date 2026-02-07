@@ -110,11 +110,13 @@ export async function POST(req: Request) {
       message,
       selectedChatModel,
       useSearch,
+      customSystemPrompt,
     }: {
       id: string;
       message: ChatMessage;
       selectedChatModel: string;
       useSearch: boolean;
+      customSystemPrompt?: string;
     } = requestBody;
 
     const session = await auth();
@@ -123,7 +125,12 @@ export async function POST(req: Request) {
 
     if (!existingChat && session) {
       const title = await generateTitleFromUserMessage({ message: message });
-      await saveChat({ id, userId: session.user.id, title });
+      await saveChat({
+        id,
+        userId: session.user.id,
+        title,
+        systemPrompt: customSystemPrompt,
+      });
     } else if (existingChat) {
       if (existingChat.userId !== session?.user.id) {
         return new Response("Unauthorized", { status: 401 });
@@ -438,9 +445,16 @@ export async function POST(req: Request) {
               });
             }
           } else {
+            // Use custom system prompt if set, otherwise fall back to existing chat's prompt or default
+            const effectiveSystemPrompt =
+              customSystemPrompt ?? existingChat?.systemPrompt ?? undefined;
+
             const res = streamText({
               model: myProvider.languageModel(selectedChatModel),
-              system: systemPrompt({ selectedChatModel }),
+              system: systemPrompt({
+                selectedChatModel,
+                customSystemPrompt: effectiveSystemPrompt,
+              }),
               tools: useSearch
                 ? getToolsForModel(selectedChatModel)
                 : undefined,

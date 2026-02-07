@@ -7,6 +7,7 @@ export const create = mutation({
     title: v.string(),
     userId: v.string(), // Better Auth user ID
     visibility: v.optional(v.union(v.literal("public"), v.literal("private"))),
+    systemPrompt: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -15,6 +16,7 @@ export const create = mutation({
       title: args.title,
       userId: args.userId,
       visibility: args.visibility ?? "private",
+      systemPrompt: args.systemPrompt,
       createdAt: now,
       updatedAt: now,
     });
@@ -120,6 +122,26 @@ export const deleteChat = mutation({
     await ctx.db.delete(args.id);
 
     return { messages };
+  },
+});
+
+export const updateSystemPromptByClientId = mutation({
+  args: {
+    clientId: v.string(),
+    systemPrompt: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const chat = await ctx.db
+      .query("chats")
+      .withIndex("by_clientId", (q) => q.eq("clientId", args.clientId))
+      .unique();
+
+    if (chat) {
+      await ctx.db.patch(chat._id, {
+        systemPrompt: args.systemPrompt,
+        updatedAt: Date.now(),
+      });
+    }
   },
 });
 

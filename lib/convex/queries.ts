@@ -11,6 +11,7 @@ interface ConvexChatDoc {
   title: string;
   userId: string;
   visibility: "public" | "private";
+  systemPrompt?: string;
   createdAt: number;
   updatedAt: number;
 }
@@ -33,6 +34,7 @@ export type Chat = {
   title: string;
   userId: string;
   visibility: "public" | "private";
+  systemPrompt?: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -57,6 +59,7 @@ function convertChat(doc: ConvexChatDoc | null): Chat | null {
     title: doc.title,
     userId: doc.userId,
     visibility: doc.visibility,
+    systemPrompt: doc.systemPrompt ?? null,
     createdAt: new Date(doc.createdAt),
     updatedAt: new Date(doc.updatedAt),
   };
@@ -79,16 +82,19 @@ export async function saveChat({
   id,
   userId,
   title,
+  systemPrompt,
 }: {
   id: string;
   userId: string;
   title: string;
+  systemPrompt?: string;
 }) {
   // Create chat with the client-provided ID stored as clientId
   const chatId = await convex.mutation(api.chats.create, {
     clientId: id,
     title,
     userId: userId, // Better Auth user ID (string)
+    systemPrompt,
   });
   return chatId;
 }
@@ -192,5 +198,18 @@ export async function updateChatTitle({
   await convex.mutation(api.chats.updateTitleByClientId, {
     clientId: id,
     title,
+  });
+}
+
+export async function updateChatSystemPrompt({
+  id,
+  systemPrompt,
+}: {
+  id: string;
+  systemPrompt?: string;
+}) {
+  await convex.mutation(api.chats.updateSystemPromptByClientId, {
+    clientId: id,
+    systemPrompt,
   });
 }

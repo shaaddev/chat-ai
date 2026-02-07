@@ -29,6 +29,8 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
   const cookieStore = await cookies();
   const modelIdFromCookie = cookieStore.get("chat-model");
 
+  const initialSystemPrompt = chat.systemPrompt ?? undefined;
+
   if (!modelIdFromCookie) {
     return (
       <div className="flex flex-col min-h-screen w-full">
@@ -37,6 +39,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
           initialChatModel={DEFAULT_CHAT_MODEL}
           initialMessages={uiMessages}
           session={session}
+          initialSystemPrompt={initialSystemPrompt}
         />
       </div>
     );
@@ -48,6 +51,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
         initialChatModel={modelIdFromCookie.value}
         initialMessages={uiMessages}
         session={session}
+        initialSystemPrompt={initialSystemPrompt}
       />
     </>
   );

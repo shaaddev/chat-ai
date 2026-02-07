@@ -30,6 +30,7 @@ export const postRequestBodySchema = z.object({
     "chat-gemini-2-5-flash-image",
   ]),
   useSearch: z.boolean().optional().default(false),
+  customSystemPrompt: z.string().optional(),
 });
 
 export type PostRequestBody = z.infer<typeof postRequestBodySchema>;

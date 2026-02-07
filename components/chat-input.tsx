@@ -1,5 +1,5 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
-import { CirclePause, Globe, Send } from "lucide-react";
+import { CirclePause, Send, Settings2 } from "lucide-react";
 import {
   type Dispatch,
   memo,
@@ -12,6 +12,21 @@ import {
 import { toast } from "sonner";
 import { useChat } from "@/components/chat-context";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Switch } from "@/components/ui/switch";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { LoginContent } from "./auth/login-content";
@@ -34,6 +49,8 @@ interface ChatInputProps {
   useSearch: boolean;
   setUseSearch: Dispatch<SetStateAction<boolean>>;
   clearChatInputState: (chatId: string) => void;
+  customSystemPrompt?: string;
+  setCustomSystemPrompt: Dispatch<SetStateAction<string | undefined>>;
 }
 
 export function ChatInput({
@@ -51,10 +68,16 @@ export function ChatInput({
   useSearch,
   setUseSearch,
   clearChatInputState,
+  customSystemPrompt,
+  setCustomSystemPrompt,
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [textareaHeight, setTextareaHeight] = useState("72px");
   const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [showSystemPromptDialog, setShowSystemPromptDialog] = useState(false);
+  const [systemPromptDraft, setSystemPromptDraft] = useState(
+    customSystemPrompt ?? "",
+  );
   const { addOptimisticChat, setChatLoading } = useChat();
   const [uploadQueue, setUploadQueue] = useState<Array<string>>([]);
 
@@ -94,7 +117,7 @@ export function ChatInput({
             },
           ],
         },
-        { body: { useSearch } },
+        { body: { useSearch, customSystemPrompt } },
       );
     } catch (error) {
       // Clear loading state on error
@@ -123,6 +146,7 @@ export function ChatInput({
     useSearch,
     clearChatInputState,
     setUseSearch,
+    customSystemPrompt,
   ]);
 
   const adjustTextareaHeight = useCallback(() => {
@@ -207,23 +231,92 @@ export function ChatInput({
           />
           <div className="flex flex-row gap-5 items-center py-2 px-5">
             <ModelsPopover selectedModelId={initialChatModel} />
-            <Button
-              type="button"
-              size="sm"
-              variant={"outline"}
-              aria-pressed={useSearch}
-              onClick={(e) => {
-                e.preventDefault();
-                setUseSearch((v) => !v);
-              }}
-              className={cn(
-                "px-2 rounded-full bg-transparent",
-                useSearch && "bg-neutral-200 text-neutral-800",
-              )}
-            >
-              <Globe className="size-4! mr-1" />
-              Search
-            </Button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className={cn(
+                    "px-2 rounded-full bg-transparent",
+                    (useSearch || customSystemPrompt) &&
+                      "bg-neutral-200 text-neutral-800",
+                  )}
+                >
+                  <Settings2 className="size-4! mr-1" />
+                  Settings
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="start"
+                side="top"
+                sideOffset={8}
+                className="w-72 bg-neutral-900 border-neutral-700 p-0"
+              >
+                <div className="flex flex-col divide-y divide-neutral-800">
+                  <div className="flex items-center justify-between px-4 py-3">
+                    <Label
+                      htmlFor="search-toggle"
+                      className="text-sm text-neutral-200 cursor-pointer"
+                    >
+                      Web Search
+                    </Label>
+                    <Switch
+                      id="search-toggle"
+                      checked={useSearch}
+                      onCheckedChange={(checked) => setUseSearch(checked)}
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-2 px-4 py-3">
+                    <div className="flex items-center justify-between">
+                      <Label
+                        htmlFor="system-prompt-toggle"
+                        className="text-sm text-neutral-200 cursor-pointer"
+                      >
+                        Custom Prompt
+                      </Label>
+                      <Switch
+                        id="system-prompt-toggle"
+                        checked={!!customSystemPrompt}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSystemPromptDraft(customSystemPrompt ?? "");
+                            setShowSystemPromptDialog(true);
+                          } else {
+                            setCustomSystemPrompt(undefined);
+                            setSystemPromptDraft("");
+                            if (chatId) {
+                              fetch(`/api/chats/${chatId}`, {
+                                method: "PATCH",
+                                headers: {
+                                  "Content-Type": "application/json",
+                                },
+                                body: JSON.stringify({ systemPrompt: null }),
+                              }).catch(() => {});
+                            }
+                            toast.success("System prompt reset to default");
+                          }
+                        }}
+                      />
+                    </div>
+                    {customSystemPrompt && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSystemPromptDraft(customSystemPrompt ?? "");
+                          setShowSystemPromptDialog(true);
+                        }}
+                        className="text-xs text-neutral-400 hover:text-neutral-200 text-left truncate transition-colors"
+                      >
+                        {customSystemPrompt.slice(0, 60)}
+                        {customSystemPrompt.length > 60 ? "..." : ""} — Edit
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
             <FileInput
               uploadQueue={uploadQueue}
               setUploadQueue={setUploadQueue}
@@ -243,6 +336,66 @@ export function ChatInput({
           )}
         </form>
       </div>
+
+      <Dialog
+        open={showSystemPromptDialog}
+        onOpenChange={setShowSystemPromptDialog}
+      >
+        <DialogContent className="sm:max-w-lg bg-neutral-900 border-neutral-700">
+          <DialogHeader>
+            <DialogTitle className="text-neutral-100">
+              Custom System Prompt
+            </DialogTitle>
+            <DialogDescription className="text-neutral-400">
+              Tell the AI how it should behave for this chat. Leave empty to
+              keep the default.
+            </DialogDescription>
+          </DialogHeader>
+          <textarea
+            value={systemPromptDraft}
+            onChange={(e) => setSystemPromptDraft(e.target.value)}
+            placeholder="You are a friendly assistant! Keep your responses concise and helpful."
+            className="w-full min-h-[120px] resize-y rounded-lg border border-neutral-700 bg-neutral-800 p-3 text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-neutral-500"
+            rows={5}
+          />
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              className="bg-transparent border-neutral-600 text-neutral-300 hover:bg-neutral-800"
+              onClick={() => setShowSystemPromptDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="bg-neutral-100 text-neutral-900 hover:bg-neutral-200"
+              onClick={() => {
+                const trimmed = systemPromptDraft.trim();
+                const newPrompt = trimmed || undefined;
+                setCustomSystemPrompt(newPrompt);
+                setShowSystemPromptDialog(false);
+                if (chatId) {
+                  fetch(`/api/chats/${chatId}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      systemPrompt: newPrompt ?? null,
+                    }),
+                  }).catch(() => {});
+                }
+                toast.success(
+                  newPrompt
+                    ? "Custom system prompt saved"
+                    : "System prompt reset to default",
+                );
+              }}
+            >
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <LoginContent open={showLoginDialog} onOpenChange={setShowLoginDialog} />
     </div>
