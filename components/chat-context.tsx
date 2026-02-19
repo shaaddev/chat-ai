@@ -23,6 +23,7 @@ interface ChatInputState {
   input: string;
   attachments: Array<Attachment>;
   useSearch: boolean;
+  autoDocumentGeneration: boolean;
 }
 
 interface ChatContextType {
@@ -172,6 +173,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           input: "",
           attachments: [],
           useSearch: false,
+          autoDocumentGeneration: true,
         }
       );
     },
@@ -186,6 +188,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           input: "",
           attachments: [],
           useSearch: false,
+          autoDocumentGeneration: true,
         };
         newMap.set(chatId, { ...currentState, ...state });
         return newMap;
@@ -197,7 +200,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const clearChatInputState = useCallback((chatId: string) => {
     setChatInputStates((prev) => {
       const newMap = new Map(prev);
-      newMap.set(chatId, { input: "", attachments: [], useSearch: false });
+      newMap.set(chatId, {
+        input: "",
+        attachments: [],
+        useSearch: false,
+        autoDocumentGeneration: true,
+      });
       return newMap;
     });
   }, []);

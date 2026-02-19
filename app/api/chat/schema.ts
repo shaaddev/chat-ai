@@ -7,7 +7,12 @@ const textPartSchema = z.object({
 
 const filePartSchema = z.object({
   type: z.enum(["file"]),
-  mediaType: z.enum(["image/jpeg", "image/png", "application/pdf"]),
+  mediaType: z.enum([
+    "image/jpeg",
+    "image/png",
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ]),
   name: z.string().min(1).max(100),
   url: z.string().url(),
 });
@@ -30,6 +35,7 @@ export const postRequestBodySchema = z.object({
     "chat-gemini-2-5-flash-image",
   ]),
   useSearch: z.boolean().optional().default(false),
+  autoDocumentGeneration: z.boolean().optional().default(false),
   customSystemPrompt: z.string().optional(),
 });
 

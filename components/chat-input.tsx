@@ -48,6 +48,8 @@ interface ChatInputProps {
   setMessages: UseChatHelpers<ChatMessage>["setMessages"];
   useSearch: boolean;
   setUseSearch: Dispatch<SetStateAction<boolean>>;
+  autoDocumentGeneration: boolean;
+  setAutoDocumentGeneration: Dispatch<SetStateAction<boolean>>;
   clearChatInputState: (chatId: string) => void;
   customSystemPrompt?: string;
   setCustomSystemPrompt: Dispatch<SetStateAction<string | undefined>>;
@@ -67,6 +69,8 @@ export function ChatInput({
   setMessages,
   useSearch,
   setUseSearch,
+  autoDocumentGeneration,
+  setAutoDocumentGeneration,
   clearChatInputState,
   customSystemPrompt,
   setCustomSystemPrompt,
@@ -117,7 +121,7 @@ export function ChatInput({
             },
           ],
         },
-        { body: { useSearch, customSystemPrompt } },
+        { body: { useSearch, customSystemPrompt, autoDocumentGeneration } },
       );
     } catch (error) {
       // Clear loading state on error
@@ -144,6 +148,7 @@ export function ChatInput({
     setAttachments,
     input,
     useSearch,
+    autoDocumentGeneration,
     clearChatInputState,
     setUseSearch,
     customSystemPrompt,
@@ -239,7 +244,7 @@ export function ChatInput({
                   variant="outline"
                   className={cn(
                     "px-2 rounded-full bg-transparent",
-                    (useSearch || customSystemPrompt) &&
+                    (useSearch || customSystemPrompt || autoDocumentGeneration) &&
                       "bg-neutral-200 text-neutral-800",
                   )}
                 >
@@ -265,6 +270,21 @@ export function ChatInput({
                       id="search-toggle"
                       checked={useSearch}
                       onCheckedChange={(checked) => setUseSearch(checked)}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between px-4 py-3">
+                    <Label
+                      htmlFor="document-toggle"
+                      className="text-sm text-neutral-200 cursor-pointer"
+                    >
+                      Auto Document
+                    </Label>
+                    <Switch
+                      id="document-toggle"
+                      checked={autoDocumentGeneration}
+                      onCheckedChange={(checked) =>
+                        setAutoDocumentGeneration(checked)
+                      }
                     />
                   </div>
 

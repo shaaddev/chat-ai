@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useChat as useChatContext } from "@/components/chat-context";
 import { Button } from "@/components/ui/button";
+import type { ExportFormat } from "@/lib/document-export";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { image_models } from "@/lib/ai/models";
 import type { Session } from "@/lib/auth";
@@ -14,6 +15,39 @@ import { fetchWithErrorHandlers, generateUUID } from "@/lib/utils";
 import { ChatHistory } from "./chat-history";
 import { ChatInput } from "./chat-input";
 import { Messages } from "./chat-messages";
+import { DocumentSheet } from "./document-sheet";
+
+const DOC_HINTS = [
+  "document",
+  "doc",
+  "docx",
+  "pdf",
+  "letter",
+  "report",
+  "invoice",
+  "proposal",
+  "summary",
+  "contract",
+  "resume",
+  "cv",
+  "minutes",
+  "plan",
+  "memo",
+];
+
+function hasDocumentIntent(text: string) {
+  const normalized = text.toLowerCase();
+  return DOC_HINTS.some((hint) => normalized.includes(hint));
+}
+
+function extractMessageText(message: ChatMessage | undefined) {
+  if (!message) return "";
+  return message.parts
+    .filter((part) => part.type === "text")
+    .map((part) => part.text)
+    .join("\n")
+    .trim();
+}
 
 interface ChatProps {
   id: string;
@@ -44,9 +78,16 @@ export function Chat({
   const [input, setInput] = useState("");
   const [attachments, setAttachments] = useState<Array<Attachment>>([]);
   const [useSearch, setUseSearch] = useState(false);
+  const [autoDocumentGeneration, setAutoDocumentGeneration] = useState(true);
   const [customSystemPrompt, setCustomSystemPrompt] = useState<
     string | undefined
   >(initialSystemPrompt);
+  const [isDocumentSheetOpen, setIsDocumentSheetOpen] = useState(false);
+  const [documentHtml, setDocumentHtml] = useState("");
+  const [documentTitle, setDocumentTitle] = useState("chat-document");
+  const [documentFormat, setDocumentFormat] = useState<ExportFormat>("docx");
+
+  const lastHandledAssistantIdRef = useRef<string | null>(null);
 
   // Restore input state when chat ID changes
   useEffect(() => {
@@ -54,6 +95,7 @@ export function Chat({
     setInput(persistedState.input);
     setAttachments(persistedState.attachments);
     setUseSearch(persistedState.useSearch);
+    setAutoDocumentGeneration(persistedState.autoDocumentGeneration);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -72,6 +114,7 @@ export function Chat({
               message: messages.at(-1),
               selectedChatModel: initialChatModel,
               customSystemPrompt,
+              autoDocumentGeneration,
               ...body,
             },
           };
@@ -86,8 +129,20 @@ export function Chat({
 
   // Persist input state whenever it changes
   useEffect(() => {
-    setChatInputState(id, { input, attachments, useSearch });
-  }, [id, input, attachments, useSearch, setChatInputState]);
+    setChatInputState(id, {
+      input,
+      attachments,
+      useSearch,
+      autoDocumentGeneration,
+    });
+  }, [
+    id,
+    input,
+    attachments,
+    useSearch,
+    autoDocumentGeneration,
+    setChatInputState,
+  ]);
 
   // Track previous status to detect completion
   const prevStatusRef = useRef(status);
@@ -150,6 +205,43 @@ export function Chat({
     setMessages,
   ]);
 
+  useEffect(() => {
+    const latestAssistant = [...messages]
+      .reverse()
+      .find((message) => message.role === "assistant");
+
+    if (!latestAssistant) return;
+    if (lastHandledAssistantIdRef.current === latestAssistant.id) return;
+
+    const metadata =
+      typeof latestAssistant.metadata === "object" && latestAssistant.metadata
+        ? (latestAssistant.metadata as Record<string, unknown>)
+        : null;
+    const latestUser = [...messages]
+      .reverse()
+      .find((message) => message.role === "user");
+    const userText = extractMessageText(latestUser);
+    const assistantText = extractMessageText(latestAssistant);
+
+    const metadataCandidate = metadata?.documentCandidate === true;
+    const fallbackCandidate =
+      autoDocumentGeneration && hasDocumentIntent(userText) && !!assistantText;
+    if (!metadataCandidate && !fallbackCandidate) return;
+
+    const suggestedFormat = metadata?.suggestedFormat;
+    const format: ExportFormat =
+      suggestedFormat === "pdf" || userText.toLowerCase().includes("pdf")
+        ? "pdf"
+        : "docx";
+
+    if (!assistantText) return;
+
+    lastHandledAssistantIdRef.current = latestAssistant.id;
+    setDocumentTitle(userText.slice(0, 80) || "chat-document");
+    setDocumentFormat(format);
+    setDocumentHtml(assistantText.replace(/\n/g, "<br/>"));
+  }, [messages, autoDocumentGeneration]);
+
   return (
     <SidebarProvider>
       <div className="flex h-screen w-full bg-neutral-900 text-gray-100">
@@ -173,9 +265,18 @@ export function Chat({
               setMessages={setMessages}
               chatId={id}
               selectedChatModel={initialChatModel}
+              isDocumentSheetOpen={isDocumentSheetOpen}
+              documentDraftHtml={documentHtml}
+              documentDraftTitle={documentTitle}
+              documentDraftFormat={documentFormat}
+              onOpenDocumentBuilder={() => setIsDocumentSheetOpen(true)}
             />
 
-            <div className="max-w-3xl mx-auto space-y-4 w-full">
+            <div
+              className={`mx-auto space-y-4 w-full px-4 ${
+                isDocumentSheetOpen ? "max-w-2xl" : "max-w-3xl"
+              }`}
+            >
               <p className="text-center text-sm text-gray-400">shaaddev</p>
               <ChatInput
                 input={input}
@@ -191,6 +292,8 @@ export function Chat({
                 setMessages={setMessages}
                 useSearch={useSearch}
                 setUseSearch={setUseSearch}
+                autoDocumentGeneration={autoDocumentGeneration}
+                setAutoDocumentGeneration={setAutoDocumentGeneration}
                 clearChatInputState={clearChatInputState}
                 customSystemPrompt={customSystemPrompt}
                 setCustomSystemPrompt={setCustomSystemPrompt}
@@ -198,6 +301,13 @@ export function Chat({
             </div>
           </div>
         </div>
+        <DocumentSheet
+          open={isDocumentSheetOpen}
+          onOpenChange={setIsDocumentSheetOpen}
+          initialHtml={documentHtml}
+          initialTitle={documentTitle}
+          suggestedFormat={documentFormat}
+        />
       </div>
     </SidebarProvider>
   );

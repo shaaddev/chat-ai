@@ -12,9 +12,10 @@ import { PreviewAttachment } from "./preview-attachment";
 
 export interface messageProps {
   message: ChatMessage;
+  isDocumentSheetOpen?: boolean;
 }
 
-const PureChatMessage = ({ message }: messageProps) => {
+const PureChatMessage = ({ message, isDocumentSheetOpen = false }: messageProps) => {
   const [copied, setCopied] = useState(false);
 
   const attachmentsFromMessage = message.parts.filter(
@@ -41,7 +42,7 @@ const PureChatMessage = ({ message }: messageProps) => {
   };
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className={`mx-auto ${isDocumentSheetOpen ? "max-w-2xl" : "max-w-3xl"}`}>
       <div
         key={message.id}
         className={`flex ${
@@ -90,7 +91,7 @@ const PureChatMessage = ({ message }: messageProps) => {
                   <MessageContent
                     data-testid="message-content"
                     className={cn({
-                      "bg-neutral-800 text-neutral-300 w-fit max-w-[80%] rounded-2xl px-5 py-2 break-words":
+                      "bg-neutral-800 text-neutral-300 w-fit max-w-[92%] sm:max-w-[80%] rounded-2xl px-5 py-2 break-words":
                         message.role === "user",
                       " text-neutral-100 px-0 py-0 text-left":
                         message.role === "assistant",

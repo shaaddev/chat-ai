@@ -67,6 +67,42 @@ function getUploadThingUrlFromResult(result: unknown): string | undefined {
   return extract(result);
 }
 
+function detectDocumentIntent(
+  text: string,
+  autoDocumentGeneration: boolean,
+): { documentCandidate: boolean; suggestedFormat: "docx" | "pdf" } {
+  if (!autoDocumentGeneration) {
+    return { documentCandidate: false, suggestedFormat: "docx" };
+  }
+
+  const normalized = text.toLowerCase();
+  const docHints = [
+    "document",
+    "doc",
+    "docx",
+    "pdf",
+    "letter",
+    "report",
+    "invoice",
+    "proposal",
+    "summary",
+    "contract",
+    "resume",
+    "cv",
+    "minutes",
+    "plan",
+    "memo",
+  ];
+
+  const documentCandidate = docHints.some((hint) => normalized.includes(hint));
+  const suggestedFormat: "docx" | "pdf" =
+    normalized.includes("pdf") && !normalized.includes("docx")
+      ? "pdf"
+      : "docx";
+
+  return { documentCandidate, suggestedFormat };
+}
+
 let globalStreamContext: ResumableStreamContext | null = null;
 
 export function getStreamContext() {
@@ -110,14 +146,28 @@ export async function POST(req: Request) {
       message,
       selectedChatModel,
       useSearch,
+      autoDocumentGeneration,
       customSystemPrompt,
     }: {
       id: string;
       message: ChatMessage;
       selectedChatModel: string;
       useSearch: boolean;
+      autoDocumentGeneration: boolean;
       customSystemPrompt?: string;
     } = requestBody;
+
+    const latestUserText = message.parts
+      .filter((part) => part.type === "text")
+      .map((part) => part.text)
+      .join("\n")
+      .trim()
+      .slice(0, 10000);
+
+    const documentIntent = detectDocumentIntent(
+      latestUserText,
+      autoDocumentGeneration,
+    );
 
     const session = await auth();
 
@@ -433,7 +483,12 @@ export async function POST(req: Request) {
                 type: "data-setMessageMetadata",
                 data: JSON.stringify({
                   id: assistantMessageId,
-                  metadata: { model: selectedChatModel, useSearch },
+                  metadata: {
+                    model: selectedChatModel,
+                    useSearch,
+                    documentCandidate: documentIntent.documentCandidate,
+                    suggestedFormat: documentIntent.suggestedFormat,
+                  },
                 }),
               });
             } catch (err) {
@@ -503,6 +558,8 @@ export async function POST(req: Request) {
                       outputTokens,
                       model: selectedChatModel,
                       useSearch,
+                      documentCandidate: documentIntent.documentCandidate,
+                      suggestedFormat: documentIntent.suggestedFormat,
                     },
                   }),
                 });
