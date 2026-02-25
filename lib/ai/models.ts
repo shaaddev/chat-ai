@@ -8,6 +8,14 @@ const openrouter = createOpenRouter({
 
 export type ModelProvider = "google" | "openai";
 
+export const PROVIDER_META: Record<
+  ModelProvider,
+  { label: string; color: string }
+> = {
+  google: { label: "Google", color: "bg-blue-500/15 text-blue-400 border-blue-500/20" },
+  openai: { label: "OpenAI", color: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" },
+};
+
 export type ModelCapability =
   | "reasoning"
   | "vision"
@@ -99,7 +107,7 @@ export const image_models: model_selection[] = [
   },
   {
     id: "chat-gemini-2-5-flash-image",
-    name: "Gemini 2.5 Flash Image",
+    name: "Gemini 2.5 Flash Image (Nano Banana)",
     icon: Info,
     provider: "google",
     description:
