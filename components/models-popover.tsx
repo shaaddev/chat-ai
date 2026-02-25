@@ -56,10 +56,7 @@ function ModelItem({
             <div className="flex w-full items-center justify-between gap-2">
               <div className="flex items-center gap-2.5">
                 <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-neutral-700/50 bg-neutral-800/80">
-                  <ProviderLogo
-                    provider={model.provider}
-                    className="size-4"
-                  />
+                  <ProviderLogo provider={model.provider} className="size-4" />
                 </div>
                 <div className="flex flex-col">
                   <span className="text-[13px] font-semibold leading-tight text-neutral-100">
@@ -95,10 +92,7 @@ function ModelItem({
         >
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
-              <ProviderLogo
-                provider={model.provider}
-                className="size-4"
-              />
+              <ProviderLogo provider={model.provider} className="size-4" />
               <span className="text-sm font-semibold text-neutral-100">
                 {model.name}
               </span>
@@ -228,7 +222,7 @@ export function ModelsPopover({ selectedModelId }: ModelSelectorProps) {
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
-        className="min-w-[440px] rounded-xl border-neutral-700/50 bg-neutral-900/95 p-0 shadow-2xl backdrop-blur-xl"
+        className="w-96 rounded-xl border-neutral-700/50 bg-neutral-900/95 p-0 shadow-2xl backdrop-blur-xl"
         onCloseAutoFocus={(e) => e.preventDefault()}
       >
         {/* Search + filter bar */}
@@ -245,11 +239,11 @@ export function ModelsPopover({ selectedModelId }: ModelSelectorProps) {
             />
           </div>
 
-          <div className="mt-2 flex items-center gap-1.5">
+          <div className="mt-2 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
             <button
               type="button"
               onClick={() => setProviderFilter(null)}
-              className={`rounded-md border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+              className={`shrink-0 rounded-md border px-2.5 py-1 text-[11px] font-medium transition-colors ${
                 providerFilter === null
                   ? "border-neutral-600 bg-neutral-800 text-neutral-200"
                   : "border-transparent bg-transparent text-neutral-500 hover:text-neutral-300"
@@ -264,10 +258,8 @@ export function ModelsPopover({ selectedModelId }: ModelSelectorProps) {
                 <button
                   key={p}
                   type="button"
-                  onClick={() =>
-                    setProviderFilter(isActive ? null : p)
-                  }
-                  className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                  onClick={() => setProviderFilter(isActive ? null : p)}
+                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-medium transition-colors ${
                     isActive
                       ? `${meta.color}`
                       : "border-transparent bg-transparent text-neutral-500 hover:text-neutral-300"
