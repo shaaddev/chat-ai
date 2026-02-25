@@ -6,12 +6,31 @@ const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
 });
 
-interface model_selection {
+export type ModelProvider = "google" | "openai";
+
+export type ModelCapability =
+  | "reasoning"
+  | "vision"
+  | "audio"
+  | "video"
+  | "tool-use"
+  | "fast"
+  | "image-gen"
+  | "image-edit"
+  | "code";
+
+export interface model_selection {
   id: string;
   name: string;
   icon: LucideIcon;
   image?: LucideIcon;
   unstable?: LucideIcon;
+  provider: ModelProvider;
+  description: string;
+  contextWindow: string;
+  inputPrice: string;
+  outputPrice: string;
+  capabilities: ModelCapability[];
 }
 
 export const stable_models: model_selection[] = [
@@ -21,6 +40,20 @@ export const stable_models: model_selection[] = [
     icon: Info,
     image: Image,
     unstable: FlaskConical,
+    provider: "google",
+    description:
+      "High-speed thinking model for agentic workflows, coding, and multi-turn chat with near-Pro reasoning.",
+    contextWindow: "1M",
+    inputPrice: "$0.50",
+    outputPrice: "$3.00",
+    capabilities: [
+      "reasoning",
+      "vision",
+      "audio",
+      "video",
+      "tool-use",
+      "code",
+    ],
   },
   {
     id: "google-model-2-5-flash-lite",
@@ -28,25 +61,53 @@ export const stable_models: model_selection[] = [
     icon: Info,
     image: Image,
     unstable: FlaskConical,
+    provider: "google",
+    description:
+      "Ultra-low latency and cost-efficient lightweight model with optional reasoning for fast responses.",
+    contextWindow: "1M",
+    inputPrice: "$0.10",
+    outputPrice: "$0.40",
+    capabilities: ["fast", "vision", "audio", "tool-use"],
   },
   {
     id: "chat-5-mini",
-    name: "GPT 5 mini",
+    name: "GPT 5 Mini",
     icon: Info,
     image: Image,
+    provider: "openai",
+    description:
+      "Compact version of GPT-5 for lighter reasoning tasks with strong instruction following and safety tuning.",
+    contextWindow: "400K",
+    inputPrice: "$0.25",
+    outputPrice: "$2.00",
+    capabilities: ["reasoning", "vision", "tool-use", "code"],
   },
 ];
 
 export const image_models: model_selection[] = [
   {
     id: "chat-image-1-mini",
-    name: "GPT Image 1 mini",
+    name: "GPT Image 1 Mini",
     icon: Info,
+    provider: "openai",
+    description:
+      "Combines GPT-5 Mini with GPT Image 1 for efficient image generation, text rendering, and editing.",
+    contextWindow: "400K",
+    inputPrice: "$2.50",
+    outputPrice: "$2.00",
+    capabilities: ["image-gen", "image-edit", "vision"],
   },
   {
     id: "chat-gemini-2-5-flash-image",
-    name: "Gemini 2.5 Flash Image (Nano Banana)",
+    name: "Gemini 2.5 Flash Image",
     icon: Info,
+    provider: "google",
+    description:
+      'A.k.a. "Nano Banana" — state-of-the-art image generation with contextual understanding and multi-turn editing.',
+    contextWindow: "32K",
+    inputPrice: "$0.30",
+    outputPrice: "$2.50",
+    capabilities: ["image-gen", "image-edit", "vision"],
   },
 ];
 
