@@ -15,7 +15,10 @@ export interface messageProps {
   isDocumentSheetOpen?: boolean;
 }
 
-const PureChatMessage = ({ message, isDocumentSheetOpen = false }: messageProps) => {
+const PureChatMessage = ({
+  message,
+  isDocumentSheetOpen = false,
+}: messageProps) => {
   const [copied, setCopied] = useState(false);
 
   const attachmentsFromMessage = message.parts.filter(
@@ -42,7 +45,9 @@ const PureChatMessage = ({ message, isDocumentSheetOpen = false }: messageProps)
   };
 
   return (
-    <div className={`mx-auto ${isDocumentSheetOpen ? "max-w-2xl" : "max-w-3xl"}`}>
+    <div
+      className={`mx-auto ${isDocumentSheetOpen ? "max-w-2xl" : "max-w-3xl"}`}
+    >
       <div
         key={message.id}
         className={`flex ${

@@ -83,9 +83,12 @@ export function Chat({
     string | undefined
   >(initialSystemPrompt);
   const [isDocumentSheetOpen, setIsDocumentSheetOpen] = useState(false);
-  const [documentHtml, setDocumentHtml] = useState("");
+  const [documentMarkdown, setDocumentMarkdown] = useState("");
   const [documentTitle, setDocumentTitle] = useState("chat-document");
   const [documentFormat, setDocumentFormat] = useState<ExportFormat>("docx");
+  const [documentSourceMessageId, setDocumentSourceMessageId] = useState<
+    string | null
+  >(null);
 
   const lastHandledAssistantIdRef = useRef<string | null>(null);
 
@@ -211,7 +214,6 @@ export function Chat({
       .find((message) => message.role === "assistant");
 
     if (!latestAssistant) return;
-    if (lastHandledAssistantIdRef.current === latestAssistant.id) return;
 
     const metadata =
       typeof latestAssistant.metadata === "object" && latestAssistant.metadata
@@ -223,24 +225,39 @@ export function Chat({
     const userText = extractMessageText(latestUser);
     const assistantText = extractMessageText(latestAssistant);
 
-    const metadataCandidate = metadata?.documentCandidate === true;
-    const fallbackCandidate =
-      autoDocumentGeneration && hasDocumentIntent(userText) && !!assistantText;
-    if (!metadataCandidate && !fallbackCandidate) return;
-
-    const suggestedFormat = metadata?.suggestedFormat;
-    const format: ExportFormat =
-      suggestedFormat === "pdf" || userText.toLowerCase().includes("pdf")
-        ? "pdf"
-        : "docx";
-
     if (!assistantText) return;
 
-    lastHandledAssistantIdRef.current = latestAssistant.id;
-    setDocumentTitle(userText.slice(0, 80) || "chat-document");
-    setDocumentFormat(format);
-    setDocumentHtml(assistantText.replace(/\n/g, "<br/>"));
-  }, [messages, autoDocumentGeneration]);
+    const isAlreadyTracked = documentSourceMessageId === latestAssistant.id;
+
+    if (!isAlreadyTracked) {
+      if (lastHandledAssistantIdRef.current === latestAssistant.id) return;
+
+      const metadataCandidate = metadata?.documentCandidate === true;
+      const fallbackCandidate =
+        autoDocumentGeneration &&
+        hasDocumentIntent(userText) &&
+        !!assistantText;
+      if (!metadataCandidate && !fallbackCandidate) return;
+
+      lastHandledAssistantIdRef.current = latestAssistant.id;
+      setDocumentSourceMessageId(latestAssistant.id);
+
+      const suggestedFormat = metadata?.suggestedFormat;
+      const format: ExportFormat =
+        suggestedFormat === "pdf" || userText.toLowerCase().includes("pdf")
+          ? "pdf"
+          : "docx";
+      setDocumentTitle(userText.slice(0, 80) || "chat-document");
+      setDocumentFormat(format);
+    }
+
+    if (
+      isAlreadyTracked ||
+      lastHandledAssistantIdRef.current === latestAssistant.id
+    ) {
+      setDocumentMarkdown(assistantText);
+    }
+  }, [messages, autoDocumentGeneration, documentSourceMessageId]);
 
   return (
     <SidebarProvider>
@@ -266,9 +283,10 @@ export function Chat({
               chatId={id}
               selectedChatModel={initialChatModel}
               isDocumentSheetOpen={isDocumentSheetOpen}
-              documentDraftHtml={documentHtml}
+              documentDraftMarkdown={documentMarkdown}
               documentDraftTitle={documentTitle}
               documentDraftFormat={documentFormat}
+              documentSourceMessageId={documentSourceMessageId}
               onOpenDocumentBuilder={() => setIsDocumentSheetOpen(true)}
             />
 
@@ -304,7 +322,7 @@ export function Chat({
         <DocumentSheet
           open={isDocumentSheetOpen}
           onOpenChange={setIsDocumentSheetOpen}
-          initialHtml={documentHtml}
+          initialMarkdown={documentMarkdown}
           initialTitle={documentTitle}
           suggestedFormat={documentFormat}
         />

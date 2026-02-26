@@ -244,7 +244,9 @@ export function ChatInput({
                   variant="outline"
                   className={cn(
                     "px-2 rounded-full bg-transparent",
-                    (useSearch || customSystemPrompt || autoDocumentGeneration) &&
+                    (useSearch ||
+                      customSystemPrompt ||
+                      autoDocumentGeneration) &&
                       "bg-neutral-200 text-neutral-800",
                   )}
                 >

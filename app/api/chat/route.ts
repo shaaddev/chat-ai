@@ -96,9 +96,7 @@ function detectDocumentIntent(
 
   const documentCandidate = docHints.some((hint) => normalized.includes(hint));
   const suggestedFormat: "docx" | "pdf" =
-    normalized.includes("pdf") && !normalized.includes("docx")
-      ? "pdf"
-      : "docx";
+    normalized.includes("pdf") && !normalized.includes("docx") ? "pdf" : "docx";
 
   return { documentCandidate, suggestedFormat };
 }

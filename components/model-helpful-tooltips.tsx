@@ -168,10 +168,7 @@ export function MetaLogo({ className }: { className?: string }) {
   );
 }
 
-const providerLogos: Record<
-  ModelProvider,
-  React.FC<{ className?: string }>
-> = {
+const providerLogos: Record<ModelProvider, React.FC<{ className?: string }>> = {
   google: GoogleLogo,
   openai: OpenAILogo,
   deepseek: DeepSeekLogo,
