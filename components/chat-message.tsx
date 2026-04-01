@@ -3,6 +3,7 @@
 import equal from "fast-deep-equal";
 import { Check, Copy, Globe } from "lucide-react";
 import { memo, useState } from "react";
+import { motion } from "motion/react";
 import { stable_models, image_models } from "@/lib/ai/models";
 import type { ChatMessage } from "@/lib/types";
 import { cn, sanitizeText } from "@/lib/utils";
@@ -13,11 +14,13 @@ import { PreviewAttachment } from "./preview-attachment";
 export interface messageProps {
   message: ChatMessage;
   isDocumentSheetOpen?: boolean;
+  isStreaming?: boolean;
 }
 
 const PureChatMessage = ({
   message,
   isDocumentSheetOpen = false,
+  isStreaming = false,
 }: messageProps) => {
   const [copied, setCopied] = useState(false);
 
@@ -65,9 +68,7 @@ const PureChatMessage = ({
                   key={attachment.url}
                   attachment={{
                     name:
-                      // Prefer SDK-declared filename when available
                       ("filename" in attachment && attachment.filename) ||
-                      // Fallback to custom name if present on the object
                       (("name" in attachment &&
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         (attachment as any).name) as string) ||
@@ -96,22 +97,33 @@ const PureChatMessage = ({
                   <MessageContent
                     data-testid="message-content"
                     className={cn({
-                      "bg-neutral-800 text-neutral-300 w-fit max-w-[92%] sm:max-w-[80%] rounded-2xl px-5 py-2 break-words":
+                      "bg-muted text-secondary-foreground w-fit max-w-[92%] sm:max-w-[80%] rounded-2xl px-5 py-2 break-words":
                         message.role === "user",
-                      " text-neutral-100 px-0 py-0 text-left":
+                      "text-foreground px-0 py-0 text-left border-l-2 border-primary/20 pl-4":
                         message.role === "assistant",
                     })}
                   >
-                    <Markdown>{sanitizeText(part.text)}</Markdown>
+                    <div
+                      className={
+                        isStreaming && message.role === "assistant"
+                          ? "streaming-cursor"
+                          : ""
+                      }
+                    >
+                      <Markdown>{sanitizeText(part.text)}</Markdown>
+                    </div>
                   </MessageContent>
                 </div>
               );
             }
           })}
           {message.role === "assistant" && (
-            <div
+            <motion.div
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.2, delay: 0.1 }}
               className={cn(
-                "flex w-full items-center gap-3 text-xs text-neutral-400 transition-opacity duration-150",
+                "flex w-full items-center gap-3 text-xs text-muted-foreground transition-opacity duration-150",
                 "justify-start opacity-0 group-hover/message:opacity-100",
               )}
             >
@@ -125,9 +137,10 @@ const PureChatMessage = ({
 
                   return (
                     <div className="mt-1 flex items-center gap-3">
-                      <button
+                      <motion.button
+                        whileTap={{ scale: 0.95 }}
                         onClick={handleCopyMessage}
-                        className="flex items-center gap-1.5 rounded-md bg-neutral-800 px-2 py-1 hover:bg-neutral-700 transition-colors"
+                        className="flex items-center gap-1.5 rounded-md bg-muted px-2 py-1 hover:bg-accent transition-colors cursor-pointer"
                         title="Copy message"
                       >
                         {copied ? (
@@ -141,17 +154,17 @@ const PureChatMessage = ({
                             <span>Copy</span>
                           </>
                         )}
-                      </button>
+                      </motion.button>
                       {modelName && (
-                        <div className="flex items-center gap-1.5 rounded-md bg-neutral-800 px-2 py-1">
-                          <span className="text-neutral-300 font-medium">
+                        <div className="flex items-center gap-1.5 rounded-md bg-muted px-2 py-1">
+                          <span className="text-muted-foreground font-medium">
                             {modelName}
                           </span>
                         </div>
                       )}
                       {usedSearch && (
                         <div
-                          className="flex items-center gap-1.5 rounded-md bg-neutral-800 px-2 py-1"
+                          className="flex items-center gap-1.5 rounded-md bg-muted px-2 py-1"
                           title="Used web search"
                         >
                           <Globe className="size-3.5" />
@@ -160,7 +173,7 @@ const PureChatMessage = ({
                     </div>
                   );
                 })()}
-            </div>
+            </motion.div>
           )}
         </div>
       </div>
@@ -170,6 +183,7 @@ const PureChatMessage = ({
 
 export const PreviewMessage = memo(PureChatMessage, (prevProps, nextProps) => {
   if (prevProps.message.id !== nextProps.message.id) return false;
+  if (prevProps.isStreaming !== nextProps.isStreaming) return false;
   if (!equal(prevProps.message.parts, nextProps.message.parts)) return false;
 
   return false;

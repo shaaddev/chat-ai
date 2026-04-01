@@ -4,6 +4,7 @@ import "./globals.css";
 import Script from "next/script";
 import { ChatProvider } from "@/components/chat-context";
 import { PerformanceMonitor } from "@/components/performance-monitor";
+import { ThemeProvider } from "@/components/providers/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { ConvexClientProvider } from "@/lib/convex/client";
 import { getToken } from "@/lib/auth-server";
@@ -62,6 +63,17 @@ export default async function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        {/* Anti-FOUC script for accent color */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                var accent = localStorage.getItem('accent-color') || 'blue';
+                document.documentElement.setAttribute('data-accent', accent);
+              } catch(e) {}
+            `,
+          }}
+        />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
           rel="preconnect"
@@ -72,14 +84,16 @@ export default async function RootLayout({
         <link rel="manifest" href="/manifest.json" />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-neutral-900`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
-        <ConvexClientProvider initialToken={initialToken}>
-          <ChatProvider>
-            <main className="lg:mx-auto">{children}</main>
-            <Toaster position="bottom-right" className="bg-neutral-800" />
-          </ChatProvider>
-        </ConvexClientProvider>
+        <ThemeProvider>
+          <ConvexClientProvider initialToken={initialToken}>
+            <ChatProvider>
+              <main className="lg:mx-auto">{children}</main>
+              <Toaster position="bottom-right" />
+            </ChatProvider>
+          </ConvexClientProvider>
+        </ThemeProvider>
         {process.env.NODE_ENV === "development" && <PerformanceMonitor />}
         <Script
           id="service-worker"

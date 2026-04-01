@@ -218,11 +218,11 @@ export function DocumentSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="w-full sm:max-w-xl bg-neutral-900 border-neutral-700 text-neutral-100 flex flex-col"
+        className="w-full sm:max-w-xl bg-background border-border text-foreground flex flex-col"
       >
         <SheetHeader>
-          <SheetTitle className="text-neutral-100">Document Builder</SheetTitle>
-          <SheetDescription className="text-neutral-400">
+          <SheetTitle className="text-foreground">Document Builder</SheetTitle>
+          <SheetDescription className="text-muted-foreground">
             Edit the markdown source, preview updates live below.
           </SheetDescription>
         </SheetHeader>
@@ -232,7 +232,7 @@ export function DocumentSheet({
             type="button"
             size="icon"
             variant="outline"
-            className="bg-transparent border-neutral-700 hover:bg-neutral-800"
+            className="bg-transparent border-border hover:bg-accent"
             onClick={() => wrapSelection("**", "**")}
             title="Bold"
           >
@@ -242,7 +242,7 @@ export function DocumentSheet({
             type="button"
             size="icon"
             variant="outline"
-            className="bg-transparent border-neutral-700 hover:bg-neutral-800"
+            className="bg-transparent border-border hover:bg-accent"
             onClick={() => wrapSelection("*", "*")}
             title="Italic"
           >
@@ -252,7 +252,7 @@ export function DocumentSheet({
             type="button"
             size="icon"
             variant="outline"
-            className="bg-transparent border-neutral-700 hover:bg-neutral-800"
+            className="bg-transparent border-border hover:bg-accent"
             onClick={() => wrapSelection("`", "`")}
             title="Inline code"
           >
@@ -262,7 +262,7 @@ export function DocumentSheet({
             type="button"
             size="icon"
             variant="outline"
-            className="bg-transparent border-neutral-700 hover:bg-neutral-800"
+            className="bg-transparent border-border hover:bg-accent"
             onClick={insertListItem}
             title="Bullet list"
           >
@@ -271,7 +271,7 @@ export function DocumentSheet({
 
           <select
             aria-label="Document format"
-            className="ml-auto h-9 rounded-md border border-neutral-700 bg-neutral-800 px-3 text-sm text-neutral-100"
+            className="ml-auto h-9 rounded-md border border-border bg-muted px-3 text-sm text-foreground"
             value={format}
             onChange={(e) => setFormat(e.target.value as ExportFormat)}
           >
@@ -285,18 +285,18 @@ export function DocumentSheet({
             ref={textareaRef}
             value={markdown}
             onChange={(e) => setMarkdown(e.target.value)}
-            className="min-h-[120px] max-h-[40%] shrink-0 resize-y rounded-lg border border-neutral-700 bg-neutral-800 p-3 text-sm font-mono leading-6 text-neutral-100 placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-neutral-500"
+            className="min-h-[120px] max-h-[40%] shrink-0 resize-y rounded-lg border border-border bg-muted p-3 text-sm font-mono leading-6 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             placeholder="Write or edit markdown here..."
           />
 
-          <div className="flex-1 min-h-0 overflow-auto rounded-lg border border-neutral-700 bg-neutral-800 p-4 text-sm leading-6">
+          <div className="flex-1 min-h-0 overflow-auto rounded-lg border border-border bg-muted p-4 text-sm leading-6">
             <Markdown>{markdown}</Markdown>
           </div>
         </div>
 
         {codeBlocks.length > 0 && (
           <div className="px-4 pb-2 space-y-2 max-h-48 overflow-auto">
-            <div className="flex items-center gap-2 text-xs text-neutral-400">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Terminal className="size-3" />
               <span>Code Blocks</span>
             </div>
@@ -305,17 +305,17 @@ export function DocumentSheet({
               return (
                 <div
                   key={idx}
-                  className="rounded-md border border-neutral-700 bg-neutral-950 overflow-hidden"
+                  className="rounded-md border border-border bg-background overflow-hidden"
                 >
-                  <div className="flex items-center justify-between px-3 py-1.5 border-b border-neutral-800">
-                    <span className="text-xs text-neutral-400 font-mono">
+                  <div className="flex items-center justify-between px-3 py-1.5 border-b border-border">
+                    <span className="text-xs text-muted-foreground font-mono">
                       {block.language || "code"}
                     </span>
                     <Button
                       type="button"
                       size="sm"
                       variant="ghost"
-                      className="h-6 px-2 text-xs text-neutral-300 hover:text-neutral-100"
+                      className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
                       disabled={output?.running}
                       onClick={() =>
                         handleRunCode(idx, block.code, block.language)
@@ -338,7 +338,9 @@ export function DocumentSheet({
                         </pre>
                       )}
                       {!output.stdout && !output.stderr && (
-                        <span className="text-neutral-500">No output</span>
+                        <span className="text-muted-foreground/50">
+                          No output
+                        </span>
                       )}
                     </div>
                   )}
@@ -348,11 +350,11 @@ export function DocumentSheet({
           </div>
         )}
 
-        <SheetFooter className="border-t border-neutral-800">
+        <SheetFooter className="border-t border-border">
           <Button
             type="button"
             variant="outline"
-            className="bg-transparent border-neutral-700 hover:bg-neutral-800"
+            className="bg-transparent border-border hover:bg-accent"
             onClick={handleDownload}
           >
             <Download className="mr-2 size-4" />
@@ -360,7 +362,7 @@ export function DocumentSheet({
           </Button>
           <Button
             type="button"
-            className="bg-neutral-100 text-neutral-900 hover:bg-neutral-200"
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
             disabled={isUploading}
             onClick={handleSave}
           >
@@ -372,7 +374,7 @@ export function DocumentSheet({
               href={savedUrl}
               target="_blank"
               rel="noreferrer"
-              className="text-xs text-neutral-300 underline underline-offset-2"
+              className="text-xs text-muted-foreground underline underline-offset-2"
             >
               Open saved file
             </a>

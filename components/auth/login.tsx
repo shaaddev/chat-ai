@@ -19,7 +19,7 @@ export function Login() {
             variant="ghost"
             size="sm"
             onClick={() => router.push("/")}
-            className="flex items-center text-neutral-400 hover:text-neutral-200 p-0 hover:bg-black/5 px-2"
+            className="flex items-center text-muted-foreground hover:text-foreground p-0 hover:bg-accent px-2"
           >
             <ArrowLeft className="size-4" />
             Back to Home
@@ -27,12 +27,12 @@ export function Login() {
         </div>
 
         {!isOtpStep && (
-          <p className="mt-2 text-sm text-neutral-400 text-center">
+          <p className="mt-2 text-sm text-muted-foreground text-center">
             {isLogin ? "Don't have an account?" : "Already have an account?"}
             <Button
               onClick={() => setIsLogin(!isLogin)}
               variant="link"
-              className=" text-blue-600 hover:text-blue-500 hover:underline ml-1 mb-10"
+              className="text-primary hover:text-primary/80 hover:underline ml-1 mb-10"
             >
               {isLogin ? "Sign up" : "Login"}
             </Button>

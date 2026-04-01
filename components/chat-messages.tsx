@@ -2,6 +2,7 @@ import type { UseChatHelpers } from "@ai-sdk/react";
 import equal from "fast-deep-equal";
 import { FileText, LoaderIcon, ImageIcon } from "lucide-react";
 import { Fragment, memo, useEffect } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -16,7 +17,9 @@ import { image_models } from "@/lib/ai/models";
 import type { ExportFormat } from "@/lib/document-export";
 import type { ChatMessage } from "@/lib/types";
 import { PreviewMessage } from "./chat-message";
+import { EmptyChatState } from "./empty-chat-state";
 import { Markdown } from "./markdown";
+import { ThinkingIndicator } from "./thinking-indicator";
 
 interface MessagesProps {
   chatId: string;
@@ -30,6 +33,7 @@ interface MessagesProps {
   documentDraftFormat?: ExportFormat;
   documentSourceMessageId?: string | null;
   onOpenDocumentBuilder?: () => void;
+  onSuggestionClick?: (text: string) => void;
 }
 
 function DocumentCard({
@@ -48,34 +52,37 @@ function DocumentCard({
   const hasCodeBlock = /```[\s\S]*?```/.test(documentDraftMarkdown);
 
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
       className={`mx-auto mt-2 mb-2 ${isDocumentSheetOpen ? "max-w-2xl" : "max-w-3xl"}`}
     >
-      <Card className="border-neutral-700 bg-neutral-900/70">
+      <Card className="border-border bg-card/70">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm text-neutral-100 flex items-center gap-2">
+          <CardTitle className="text-sm text-foreground flex items-center gap-2">
             <FileText className="size-4" />
             Document Draft Ready
           </CardTitle>
-          <CardDescription className="text-neutral-400">
+          <CardDescription className="text-muted-foreground">
             {documentDraftTitle || "chat-document"} (
             {documentDraftFormat.toUpperCase()})
             {hasCodeBlock && (
-              <span className="ml-2 text-neutral-500">
+              <span className="ml-2 text-muted-foreground/70">
                 &middot; Contains code
               </span>
             )}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="max-h-40 overflow-auto rounded-md border border-neutral-800 bg-neutral-900 p-3 text-xs text-neutral-300">
+          <div className="max-h-40 overflow-auto rounded-md border border-border bg-background p-3 text-xs text-muted-foreground">
             <Markdown>{documentDraftMarkdown}</Markdown>
           </div>
           <div className="flex justify-end">
             <Button
               type="button"
               size="sm"
-              className="bg-neutral-100 text-neutral-900 hover:bg-neutral-200"
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
               onClick={onOpenDocumentBuilder}
             >
               Open in Document Builder
@@ -83,7 +90,7 @@ function DocumentCard({
           </div>
         </CardContent>
       </Card>
-    </div>
+    </motion.div>
   );
 }
 
@@ -98,6 +105,7 @@ function PureMessages({
   documentDraftFormat = "docx",
   documentSourceMessageId,
   onOpenDocumentBuilder,
+  onSuggestionClick,
 }: MessagesProps) {
   const { messagesEndRef, scrollToBottom } = useMessages({ chatId, status });
 
@@ -151,52 +159,76 @@ function PureMessages({
     isImageModelSelected &&
     !hasAssistantImageAttachment;
 
+  if (messages.length === 0 && !showThinking && !isGeneratingImage) {
+    return (
+      <div className="flex-1 overflow-auto">
+        <EmptyChatState onSuggestionClick={onSuggestionClick} />
+      </div>
+    );
+  }
+
   return (
     <ScrollArea className="flex-1 p-4 w-full overflow-auto">
-      {messages.map((message) => (
-        <Fragment key={message.id}>
-          <PreviewMessage
-            message={message}
-            isDocumentSheetOpen={isDocumentSheetOpen}
-          />
-          {documentDraftMarkdown && documentSourceMessageId === message.id && (
-            <DocumentCard
-              isDocumentSheetOpen={isDocumentSheetOpen}
-              documentDraftMarkdown={documentDraftMarkdown}
-              documentDraftTitle={documentDraftTitle}
-              documentDraftFormat={documentDraftFormat}
-              onOpenDocumentBuilder={onOpenDocumentBuilder}
-            />
-          )}
-        </Fragment>
-      ))}
+      <AnimatePresence initial={false}>
+        {messages.map((message) => (
+          <Fragment key={message.id}>
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25, ease: "easeOut" }}
+            >
+              <PreviewMessage
+                message={message}
+                isDocumentSheetOpen={isDocumentSheetOpen}
+                isStreaming={
+                  status === "streaming" &&
+                  message.role === "assistant" &&
+                  message.id === messages[messages.length - 1]?.id
+                }
+              />
+            </motion.div>
+            {documentDraftMarkdown &&
+              documentSourceMessageId === message.id && (
+                <DocumentCard
+                  isDocumentSheetOpen={isDocumentSheetOpen}
+                  documentDraftMarkdown={documentDraftMarkdown}
+                  documentDraftTitle={documentDraftTitle}
+                  documentDraftFormat={documentDraftFormat}
+                  onOpenDocumentBuilder={onOpenDocumentBuilder}
+                />
+              )}
+          </Fragment>
+        ))}
+      </AnimatePresence>
       {showThinking && (
-        <div
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
           className={`mx-auto ${isDocumentSheetOpen ? "max-w-2xl" : "max-w-3xl"}`}
         >
           <div className="flex justify-start">
-            <div className="text-neutral-400 text-sm px-3 py-2 rounded-2xl bg-neutral-800/50 animate-pulse">
-              Thinking...
-            </div>
+            <ThinkingIndicator />
           </div>
-        </div>
+        </motion.div>
       )}
       {isGeneratingImage && (
-        <div
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
           className={`mx-auto ${isDocumentSheetOpen ? "max-w-2xl" : "max-w-3xl"}`}
         >
           <div className="flex justify-start">
-            <div className="relative size-80 rounded-xl bg-neutral-800/50 border border-neutral-700/50 overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-neutral-800 via-neutral-700/30 to-neutral-800 animate-pulse" />
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full animate-[shimmer_2s_infinite]" />
+            <div className="relative size-80 rounded-xl bg-muted/50 border border-border overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-muted via-muted/30 to-muted animate-pulse" />
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-background/5 to-transparent -translate-x-full animate-[shimmer_2s_infinite]" />
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
                 <div className="relative">
-                  <div className="absolute inset-0 bg-violet-500/20 blur-xl rounded-full animate-pulse" />
-                  <div className="relative bg-neutral-800 rounded-2xl p-4 border border-neutral-700/50">
-                    <ImageIcon className="size-8 text-neutral-400" />
+                  <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full animate-pulse" />
+                  <div className="relative bg-card rounded-2xl p-4 border border-border">
+                    <ImageIcon className="size-8 text-muted-foreground" />
                   </div>
                 </div>
-                <div className="flex items-center gap-2 text-neutral-400">
+                <div className="flex items-center gap-2 text-muted-foreground">
                   <LoaderIcon className="size-4 animate-spin" />
                   <span className="text-sm font-medium">
                     Generating image...
@@ -205,7 +237,7 @@ function PureMessages({
               </div>
             </div>
           </div>
-        </div>
+        </motion.div>
       )}
       <div ref={messagesEndRef} />
     </ScrollArea>
@@ -227,6 +259,7 @@ export const Messages = memo(PureMessages, (prevProps, nextProps) => {
     return false;
   if (prevProps.onOpenDocumentBuilder !== nextProps.onOpenDocumentBuilder)
     return false;
+  if (prevProps.onSuggestionClick !== nextProps.onSuggestionClick) return false;
   if (prevProps.messages.length !== nextProps.messages.length) return false;
   if (!equal(prevProps.messages, nextProps.messages)) return false;
 

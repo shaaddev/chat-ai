@@ -1,5 +1,6 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
 import { CirclePause, Send, Settings2 } from "lucide-react";
+import { motion } from "motion/react";
 import {
   type Dispatch,
   memo,
@@ -93,10 +94,8 @@ export function ChatInput({
       return;
     }
 
-    // Set loading state for this chat
     setChatLoading(chatId!, true);
 
-    // Add optimistic chat to sidebar immediately
     addOptimisticChat({
       id: chatId!,
       title: input.trim().slice(0, 80) || "New chat",
@@ -124,19 +123,14 @@ export function ChatInput({
         { body: { useSearch, customSystemPrompt, autoDocumentGeneration } },
       );
     } catch (error) {
-      // Clear loading state on error
       setChatLoading(chatId!, false);
       throw error;
     }
 
-    // Clear input state after successful send
     clearChatInputState(chatId!);
     setAttachments([]);
     setInput("");
     setUseSearch(false);
-
-    // Don't refresh chats immediately - let the optimistic update stay
-    // The chat will be properly saved when the AI response finishes
   }, [
     sendMessage,
     setInput,
@@ -177,7 +171,7 @@ export function ChatInput({
 
   return (
     <div className="relative">
-      <div className="relative rounded-t-2xl shadow-lg bg-neutral-800/50 flex grow flex-col">
+      <div className="relative rounded-2xl shadow-lg bg-muted/50 backdrop-blur-sm border border-border/50 flex grow flex-col transition-shadow focus-within:shadow-xl focus-within:border-border">
         <form className="relative sm:max-w-3xl px-5 lg:px-0">
           {(attachments.length > 0 || uploadQueue.length > 0) && (
             <div
@@ -212,7 +206,7 @@ export function ChatInput({
             value={input}
             onChange={handleInput}
             placeholder="Type your message here..."
-            className="w-full resize-none bg-transparent border-0 focus:ring-0 text-base text-neutral-100 placeholder-neutral-400 p-6 pt-4  outline-hidden disabled:opacity-0 "
+            className="w-full resize-none bg-transparent border-0 focus:ring-0 text-base text-foreground placeholder:text-muted-foreground p-6 pt-4 outline-hidden disabled:opacity-0"
             rows={1}
             autoFocus
             style={{ height: textareaHeight }}
@@ -243,11 +237,11 @@ export function ChatInput({
                   size="sm"
                   variant="outline"
                   className={cn(
-                    "px-2 rounded-full bg-transparent",
+                    "px-2 rounded-full bg-transparent cursor-pointer",
                     (useSearch ||
                       customSystemPrompt ||
                       autoDocumentGeneration) &&
-                      "bg-neutral-200 text-neutral-800",
+                      "bg-primary text-primary-foreground",
                   )}
                 >
                   <Settings2 className="size-4! mr-1" />
@@ -258,13 +252,13 @@ export function ChatInput({
                 align="start"
                 side="top"
                 sideOffset={8}
-                className="w-72 bg-neutral-900 border-neutral-700 p-0"
+                className="w-72 bg-popover border-border p-0"
               >
-                <div className="flex flex-col divide-y divide-neutral-800">
+                <div className="flex flex-col divide-y divide-border">
                   <div className="flex items-center justify-between px-4 py-3">
                     <Label
                       htmlFor="search-toggle"
-                      className="text-sm text-neutral-200 cursor-pointer"
+                      className="text-sm text-foreground cursor-pointer"
                     >
                       Web Search
                     </Label>
@@ -277,7 +271,7 @@ export function ChatInput({
                   <div className="flex items-center justify-between px-4 py-3">
                     <Label
                       htmlFor="document-toggle"
-                      className="text-sm text-neutral-200 cursor-pointer"
+                      className="text-sm text-foreground cursor-pointer"
                     >
                       Auto Document
                     </Label>
@@ -294,7 +288,7 @@ export function ChatInput({
                     <div className="flex items-center justify-between">
                       <Label
                         htmlFor="system-prompt-toggle"
-                        className="text-sm text-neutral-200 cursor-pointer"
+                        className="text-sm text-foreground cursor-pointer"
                       >
                         Custom Prompt
                       </Label>
@@ -329,7 +323,7 @@ export function ChatInput({
                           setSystemPromptDraft(customSystemPrompt ?? "");
                           setShowSystemPromptDialog(true);
                         }}
-                        className="text-xs text-neutral-400 hover:text-neutral-200 text-left truncate transition-colors"
+                        className="text-xs text-muted-foreground hover:text-foreground text-left truncate transition-colors"
                       >
                         {customSystemPrompt.slice(0, 60)}
                         {customSystemPrompt.length > 60 ? "..." : ""} — Edit
@@ -363,12 +357,12 @@ export function ChatInput({
         open={showSystemPromptDialog}
         onOpenChange={setShowSystemPromptDialog}
       >
-        <DialogContent className="sm:max-w-lg bg-neutral-900 border-neutral-700">
+        <DialogContent className="sm:max-w-lg bg-popover border-border">
           <DialogHeader>
-            <DialogTitle className="text-neutral-100">
+            <DialogTitle className="text-foreground">
               Custom System Prompt
             </DialogTitle>
-            <DialogDescription className="text-neutral-400">
+            <DialogDescription className="text-muted-foreground">
               Tell the AI how it should behave for this chat. Leave empty to
               keep the default.
             </DialogDescription>
@@ -377,21 +371,21 @@ export function ChatInput({
             value={systemPromptDraft}
             onChange={(e) => setSystemPromptDraft(e.target.value)}
             placeholder="You are a friendly assistant! Keep your responses concise and helpful."
-            className="w-full min-h-[120px] resize-y rounded-lg border border-neutral-700 bg-neutral-800 p-3 text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-neutral-500"
+            className="w-full min-h-[120px] resize-y rounded-lg border border-border bg-muted p-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             rows={5}
           />
           <DialogFooter>
             <Button
               type="button"
               variant="outline"
-              className="bg-transparent border-neutral-600 text-neutral-300 hover:bg-neutral-800"
+              className="bg-transparent border-border text-muted-foreground hover:bg-accent"
               onClick={() => setShowSystemPromptDialog(false)}
             >
               Cancel
             </Button>
             <Button
               type="button"
-              className="bg-neutral-100 text-neutral-900 hover:bg-neutral-200"
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
               onClick={() => {
                 const trimmed = systemPromptDraft.trim();
                 const newPrompt = trimmed || undefined;
@@ -432,17 +426,19 @@ function PureStopButton({
   setMessages: UseChatHelpers<ChatMessage>["setMessages"];
 }) {
   return (
-    <Button
-      data-testid="stop-button"
-      className="absolute bottom-3 right-3 bg-transparent hover:bg-neutral-800 rounded-xl"
-      onClick={(e) => {
-        e.preventDefault();
-        stop();
-        setMessages((messages) => messages);
-      }}
-    >
-      <CirclePause className="size-5 text-white" />
-    </Button>
+    <motion.div whileTap={{ scale: 0.9 }} className="absolute bottom-3 right-3">
+      <Button
+        data-testid="stop-button"
+        className="bg-transparent hover:bg-accent rounded-xl cursor-pointer"
+        onClick={(e) => {
+          e.preventDefault();
+          stop();
+          setMessages((messages) => messages);
+        }}
+      >
+        <CirclePause className="size-5 text-foreground" />
+      </Button>
+    </motion.div>
   );
 }
 
@@ -458,17 +454,19 @@ function PureSendButton({
   uploadQueue: string[];
 }) {
   return (
-    <Button
-      type="submit"
-      className="absolute bottom-3 right-3 bg-transparent hover:bg-neutral-800 rounded-xl"
-      disabled={!input.trim() || uploadQueue.length > 0}
-      onClick={(e) => {
-        e.preventDefault();
-        submitForm();
-      }}
-    >
-      <Send className="size-5 text-white" />
-    </Button>
+    <motion.div whileTap={{ scale: 0.9 }} className="absolute bottom-3 right-3">
+      <Button
+        type="submit"
+        className="bg-transparent hover:bg-accent rounded-xl cursor-pointer"
+        disabled={!input.trim() || uploadQueue.length > 0}
+        onClick={(e) => {
+          e.preventDefault();
+          submitForm();
+        }}
+      >
+        <Send className="size-5 text-foreground" />
+      </Button>
+    </motion.div>
   );
 }
 

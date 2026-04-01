@@ -96,7 +96,7 @@ export function LoginForm({
             />
             <Button
               type="submit"
-              className="w-full bg-neutral-800 text-neutral-100 rounded-xl hover:bg-neutral-900"
+              className="w-full bg-primary text-primary-foreground rounded-xl hover:bg-primary/90"
               disabled={isPending}
             >
               {isPending ? "Sending Email..." : "Continue with Email"}
@@ -105,7 +105,7 @@ export function LoginForm({
         </Form>
       ) : (
         <div className="space-y-6">
-          <p className="text-sm text-neutral-500 text-center">
+          <p className="text-sm text-muted-foreground text-center">
             If you have an account, we have sent a code to {submittedEmail}.
           </p>
           <OTPForm email={submittedEmail} />
@@ -113,24 +113,26 @@ export function LoginForm({
       )}
 
       {errorMessage && (
-        <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-xl animate-in fade-in slide-in-from-bottom-2 duration-500">
+        <div className="mt-4 p-4 bg-destructive/10 border border-destructive/20 rounded-xl animate-in fade-in slide-in-from-bottom-2 duration-500">
           <div className="flex">
             <div className="flex-shrink-0">
-              <AlertCircle className="h-5 w-5 text-red-400" />
+              <AlertCircle className="h-5 w-5 text-destructive" />
             </div>
             <div className="ml-3">
-              <p className="text-sm font-medium text-red-800">{errorMessage}</p>
+              <p className="text-sm font-medium text-destructive">
+                {errorMessage}
+              </p>
             </div>
           </div>
         </div>
       )}
 
       {successMessage && (
-        <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-xl animate-in fade-in slide-in-from-bottom-2 duration-500">
+        <div className="mt-4 p-4 bg-green-500/10 border border-green-500/20 rounded-xl animate-in fade-in slide-in-from-bottom-2 duration-500">
           <div className="flex">
             <div className="shrink-0">
               <svg
-                className="h-5 w-5 text-green-400"
+                className="h-5 w-5 text-green-500"
                 viewBox="0 0 20 20"
                 fill="currentColor"
               >
@@ -142,7 +144,7 @@ export function LoginForm({
               </svg>
             </div>
             <div className="ml-3">
-              <p className="text-sm font-medium text-green-800">
+              <p className="text-sm font-medium text-green-500">
                 {successMessage}
               </p>
             </div>
