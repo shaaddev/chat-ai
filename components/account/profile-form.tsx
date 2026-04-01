@@ -35,14 +35,14 @@ export function ProfileForm({
       <div className="flex flex-col items-center space-y-4">
         <Avatar className="h-24 w-24">
           <AvatarImage src={profileImage || ""} alt="Profile picture" />
-          <AvatarFallback>
-            <UserIcon className="h-12 w-12" />
+          <AvatarFallback className="bg-muted">
+            <UserIcon className="h-12 w-12 text-muted-foreground" />
           </AvatarFallback>
         </Avatar>
         <div className="flex flex-col items-center space-y-2">
           <Label
             htmlFor="picture"
-            className="cursor-pointer text-sm font-medium text-primary-foreground hover:text-primary-foreground/90 transition-all duration-200 hover:cursor-pointer"
+            className="cursor-pointer text-sm font-medium text-primary hover:text-primary/80 transition-colors"
           >
             Change profile picture
           </Label>
@@ -60,9 +60,9 @@ export function ProfileForm({
         <Label htmlFor="new_fullName">Full Name</Label>
         <Input
           id="new_fullName"
-          placeholder="John Doe"
+          placeholder="Your name"
           required
-          className="rounded-2xl"
+          className="rounded-xl"
           {...register("new_fullName", { required: true })}
         />
       </div>
@@ -72,8 +72,8 @@ export function ProfileForm({
         <Input
           id="new_email"
           type="email"
-          placeholder="john.doe@example.com"
-          className="rounded-2xl bg-muted cursor-not-allowed"
+          placeholder="you@example.com"
+          className="rounded-xl bg-muted cursor-not-allowed"
           disabled
           {...register("new_email")}
         />
@@ -84,10 +84,10 @@ export function ProfileForm({
 
       <Button
         type="submit"
-        className="w-full sm:w-auto rounded-2xl bg-primary-foreground text-primary hover:bg-primary-foreground/90 transition-all duration-200 hover:cursor-pointer"
+        className="rounded-xl"
         disabled={isPending}
       >
-        {isPending ? "Updating..." : "Update"}
+        {isPending ? "Updating..." : "Update Profile"}
       </Button>
     </form>
   );

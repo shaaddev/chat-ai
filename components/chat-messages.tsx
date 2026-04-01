@@ -2,7 +2,7 @@ import type { UseChatHelpers } from "@ai-sdk/react";
 import equal from "fast-deep-equal";
 import { FileText, LoaderIcon, ImageIcon } from "lucide-react";
 import { Fragment, memo, useEffect } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -52,13 +52,10 @@ function DocumentCard({
   const hasCodeBlock = /```[\s\S]*?```/.test(documentDraftMarkdown);
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
+    <div
       className={`mx-auto mt-2 mb-2 ${isDocumentSheetOpen ? "max-w-2xl" : "max-w-3xl"}`}
     >
-      <Card className="border-border bg-card/70">
+      <Card className="border-border bg-card">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm text-foreground flex items-center gap-2">
             <FileText className="size-4" />
@@ -90,7 +87,7 @@ function DocumentCard({
           </div>
         </CardContent>
       </Card>
-    </motion.div>
+    </div>
   );
 }
 
@@ -159,87 +156,70 @@ function PureMessages({
     isImageModelSelected &&
     !hasAssistantImageAttachment;
 
-  if (messages.length === 0 && !showThinking && !isGeneratingImage) {
-    return (
-      <div className="flex-1 overflow-auto">
-        <EmptyChatState onSuggestionClick={onSuggestionClick} />
-      </div>
-    );
-  }
-
   return (
-    <ScrollArea className="flex-1 p-4 w-full overflow-auto">
-      <AnimatePresence initial={false}>
-        {messages.map((message) => (
-          <Fragment key={message.id}>
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.25, ease: "easeOut" }}
-            >
-              <PreviewMessage
-                message={message}
-                isDocumentSheetOpen={isDocumentSheetOpen}
-                isStreaming={
-                  status === "streaming" &&
-                  message.role === "assistant" &&
-                  message.id === messages[messages.length - 1]?.id
-                }
-              />
-            </motion.div>
-            {documentDraftMarkdown &&
-              documentSourceMessageId === message.id && (
-                <DocumentCard
-                  isDocumentSheetOpen={isDocumentSheetOpen}
-                  documentDraftMarkdown={documentDraftMarkdown}
-                  documentDraftTitle={documentDraftTitle}
-                  documentDraftFormat={documentDraftFormat}
-                  onOpenDocumentBuilder={onOpenDocumentBuilder}
-                />
-              )}
-          </Fragment>
-        ))}
-      </AnimatePresence>
-      {showThinking && (
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className={`mx-auto ${isDocumentSheetOpen ? "max-w-2xl" : "max-w-3xl"}`}
-        >
-          <div className="flex justify-start">
+    <ScrollArea className="flex-1 w-full overflow-auto">
+      <div className="p-4">
+        {messages.length === 0 && !showThinking && !isGeneratingImage ? (
+          <EmptyChatState onSuggestionClick={onSuggestionClick} />
+        ) : (
+          <>
+            {messages.map((message, index) => (
+              <Fragment key={message.id}>
+                <div className={index > 0 ? "mt-6" : ""}>
+                  <PreviewMessage
+                    message={message}
+                    isDocumentSheetOpen={isDocumentSheetOpen}
+                    isStreaming={
+                      status === "streaming" &&
+                      message.role === "assistant" &&
+                      message.id === messages[messages.length - 1]?.id
+                    }
+                  />
+                </div>
+                {documentDraftMarkdown &&
+                  documentSourceMessageId === message.id && (
+                    <DocumentCard
+                      isDocumentSheetOpen={isDocumentSheetOpen}
+                      documentDraftMarkdown={documentDraftMarkdown}
+                      documentDraftTitle={documentDraftTitle}
+                      documentDraftFormat={documentDraftFormat}
+                      onOpenDocumentBuilder={onOpenDocumentBuilder}
+                    />
+                  )}
+              </Fragment>
+            ))}
+          </>
+        )}
+        {showThinking && (
+          <div
+            className={`mx-auto mt-4 ${isDocumentSheetOpen ? "max-w-2xl" : "max-w-3xl"}`}
+          >
             <ThinkingIndicator />
           </div>
-        </motion.div>
-      )}
-      {isGeneratingImage && (
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className={`mx-auto ${isDocumentSheetOpen ? "max-w-2xl" : "max-w-3xl"}`}
-        >
-          <div className="flex justify-start">
-            <div className="relative size-80 rounded-xl bg-muted/50 border border-border overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-muted via-muted/30 to-muted animate-pulse" />
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-background/5 to-transparent -translate-x-full animate-[shimmer_2s_infinite]" />
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full animate-pulse" />
-                  <div className="relative bg-card rounded-2xl p-4 border border-border">
-                    <ImageIcon className="size-8 text-muted-foreground" />
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <LoaderIcon className="size-4 animate-spin" />
-                  <span className="text-sm font-medium">
-                    Generating image...
-                  </span>
+        )}
+        {isGeneratingImage && (
+          <div
+            className={`mx-auto mt-4 ${isDocumentSheetOpen ? "max-w-2xl" : "max-w-3xl"}`}
+          >
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="relative size-72 rounded-xl bg-muted/30 border border-border overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-muted/40 via-transparent to-muted/40 animate-pulse" />
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-foreground/[0.02] to-transparent -translate-x-full animate-[shimmer_2s_infinite]" />
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                <ImageIcon className="size-6 text-muted-foreground/40" />
+                <div className="flex items-center gap-2 text-muted-foreground/60">
+                  <LoaderIcon className="size-3.5 animate-spin" />
+                  <span className="text-sm">Generating...</span>
                 </div>
               </div>
-            </div>
+            </motion.div>
           </div>
-        </motion.div>
-      )}
-      <div ref={messagesEndRef} />
+        )}
+        <div ref={messagesEndRef} />
+      </div>
     </ScrollArea>
   );
 }
@@ -262,6 +242,5 @@ export const Messages = memo(PureMessages, (prevProps, nextProps) => {
   if (prevProps.onSuggestionClick !== nextProps.onSuggestionClick) return false;
   if (prevProps.messages.length !== nextProps.messages.length) return false;
   if (!equal(prevProps.messages, nextProps.messages)) return false;
-
-  return false;
+  return true;
 });

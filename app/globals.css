@@ -410,18 +410,17 @@
   }
 }
 
-/* Streaming cursor blink */
+/* Streaming cursor */
 @keyframes blink-cursor {
   0%, 100% { opacity: 1; }
   50% { opacity: 0; }
 }
 
 .streaming-cursor::after {
-  content: '\25AE';
-  animation: blink-cursor 0.8s step-end infinite;
-  color: var(--primary);
-  margin-left: 2px;
-  font-size: 0.875em;
+  content: '|';
+  animation: blink-cursor 1s step-end infinite;
+  color: var(--muted-foreground);
+  margin-left: 1px;
 }
 
 /* Smooth theme switching */

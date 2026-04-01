@@ -1,5 +1,4 @@
 import { SquarePen } from "lucide-react";
-import { motion } from "motion/react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,21 +15,19 @@ export function NewChat() {
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <motion.div whileTap={{ scale: 0.9 }}>
-            <Button
-              variant={"ghost"}
-              className="opacity-75 hover:opacity-100 rounded-xl hover:bg-sidebar-accent cursor-pointer"
-              onClick={() => {
-                router.push("/");
-                router.refresh();
-              }}
-            >
-              <SquarePen className="size-4" />
-            </Button>
-          </motion.div>
+          <Button
+            variant="ghost"
+            className="opacity-70 hover:opacity-100 rounded-lg hover:bg-sidebar-accent cursor-pointer transition-opacity"
+            onClick={() => {
+              router.push("/");
+              router.refresh();
+            }}
+          >
+            <SquarePen className="size-4" />
+          </Button>
         </TooltipTrigger>
-        <TooltipContent className="rounded-xl">
-          <p>Start a new chat!</p>
+        <TooltipContent className="rounded-lg">
+          <p>New chat</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

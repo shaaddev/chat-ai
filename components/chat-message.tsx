@@ -3,7 +3,6 @@
 import equal from "fast-deep-equal";
 import { Check, Copy, Globe } from "lucide-react";
 import { memo, useState } from "react";
-import { motion } from "motion/react";
 import { stable_models, image_models } from "@/lib/ai/models";
 import type { ChatMessage } from "@/lib/types";
 import { cn, sanitizeText } from "@/lib/utils";
@@ -15,6 +14,14 @@ export interface messageProps {
   message: ChatMessage;
   isDocumentSheetOpen?: boolean;
   isStreaming?: boolean;
+}
+
+function getModelName(modelId: string | null | undefined) {
+  if (!modelId) return null;
+  const model =
+    stable_models.find((m) => m.id === modelId) ||
+    image_models.find((m) => m.id === modelId);
+  return model?.name || modelId;
 }
 
 const PureChatMessage = ({
@@ -39,29 +46,26 @@ const PureChatMessage = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const getModelName = (modelId: string | null | undefined) => {
-    if (!modelId) return null;
-    const model =
-      stable_models.find((m) => m.id === modelId) ||
-      image_models.find((m) => m.id === modelId);
-    return model?.name || modelId;
-  };
-
   return (
     <div
       className={`mx-auto ${isDocumentSheetOpen ? "max-w-2xl" : "max-w-3xl"}`}
     >
       <div
         key={message.id}
-        className={`flex ${
-          message.role === "user" ? "justify-end" : "justify-start"
-        } ${message.role === "assistant" ? "group/message" : ""}`}
+        className={cn(
+          "flex",
+          message.role === "user" ? "justify-end" : "justify-start",
+          message.role === "assistant" && "group/message",
+        )}
       >
-        <div className="flex flex-col gap-6 w-full">
+        <div className="flex flex-col gap-4 w-full">
           {attachmentsFromMessage.length > 0 && (
             <div
-              data-testid={`message-attachments`}
-              className={`mt-3 flex flex-wrap gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}
+              data-testid="message-attachments"
+              className={cn(
+                "mt-3 flex flex-wrap gap-3",
+                message.role === "user" ? "justify-end" : "justify-start",
+              )}
             >
               {attachmentsFromMessage.map((attachment) => (
                 <PreviewAttachment
@@ -76,7 +80,7 @@ const PureChatMessage = ({
                     contentType: attachment.mediaType,
                     url: attachment.url,
                   }}
-                  className=" size-80"
+                  className="size-80"
                 />
               ))}
             </div>
@@ -96,19 +100,18 @@ const PureChatMessage = ({
                 >
                   <MessageContent
                     data-testid="message-content"
-                    className={cn({
-                      "bg-muted text-secondary-foreground w-fit max-w-[92%] sm:max-w-[80%] rounded-2xl px-5 py-2 break-words":
-                        message.role === "user",
-                      "text-foreground px-0 py-0 text-left border-l-2 border-primary/20 pl-4":
-                        message.role === "assistant",
-                    })}
+                    className={cn(
+                      message.role === "user" &&
+                        "bg-muted w-fit max-w-[92%] sm:max-w-[80%] rounded-2xl px-4 py-2.5 break-words",
+                      message.role === "assistant" && "px-0 py-0 text-left",
+                    )}
                   >
                     <div
-                      className={
-                        isStreaming && message.role === "assistant"
-                          ? "streaming-cursor"
-                          : ""
-                      }
+                      className={cn(
+                        isStreaming &&
+                          message.role === "assistant" &&
+                          "streaming-cursor",
+                      )}
                     >
                       <Markdown>{sanitizeText(part.text)}</Markdown>
                     </div>
@@ -118,12 +121,9 @@ const PureChatMessage = ({
             }
           })}
           {message.role === "assistant" && (
-            <motion.div
-              initial={{ opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.2, delay: 0.1 }}
+            <div
               className={cn(
-                "flex w-full items-center gap-3 text-xs text-muted-foreground transition-opacity duration-150",
+                "flex w-full items-center gap-2 text-xs transition-opacity duration-200",
                 "justify-start opacity-0 group-hover/message:opacity-100",
               )}
             >
@@ -136,44 +136,32 @@ const PureChatMessage = ({
                   const usedSearch = Boolean(m.useSearch);
 
                   return (
-                    <div className="mt-1 flex items-center gap-3">
-                      <motion.button
-                        whileTap={{ scale: 0.95 }}
+                    <div className="flex items-center gap-2">
+                      <button
                         onClick={handleCopyMessage}
-                        className="flex items-center gap-1.5 rounded-md bg-muted px-2 py-1 hover:bg-accent transition-colors cursor-pointer"
+                        className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
                         title="Copy message"
                       >
                         {copied ? (
-                          <>
-                            <Check className="size-3.5 text-green-400" />
-                            <span className="text-green-400">Copied!</span>
-                          </>
+                          <Check className="size-3 text-green-500" />
                         ) : (
-                          <>
-                            <Copy className="size-3.5" />
-                            <span>Copy</span>
-                          </>
+                          <Copy className="size-3" />
                         )}
-                      </motion.button>
+                      </button>
                       {modelName && (
-                        <div className="flex items-center gap-1.5 rounded-md bg-muted px-2 py-1">
-                          <span className="text-muted-foreground font-medium">
-                            {modelName}
-                          </span>
-                        </div>
+                        <span className="text-[11px] text-muted-foreground/60">
+                          {modelName}
+                        </span>
                       )}
                       {usedSearch && (
-                        <div
-                          className="flex items-center gap-1.5 rounded-md bg-muted px-2 py-1"
-                          title="Used web search"
-                        >
-                          <Globe className="size-3.5" />
-                        </div>
+                        <span title="Used web search">
+                          <Globe className="size-3 text-muted-foreground/60" />
+                        </span>
                       )}
                     </div>
                   );
                 })()}
-            </motion.div>
+            </div>
           )}
         </div>
       </div>
@@ -182,9 +170,9 @@ const PureChatMessage = ({
 };
 
 export const PreviewMessage = memo(PureChatMessage, (prevProps, nextProps) => {
-  if (prevProps.message.id !== nextProps.message.id) return false;
   if (prevProps.isStreaming !== nextProps.isStreaming) return false;
+  if (prevProps.isDocumentSheetOpen !== nextProps.isDocumentSheetOpen)
+    return false;
   if (!equal(prevProps.message.parts, nextProps.message.parts)) return false;
-
-  return false;
+  return true;
 });

@@ -4,23 +4,24 @@ import { motion } from "motion/react";
 
 export function ThinkingIndicator() {
   return (
-    <div className="flex items-center gap-1.5 px-4 py-3 rounded-2xl bg-muted/50 w-fit">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="flex items-center gap-1 py-2"
+    >
       {[0, 1, 2].map((i) => (
-        <motion.div
+        <motion.span
           key={i}
-          className="size-1.5 rounded-full bg-muted-foreground"
-          animate={{
-            opacity: [0.3, 1, 0.3],
-            scale: [0.85, 1, 0.85],
-          }}
+          className="size-[5px] rounded-full bg-muted-foreground/60"
+          animate={{ opacity: [0.25, 0.8, 0.25] }}
           transition={{
-            duration: 1.2,
+            duration: 1.4,
             repeat: Infinity,
-            delay: i * 0.2,
+            delay: i * 0.18,
             ease: "easeInOut",
           }}
         />
       ))}
-    </div>
+    </motion.div>
   );
 }
