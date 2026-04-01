@@ -84,7 +84,7 @@ export function FileInput({
       />
       <button
         type="button"
-        className="text-neutral-300 hover:text-neutral-100"
+        className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
         onClick={handlePaperclipClick}
         aria-label="Attach files"
         disabled={isUploading}
@@ -92,7 +92,7 @@ export function FileInput({
         <Paperclip className="size-4" />
       </button>
       {uploadQueue.length > 0 && (
-        <div className="bg-neutral-800 text-neutral-200 text-xs p-1">
+        <div className="bg-muted text-foreground text-xs p-1 rounded">
           Uploading {uploadQueue.length} file(s)...
         </div>
       )}

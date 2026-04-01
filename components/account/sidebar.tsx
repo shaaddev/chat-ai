@@ -1,4 +1,4 @@
-import { History, HomeIcon, LogOutIcon, UserIcon } from "lucide-react";
+import { History, HomeIcon, LogOutIcon, Palette, UserIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -13,6 +13,7 @@ export function AccountSidebar({
 }) {
   const sidebarItems = [
     { id: "profile", label: "Edit Profile", icon: UserIcon },
+    { id: "appearance", label: "Appearance", icon: Palette },
     { id: "usage", label: "Usage", icon: History },
   ];
 
@@ -46,8 +47,7 @@ export function AccountSidebar({
           <Button
             key={item.id}
             variant="ghost"
-            className="justify-start rounded-2xl"
-            // asChild
+            className="justify-start rounded-2xl cursor-pointer"
             onClick={() => setActiveSection(item.id)}
           >
             <item.icon className="mr-2 !size-4" />
@@ -62,7 +62,7 @@ export function AccountSidebar({
         </Button>
         <Button
           variant="ghost"
-          className="justify-start text-red-500 hover:bg-red-50 hover:text-red-600 rounded-2xl hover:cursor-pointer"
+          className="justify-start text-destructive hover:bg-destructive/10 hover:text-destructive rounded-2xl hover:cursor-pointer"
           onClick={handleLogout}
         >
           <LogOutIcon className="mr-2 h-4 w-4" />

@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { ThemeChanger } from "../theme-changer";
 import { Profile } from "./profile";
 import { AccountSidebar } from "./sidebar";
 import { Usage } from "./usage/usage";
@@ -15,8 +16,8 @@ interface AccountProps {
 
 export function Account({ user, initialTab }: AccountProps) {
   const [activeSection, setActiveSection] = useState(() => {
-    // Set initial active section based on tab parameter
     if (initialTab === "saved") return "saved";
+    if (initialTab === "appearance") return "appearance";
     return "profile";
   });
 
@@ -26,7 +27,8 @@ export function Account({ user, initialTab }: AccountProps) {
         return <Profile user_info={user} />;
       case "usage":
         return <Usage />;
-
+      case "appearance":
+        return <ThemeChanger />;
       default:
         return null;
     }

@@ -30,7 +30,7 @@ export function LoginContent({ open, onOpenChange }: LoginContentProps) {
           <Link href="/login">
             <Button
               size="lg"
-              className="w-full rounded-xl gap-2 bg-neutral-900"
+              className="w-full rounded-xl gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
             >
               Login
               <ArrowRight className="size-4" />

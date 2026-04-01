@@ -51,11 +51,11 @@ export function SidebarUser({ email, avatar, name }: UserProps) {
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               size="lg"
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground hover:bg-neutral-800 rounded-xl transition-all ease-in-out duration-150"
+              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground hover:bg-sidebar-accent rounded-xl transition-all ease-in-out duration-150 cursor-pointer"
             >
-              <Avatar className="h-8 w-8 rounded-lg grayscale">
+              <Avatar className="h-8 w-8 rounded-lg">
                 <AvatarImage src={avatar} alt={name} />
-                <AvatarFallback className="rounded-2xl text-white">
+                <AvatarFallback className="rounded-2xl bg-primary text-primary-foreground">
                   {name?.charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
@@ -73,9 +73,9 @@ export function SidebarUser({ email, avatar, name }: UserProps) {
           >
             <DropdownMenuLabel className="p-0 font-normal">
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                <Avatar className="size-8 rounded-2xl grayscale">
+                <Avatar className="size-8 rounded-2xl">
                   <AvatarImage src={avatar} alt={name} />
-                  <AvatarFallback className="rounded-lg text-white">
+                  <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
                     {name?.charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>

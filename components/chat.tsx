@@ -159,23 +159,17 @@ export function Chat({
       setChatLoading(id, false);
     }
 
-    // Only refresh the specific chat when the AI response is complete AND this is a new chat
-    // This prevents flickering when navigating to existing chats
     if (status === "streaming" && isNewChat) {
-      // Add a small delay to ensure the title generation has completed
       refreshChats();
-      setIsNewChat(false); // Prevent multiple refreshes
+      setIsNewChat(false);
     }
 
-    // For image models, fetch fresh messages when generation completes
-    // This is needed because createUIMessageStream doesn't track manually appended messages
     if (
       isImageModel &&
       (prevStatusRef.current === "submitted" ||
         prevStatusRef.current === "streaming") &&
       status === "ready"
     ) {
-      // Fetch fresh messages from the server
       fetch(`/api/chats/${id}`)
         .then((res) => res.json())
         .then((data) => {
@@ -261,7 +255,7 @@ export function Chat({
 
   return (
     <SidebarProvider>
-      <div className="flex h-screen w-full bg-neutral-900 text-gray-100">
+      <div className="flex h-screen w-full bg-background text-foreground">
         <ChatHistory session={session} />
 
         <div className="flex flex-col flex-1 w-full">
@@ -272,10 +266,12 @@ export function Chat({
                 <span className="sr-only">Toggle sidebar</span>
               </Button>
             </SidebarTrigger>
-            <h1 className="text-xl font-bold">chat</h1>
+            <h1 className="text-xl font-semibold text-foreground tracking-tight">
+              chat
+            </h1>
           </header>
 
-          <div className="flex flex-col flex-1 w-full border-l border-t rounded-tl-2xl overflow-hidden">
+          <div className="flex flex-col flex-1 w-full border-l border-t border-border rounded-tl-2xl overflow-hidden bg-background">
             <Messages
               status={status}
               messages={messages}
@@ -288,14 +284,17 @@ export function Chat({
               documentDraftFormat={documentFormat}
               documentSourceMessageId={documentSourceMessageId}
               onOpenDocumentBuilder={() => setIsDocumentSheetOpen(true)}
+              onSuggestionClick={(text) => setInput(text)}
             />
 
             <div
-              className={`mx-auto space-y-4 w-full px-4 ${
+              className={`mx-auto space-y-4 w-full px-4 pb-4 ${
                 isDocumentSheetOpen ? "max-w-2xl" : "max-w-3xl"
               }`}
             >
-              <p className="text-center text-sm text-gray-400">shaaddev</p>
+              <p className="text-center text-sm text-muted-foreground">
+                shaaddev
+              </p>
               <ChatInput
                 input={input}
                 setInput={setInput}

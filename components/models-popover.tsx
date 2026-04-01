@@ -1,4 +1,5 @@
 import { Check, ChevronDown, Coins, Layers, Search } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
 import {
   startTransition,
   useCallback,
@@ -38,74 +39,94 @@ function ModelItem({
   model,
   isSelected,
   onSelect,
+  index,
 }: {
   model: model_selection;
   isSelected: boolean;
   onSelect: () => void;
+  index: number;
 }) {
   return (
     <TooltipProvider delayDuration={400}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <DropdownMenuItem
-            data-testid={`model-item-${model.id}`}
-            className="rounded-xl flex flex-col items-start gap-2 px-3.5 py-3.5 hover:cursor-pointer hover:bg-neutral-800/60 data-[active=true]:bg-neutral-800/80"
-            onSelect={onSelect}
-            data-active={isSelected}
+          <motion.div
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.15, delay: index * 0.02 }}
           >
-            <div className="flex w-full items-center justify-between gap-2">
-              <div className="flex items-center gap-2.5">
-                <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-neutral-700/50 bg-neutral-800/80">
-                  <ProviderLogo provider={model.provider} className="size-4" />
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-[13px] font-semibold leading-tight text-neutral-100">
-                    {model.name}
-                  </span>
-                  <span className="mt-0.5 text-[11px] leading-tight text-neutral-500">
-                    {model.contextWindow} context
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-medium tabular-nums text-neutral-500">
-                  {model.inputPrice}/M in
-                </span>
-                {isSelected && (
-                  <div className="flex size-5 items-center justify-center rounded-full bg-emerald-500/20">
-                    <Check className="size-3 text-emerald-400" />
+            <DropdownMenuItem
+              data-testid={`model-item-${model.id}`}
+              className="rounded-xl flex flex-col items-start gap-2 px-3.5 py-3.5 hover:cursor-pointer hover:bg-accent/60 data-[active=true]:bg-accent/80 transition-colors"
+              onSelect={onSelect}
+              data-active={isSelected}
+            >
+              <div className="flex w-full items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-border bg-muted/80">
+                    <ProviderLogo
+                      provider={model.provider}
+                      className="size-4"
+                    />
                   </div>
-                )}
+                  <div className="flex flex-col">
+                    <span className="text-[13px] font-semibold leading-tight text-foreground">
+                      {model.name}
+                    </span>
+                    <span className="mt-0.5 text-[11px] leading-tight text-muted-foreground/70">
+                      {model.contextWindow} context
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-medium tabular-nums text-muted-foreground/70">
+                    {model.inputPrice}/M in
+                  </span>
+                  {isSelected && (
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{
+                        type: "spring",
+                        stiffness: 500,
+                        damping: 25,
+                      }}
+                      className="flex size-5 items-center justify-center rounded-full bg-primary/20"
+                    >
+                      <Check className="size-3 text-primary" />
+                    </motion.div>
+                  )}
+                </div>
               </div>
-            </div>
-            <div className="flex flex-wrap gap-1 pl-9">
-              {model.capabilities.map((cap) => (
-                <CapabilityBadge key={cap} capability={cap} />
-              ))}
-            </div>
-          </DropdownMenuItem>
+              <div className="flex flex-wrap gap-1 pl-9">
+                {model.capabilities.map((cap) => (
+                  <CapabilityBadge key={cap} capability={cap} />
+                ))}
+              </div>
+            </DropdownMenuItem>
+          </motion.div>
         </TooltipTrigger>
         <TooltipContent
           side="right"
           sideOffset={12}
-          className="max-w-72 rounded-xl border border-neutral-700/50 bg-neutral-900 p-4 shadow-xl"
+          className="max-w-72 rounded-xl border border-border bg-popover p-4 shadow-xl"
         >
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
               <ProviderLogo provider={model.provider} className="size-4" />
-              <span className="text-sm font-semibold text-neutral-100">
+              <span className="text-sm font-semibold text-foreground">
                 {model.name}
               </span>
             </div>
-            <p className="text-xs leading-relaxed text-neutral-400">
+            <p className="text-xs leading-relaxed text-muted-foreground">
               {model.description}
             </p>
-            <div className="mt-1 flex items-center gap-3 border-t border-neutral-800 pt-2">
-              <div className="flex items-center gap-1 text-neutral-500">
+            <div className="mt-1 flex items-center gap-3 border-t border-border pt-2">
+              <div className="flex items-center gap-1 text-muted-foreground/70">
                 <Layers className="size-3" />
                 <span className="text-[11px]">{model.contextWindow}</span>
               </div>
-              <div className="flex items-center gap-1 text-neutral-500">
+              <div className="flex items-center gap-1 text-muted-foreground/70">
                 <Coins className="size-3" />
                 <span className="text-[11px]">
                   {model.inputPrice} in / {model.outputPrice} out
@@ -122,11 +143,11 @@ function ModelItem({
 function SectionHeader({ label }: { label: string }) {
   return (
     <div className="flex items-center gap-2 px-3 py-2">
-      <div className="h-px flex-1 bg-gradient-to-r from-transparent via-neutral-700/50 to-transparent" />
-      <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
+      <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
+      <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
         {label}
       </span>
-      <div className="h-px flex-1 bg-gradient-to-r from-transparent via-neutral-700/50 to-transparent" />
+      <div className="h-px flex-1 bg-gradient-to-r from-transparent via-border to-transparent" />
     </div>
   );
 }
@@ -205,37 +226,37 @@ export function ModelsPopover({ selectedModelId }: ModelSelectorProps) {
         <button
           data-testid="model-selector"
           type="button"
-          className="group inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm transition-colors hover:bg-neutral-800/60"
+          className="group inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm transition-colors hover:bg-accent/60 cursor-pointer"
         >
           {selectedChatModel && (
-            <div className="flex size-5 items-center justify-center rounded-md border border-neutral-700/40 bg-neutral-800/60">
+            <div className="flex size-5 items-center justify-center rounded-md border border-border bg-muted/60">
               <ProviderLogo
                 provider={selectedChatModel.provider}
                 className="size-3"
               />
             </div>
           )}
-          <span className="font-medium text-neutral-200 group-hover:text-neutral-50">
+          <span className="font-medium text-foreground/80 group-hover:text-foreground">
             {selectedChatModel?.name}
           </span>
-          <ChevronDown className="size-3.5 text-neutral-500 transition-transform group-data-[state=open]:rotate-180" />
+          <ChevronDown className="size-3.5 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
-        className="w-96 rounded-xl border-neutral-700/50 bg-neutral-900/95 p-0 shadow-2xl backdrop-blur-xl"
+        className="w-96 rounded-xl border-border bg-popover/95 p-0 shadow-2xl backdrop-blur-xl"
         onCloseAutoFocus={(e) => e.preventDefault()}
       >
         {/* Search + filter bar */}
-        <div className="border-b border-neutral-800/60 p-2.5">
+        <div className="border-b border-border p-2.5">
           <div className="relative">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-neutral-500" />
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
               placeholder="Search models..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.stopPropagation()}
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900/80 py-1.5 pl-8 pr-3 text-sm text-neutral-200 placeholder:text-neutral-600 outline-none focus:border-neutral-700"
+              className="w-full rounded-lg border border-border bg-background/80 py-1.5 pl-8 pr-3 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-ring"
             />
           </div>
 
@@ -243,10 +264,10 @@ export function ModelsPopover({ selectedModelId }: ModelSelectorProps) {
             <button
               type="button"
               onClick={() => setProviderFilter(null)}
-              className={`shrink-0 rounded-md border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+              className={`shrink-0 rounded-md border px-2.5 py-1 text-[11px] font-medium transition-colors cursor-pointer ${
                 providerFilter === null
-                  ? "border-neutral-600 bg-neutral-800 text-neutral-200"
-                  : "border-transparent bg-transparent text-neutral-500 hover:text-neutral-300"
+                  ? "border-border bg-muted text-foreground"
+                  : "border-transparent bg-transparent text-muted-foreground hover:text-foreground"
               }`}
             >
               All
@@ -259,10 +280,10 @@ export function ModelsPopover({ selectedModelId }: ModelSelectorProps) {
                   key={p}
                   type="button"
                   onClick={() => setProviderFilter(isActive ? null : p)}
-                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-medium transition-colors cursor-pointer ${
                     isActive
                       ? `${meta.color}`
-                      : "border-transparent bg-transparent text-neutral-500 hover:text-neutral-300"
+                      : "border-transparent bg-transparent text-muted-foreground hover:text-foreground"
                   }`}
                 >
                   <ProviderLogo provider={p} className="size-3" />
@@ -276,46 +297,50 @@ export function ModelsPopover({ selectedModelId }: ModelSelectorProps) {
         {/* Model list */}
         <div className="h-[400px] overflow-y-auto p-1.5">
           {!hasResults && (
-            <div className="flex flex-col items-center justify-center py-8 text-neutral-500">
+            <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
               <Search className="mb-2 size-5" />
               <span className="text-sm">No models found</span>
-              <span className="mt-0.5 text-xs text-neutral-600">
+              <span className="mt-0.5 text-xs text-muted-foreground/50">
                 Try a different search or filter
               </span>
             </div>
           )}
 
-          {filteredStable.length > 0 && (
-            <>
-              <SectionHeader label="Standard Models" />
-              {filteredStable.map((m) => (
-                <ModelItem
-                  key={m.id}
-                  model={m}
-                  isSelected={m.id === optimisticModelId}
-                  onSelect={() => handleSelect(m.id)}
-                />
-              ))}
-            </>
-          )}
+          <AnimatePresence mode="wait">
+            {filteredStable.length > 0 && (
+              <div key="stable">
+                <SectionHeader label="Standard Models" />
+                {filteredStable.map((m, i) => (
+                  <ModelItem
+                    key={m.id}
+                    model={m}
+                    isSelected={m.id === optimisticModelId}
+                    onSelect={() => handleSelect(m.id)}
+                    index={i}
+                  />
+                ))}
+              </div>
+            )}
 
-          {filteredStable.length > 0 && filteredImage.length > 0 && (
-            <div className="my-1 h-px bg-neutral-800/60" />
-          )}
+            {filteredStable.length > 0 && filteredImage.length > 0 && (
+              <div className="my-1 h-px bg-border" />
+            )}
 
-          {filteredImage.length > 0 && (
-            <>
-              <SectionHeader label="Image Models" />
-              {filteredImage.map((m) => (
-                <ModelItem
-                  key={m.id}
-                  model={m}
-                  isSelected={m.id === optimisticModelId}
-                  onSelect={() => handleSelect(m.id)}
-                />
-              ))}
-            </>
-          )}
+            {filteredImage.length > 0 && (
+              <div key="image">
+                <SectionHeader label="Image Models" />
+                {filteredImage.map((m, i) => (
+                  <ModelItem
+                    key={m.id}
+                    model={m}
+                    isSelected={m.id === optimisticModelId}
+                    onSelect={() => handleSelect(m.id)}
+                    index={i + filteredStable.length}
+                  />
+                ))}
+              </div>
+            )}
+          </AnimatePresence>
         </div>
       </DropdownMenuContent>
     </DropdownMenu>
