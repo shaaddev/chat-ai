@@ -66,7 +66,7 @@ function SidebarHistoryComponent({ session }: SidebarHistoryProps) {
               <SidebarMenuItem
                 key={chat.id}
                 className={cn(
-                  "group relative rounded-lg transition-colors",
+                  "group/chat relative rounded-lg transition-colors",
                   isActive
                     ? "bg-sidebar-accent"
                     : "hover:bg-sidebar-accent/50",
@@ -89,7 +89,7 @@ function SidebarHistoryComponent({ session }: SidebarHistoryProps) {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="absolute cursor-pointer right-0 top-0 h-full opacity-0 group-hover:opacity-100 transition-opacity rounded-lg"
+                      className="absolute cursor-pointer right-0 top-0 h-full opacity-0 group-hover/chat:opacity-100 transition-opacity rounded-lg"
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
