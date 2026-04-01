@@ -1,7 +1,7 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
 import equal from "fast-deep-equal";
 import { FileText, LoaderIcon, ImageIcon } from "lucide-react";
-import { Fragment, memo, useEffect } from "react";
+import { Fragment, memo, useEffect, useRef } from "react";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import {
@@ -105,10 +105,18 @@ function PureMessages({
   onSuggestionClick,
 }: MessagesProps) {
   const { messagesEndRef, scrollToBottom } = useMessages({ chatId, status });
+  const lastScrollRef = useRef(0);
 
   useEffect(() => {
-    if (status === "streaming" || status === "ready") {
-      scrollToBottom();
+    if (status === "streaming") {
+      // Throttle scroll during streaming to avoid jank
+      const now = Date.now();
+      if (now - lastScrollRef.current > 150) {
+        lastScrollRef.current = now;
+        scrollToBottom("instant");
+      }
+    } else if (status === "ready") {
+      scrollToBottom("smooth");
     }
   }, [messages, status, scrollToBottom]);
 
@@ -225,6 +233,9 @@ function PureMessages({
 }
 
 export const Messages = memo(PureMessages, (prevProps, nextProps) => {
+  // Always re-render during streaming so streamed text appears in real time
+  if (nextProps.status === "streaming" || prevProps.status === "streaming")
+    return false;
   if (prevProps.status !== nextProps.status) return false;
   if (prevProps.selectedChatModel !== nextProps.selectedChatModel) return false;
   if (prevProps.isDocumentSheetOpen !== nextProps.isDocumentSheetOpen)

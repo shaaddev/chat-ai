@@ -273,7 +273,7 @@ export function ModelsPopover({ selectedModelId }: ModelSelectorProps) {
           </div>
         </div>
 
-        <div className="max-h-[380px] overflow-y-auto p-1">
+        <div className="h-[380px] overflow-y-auto p-1">
           {!hasResults && (
             <div className="flex flex-col items-center justify-center py-8 text-muted-foreground/50">
               <Search className="mb-2 size-4" />

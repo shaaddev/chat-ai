@@ -1,5 +1,5 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import type { ChatMessage } from "@/lib/types";
 
 export function useMessages({
@@ -11,21 +11,24 @@ export function useMessages({
 }) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const scrollToBottom = () => {
-    setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, 100);
-  };
+  const scrollToBottom = useCallback(
+    (behavior: ScrollBehavior = "smooth") => {
+      requestAnimationFrame(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior });
+      });
+    },
+    [],
+  );
 
   useEffect(() => {
-    scrollToBottom();
-  }, []);
+    scrollToBottom("instant");
+  }, [scrollToBottom]);
 
   useEffect(() => {
-    if (status === "streaming" || status === "ready") {
-      scrollToBottom();
+    if (status === "ready") {
+      scrollToBottom("smooth");
     }
-  }, [status]);
+  }, [status, scrollToBottom]);
 
   return {
     scrollToBottom,

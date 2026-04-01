@@ -170,7 +170,8 @@ const PureChatMessage = ({
 };
 
 export const PreviewMessage = memo(PureChatMessage, (prevProps, nextProps) => {
-  if (prevProps.isStreaming !== nextProps.isStreaming) return false;
+  // Always re-render the actively streaming message
+  if (nextProps.isStreaming || prevProps.isStreaming) return false;
   if (prevProps.isDocumentSheetOpen !== nextProps.isDocumentSheetOpen)
     return false;
   if (!equal(prevProps.message.parts, nextProps.message.parts)) return false;
