@@ -523,7 +523,7 @@ export async function POST(req: Request) {
               tools: useSearch
                 ? getToolsForModel(selectedChatModel)
                 : undefined,
-              messages: convertToModelMessages(uiMessages),
+              messages: await convertToModelMessages(uiMessages),
               experimental_transform: smoothStream({ chunking: "word" }),
               stopWhen: stepCountIs(5),
               maxOutputTokens: 5000,
