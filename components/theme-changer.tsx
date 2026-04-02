@@ -34,7 +34,7 @@ export function ThemeChanger() {
       <CardContent className="space-y-8">
         {/* Mode */}
         <div className="space-y-3">
-          <label className="font-medium text-foreground text-sm">Mode</label>
+          <p className="font-medium text-foreground text-sm">Mode</p>
           <div className="grid grid-cols-3 gap-2">
             {modes.map((mode) => (
               <button
@@ -46,6 +46,7 @@ export function ThemeChanger() {
                 )}
                 key={mode.value}
                 onClick={() => setTheme(mode.value)}
+                type="button"
               >
                 <mode.icon className="size-5" />
                 <span className="font-medium text-xs">{mode.label}</span>
@@ -56,7 +57,7 @@ export function ThemeChanger() {
 
         {/* Accent */}
         <div className="space-y-3">
-          <label className="font-medium text-foreground text-sm">Accent</label>
+          <p className="font-medium text-foreground text-sm">Accent</p>
           <div className="flex flex-wrap gap-3">
             {ACCENT_COLORS.map((color) => (
               <button
@@ -64,6 +65,7 @@ export function ThemeChanger() {
                 key={color.value}
                 onClick={() => setAccentColor(color.value)}
                 title={color.name}
+                type="button"
               >
                 <div
                   className={cn(

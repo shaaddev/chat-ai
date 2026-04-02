@@ -1,5 +1,7 @@
 import { utapi } from "./core";
 
+const FILE_KEY_PATH_REGEX = /\/f\/(.+)$/;
+
 export function extractFileKey(url: string): string | null {
   try {
     const urlObj = new URL(url);
@@ -10,8 +12,8 @@ export function extractFileKey(url: string): string | null {
     }
 
     // Handle the format: https://utfs.io/a/{appId}/f/{fileKey}
-    const match = urlObj.pathname.match(/\/f\/(.+)$/);
-    if (match && match[1]) {
+    const match = urlObj.pathname.match(FILE_KEY_PATH_REGEX);
+    if (match?.[1]) {
       return match[1];
     }
 

@@ -45,14 +45,12 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
     );
   }
   return (
-    <>
-      <Chat
-        id={chat.id}
-        initialChatModel={modelIdFromCookie.value}
-        initialMessages={uiMessages}
-        initialSystemPrompt={initialSystemPrompt}
-        session={session}
-      />
-    </>
+    <Chat
+      id={chat.id}
+      initialChatModel={modelIdFromCookie.value}
+      initialMessages={uiMessages}
+      initialSystemPrompt={initialSystemPrompt}
+      session={session}
+    />
   );
 }

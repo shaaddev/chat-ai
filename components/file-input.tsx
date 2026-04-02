@@ -12,7 +12,7 @@ import { useUploadThing } from "@/lib/uploadthing/uploadthing";
 
 interface FileInputProps {
   isAuthenticated?: boolean;
-  setAttachments: Dispatch<SetStateAction<Array<Attachment>>>;
+  setAttachments: Dispatch<SetStateAction<Attachment[]>>;
   setShowLoginDialog: Dispatch<SetStateAction<boolean>>;
   setUploadQueue: Dispatch<SetStateAction<string[]>>;
   uploadQueue: string[];

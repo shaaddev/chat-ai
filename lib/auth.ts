@@ -9,6 +9,3 @@ export type Session = {
     image?: string | null;
   };
 } | null;
-
-// Re-export auth from app/auth.ts for convenience
-export { auth } from "@/app/auth";

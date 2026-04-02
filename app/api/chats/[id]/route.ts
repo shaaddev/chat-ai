@@ -12,7 +12,7 @@ import {
 import { convertToUIMessages } from "@/lib/utils";
 
 export async function GET(
-  req: Request,
+  _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -62,7 +62,7 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  req: Request,
+  _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {

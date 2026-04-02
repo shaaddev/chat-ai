@@ -1,7 +1,8 @@
 import "server-only";
 
+import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { api, convex } from "./server";
+import { convex } from "./server";
 
 // Convex document shapes (matching the schema)
 interface ConvexChatDoc {
@@ -28,27 +29,27 @@ interface ConvexMessageDoc {
 }
 
 // Types that match the old Drizzle schema types
-export type Chat = {
+export interface Chat {
   _id: string;
+  createdAt: Date;
   id: string;
+  systemPrompt?: string | null;
   title: string;
+  updatedAt: Date;
   userId: string;
   visibility: "public" | "private";
-  systemPrompt?: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-};
+}
 
-export type Message = {
+export interface Message {
   _id: string;
-  id: string;
-  chatId: string;
-  role: string;
-  parts: unknown;
   attachments: unknown;
+  chatId: string;
   createdAt: Date;
+  id: string;
   model: string | null;
-};
+  parts: unknown;
+  role: string;
+}
 
 // Helper to convert Convex doc to the expected shape
 function convertChat(doc: ConvexChatDoc | null): Chat | null {

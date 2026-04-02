@@ -52,13 +52,17 @@ function formatToMimeType(format: ExportFormat) {
 function extractCodeBlocksFromMarkdown(md: string): CodeBlock[] {
   const blocks: CodeBlock[] = [];
   const regex = /```(\w*)\n([\s\S]*?)```/g;
-  let match: RegExpExecArray | null;
-  while ((match = regex.exec(md)) !== null) {
+  let match = regex.exec(md);
+
+  while (match !== null) {
     blocks.push({
       language: match[1] || "javascript",
       code: match[2].trim(),
     });
+
+    match = regex.exec(md);
   }
+
   return blocks;
 }
 
@@ -129,7 +133,7 @@ export function DocumentSheet({
     const text = textarea.value;
     const lineStart = text.lastIndexOf("\n", start - 1) + 1;
 
-    const newText = text.slice(0, lineStart) + "- " + text.slice(lineStart);
+    const newText = `${text.slice(0, lineStart)}- ${text.slice(lineStart)}`;
     setMarkdown(newText);
 
     requestAnimationFrame(() => {

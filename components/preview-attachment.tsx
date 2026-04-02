@@ -1,7 +1,10 @@
 import { File, Loader } from "lucide-react";
+import Image, { type ImageLoaderProps } from "next/image";
 import type { Attachment } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { ViewAttachmentDialog } from "./view-attachment-dialog";
+
+const passthroughImageLoader = ({ src }: ImageLoaderProps) => src;
 
 export const PreviewAttachment = ({
   attachment,
@@ -26,12 +29,15 @@ export const PreviewAttachment = ({
         {contentType ? (
           contentType.startsWith("image") ? (
             <ViewAttachmentDialog attachment={attachment}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <Image
                 alt={name ?? "An image attachment"}
-                className="w-full rounded-2xl object-cover"
+                className="rounded-2xl object-cover"
+                fill
                 key={url}
+                loader={passthroughImageLoader}
+                sizes="(max-width: 768px) 100vw, 50vw"
                 src={url}
+                unoptimized
               />
             </ViewAttachmentDialog>
           ) : contentType.startsWith("application/pdf") ? (

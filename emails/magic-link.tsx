@@ -11,10 +11,10 @@ import {
 } from "@react-email/components";
 import React from "react";
 
-type MagicLinkProps = {
+interface MagicLinkProps {
   email: string;
   link: string;
-};
+}
 
 export default function MagicLinkEmail({ email, link }: MagicLinkProps) {
   return (

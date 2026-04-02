@@ -63,7 +63,9 @@ export async function GET(
   }
 
   const emptyDataStream = createUIMessageStream<ChatMessage>({
-    execute: () => {},
+    execute: () => {
+      // Intentionally empty: used to keep the resumable SSE response shape valid.
+    },
   });
 
   let stream;

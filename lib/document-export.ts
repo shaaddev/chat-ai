@@ -11,6 +11,13 @@ import { jsPDF } from "jspdf";
 
 export type ExportFormat = "docx" | "pdf";
 
+const INLINE_MARKDOWN_REGEX = /(\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`|([^*`]+))/g;
+const HEADING_REGEX = /^(#{1,6})\s+(.+)/;
+const UNORDERED_LIST_REGEX = /^[-*]\s/;
+const UNORDERED_LIST_PREFIX_REGEX = /^[-*]\s+/;
+const ORDERED_LIST_REGEX = /^\d+\.\s/;
+const ORDERED_LIST_PREFIX_REGEX = /^\d+\.\s+/;
+
 function toSafeFileStem(raw: string): string {
   const cleaned = raw
     .toLowerCase()
@@ -38,10 +45,10 @@ interface InlineRun {
 
 function parseInline(text: string): InlineRun[] {
   const runs: InlineRun[] = [];
-  const regex = /(\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`|([^*`]+))/g;
-  let match: RegExpExecArray | null;
+  const regex = new RegExp(INLINE_MARKDOWN_REGEX);
+  let match = regex.exec(text);
 
-  while ((match = regex.exec(text)) !== null) {
+  while (match !== null) {
     if (match[2]) {
       runs.push({ text: match[2], bold: true });
     } else if (match[3]) {
@@ -51,6 +58,8 @@ function parseInline(text: string): InlineRun[] {
     } else if (match[5]) {
       runs.push({ text: match[5] });
     }
+
+    match = regex.exec(text);
   }
 
   return runs.length > 0 ? runs : [{ text }];
@@ -79,7 +88,7 @@ function parseMarkdownBlocks(md: string): MdBlock[] {
       continue;
     }
 
-    const headingMatch = line.match(/^(#{1,6})\s+(.+)/);
+    const headingMatch = line.match(HEADING_REGEX);
     if (headingMatch) {
       blocks.push({
         type: "heading",
@@ -90,15 +99,15 @@ function parseMarkdownBlocks(md: string): MdBlock[] {
       continue;
     }
 
-    if (/^[-*]\s/.test(line)) {
-      const content = line.replace(/^[-*]\s+/, "");
+    if (UNORDERED_LIST_REGEX.test(line)) {
+      const content = line.replace(UNORDERED_LIST_PREFIX_REGEX, "");
       blocks.push({ type: "list-item", runs: parseInline(content) });
       i++;
       continue;
     }
 
-    if (/^\d+\.\s/.test(line)) {
-      const content = line.replace(/^\d+\.\s+/, "");
+    if (ORDERED_LIST_REGEX.test(line)) {
+      const content = line.replace(ORDERED_LIST_PREFIX_REGEX, "");
       blocks.push({ type: "list-item", runs: parseInline(content) });
       i++;
       continue;
@@ -219,6 +228,8 @@ function blocksToDocxParagraphs(blocks: MdBlock[]): Paragraph[] {
           })
         );
         break;
+      default:
+        break;
     }
   }
 
@@ -271,7 +282,7 @@ function renderBlocksToPdf(blocks: MdBlock[], pdf: jsPDF) {
       case "list-item": {
         pdf.setFont("helvetica", "normal");
         pdf.setFontSize(12);
-        const text = "\u2022  " + block.runs.map((r) => r.text).join("");
+        const text = `\u2022  ${block.runs.map((r) => r.text).join("")}`;
         const wrapped = pdf.splitTextToSize(
           text,
           contentWidth - 16
@@ -336,6 +347,8 @@ function renderBlocksToPdf(blocks: MdBlock[], pdf: jsPDF) {
         }
         break;
       }
+      default:
+        break;
     }
   }
 }

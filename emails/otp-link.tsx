@@ -10,11 +10,11 @@ import {
 } from "@react-email/components";
 import React from "react";
 
-type OtpEmailProps = {
+interface OtpEmailProps {
   email?: string;
-  pin: string;
   expiresInMinutes?: number;
-};
+  pin: string;
+}
 
 export default function OtpEmail({
   email,
