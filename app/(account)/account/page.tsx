@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { Account } from "@/components/account/account";
-import { isAuthenticated, fetchAuthQuery } from "@/lib/auth-server";
 import { api } from "@/convex/_generated/api";
+import { fetchAuthQuery, isAuthenticated } from "@/lib/auth-server";
 
 export default async function Page() {
   try {

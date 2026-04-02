@@ -26,7 +26,6 @@ export const systemPrompt = ({
     selectedChatModel === "chat-5-mini"
   ) {
     return openAIPrompt;
-  } else {
-    return regularPrompt;
   }
+  return regularPrompt;
 };

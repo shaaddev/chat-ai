@@ -1,19 +1,19 @@
 import { createUIMessageStream, JsonToSseTransformStream } from "ai";
 import { differenceInSeconds } from "date-fns";
+import { auth } from "@/app/auth";
+import type { Chat } from "@/lib/convex/queries";
 import {
   getChatById,
   getMessagesByChatId,
   getStreamIdsByChatId,
 } from "@/lib/convex/queries";
-import type { Chat } from "@/lib/convex/queries";
-import { auth } from "@/app/auth";
 import { ChatSDKError } from "@/lib/errors";
 import type { ChatMessage } from "@/lib/types";
 import { getStreamContext } from "../../route";
 
 export async function GET(
   _: Request,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: chatId } = await params;
 
@@ -69,7 +69,7 @@ export async function GET(
   let stream;
   try {
     stream = await streamContext.resumableStream(recentStreamId, () =>
-      emptyDataStream.pipeThrough(new JsonToSseTransformStream()),
+      emptyDataStream.pipeThrough(new JsonToSseTransformStream())
     );
   } catch (error) {
     console.error("Resumable stream error:", error);
@@ -118,7 +118,7 @@ export async function GET(
       restoredStream.pipeThrough(new JsonToSseTransformStream()),
       {
         status: 200,
-      },
+      }
     );
   }
 

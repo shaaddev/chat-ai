@@ -11,14 +11,11 @@ export function useMessages({
 }) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const scrollToBottom = useCallback(
-    (behavior: ScrollBehavior = "smooth") => {
-      requestAnimationFrame(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior });
-      });
-    },
-    [],
-  );
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
+    requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior });
+    });
+  }, []);
 
   useEffect(() => {
     scrollToBottom("instant");

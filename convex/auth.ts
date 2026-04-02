@@ -15,7 +15,7 @@ const internalSecret = process.env.INTERNAL_SECRET;
 // Helper to call internal email endpoints
 async function sendEmailViaInternal(
   endpoint: string,
-  data: Record<string, string>,
+  data: Record<string, string>
 ) {
   if (!convexSiteUrl || !internalSecret) {
     console.error("CONVEX_SITE_URL or INTERNAL_SECRET not configured");

@@ -6,8 +6,8 @@ import { ChatProvider } from "@/components/chat-context";
 import { PerformanceMonitor } from "@/components/performance-monitor";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
-import { ConvexClientProvider } from "@/lib/convex/client";
 import { getToken } from "@/lib/auth-server";
+import { ConvexClientProvider } from "@/lib/convex/client";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://chat.shaaddev.com"),
@@ -74,17 +74,17 @@ export default async function RootLayout({
             `,
           }}
         />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link href="https://fonts.googleapis.com" rel="preconnect" />
         <link
-          rel="preconnect"
-          href="https://fonts.gstatic.com"
           crossOrigin="anonymous"
+          href="https://fonts.gstatic.com"
+          rel="preconnect"
         />
-        <link rel="dns-prefetch" href="//fonts.googleapis.com" />
-        <link rel="manifest" href="/manifest.json" />
+        <link href="//fonts.googleapis.com" rel="dns-prefetch" />
+        <link href="/manifest.json" rel="manifest" />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
+        className={`${geistSans.variable} ${geistMono.variable} bg-background text-foreground antialiased`}
       >
         <ThemeProvider>
           <ConvexClientProvider initialToken={initialToken}>
@@ -96,8 +96,6 @@ export default async function RootLayout({
         </ThemeProvider>
         {process.env.NODE_ENV === "development" && <PerformanceMonitor />}
         <Script
-          id="service-worker"
-          strategy="afterInteractive"
           dangerouslySetInnerHTML={{
             __html: `
                 if ('serviceWorker' in navigator) {
@@ -113,6 +111,8 @@ export default async function RootLayout({
                 }
               `,
           }}
+          id="service-worker"
+          strategy="afterInteractive"
         />
       </body>
     </html>

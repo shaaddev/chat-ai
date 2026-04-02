@@ -28,10 +28,10 @@ type MdBlock =
   | { type: "code"; lang: string; content: string };
 
 interface InlineRun {
-  text: string;
   bold?: boolean;
-  italic?: boolean;
   code?: boolean;
+  italic?: boolean;
+  text: string;
 }
 
 // ── Markdown → blocks parser ──
@@ -72,7 +72,9 @@ function parseMarkdownBlocks(md: string): MdBlock[] {
         codeLines.push(lines[i]);
         i++;
       }
-      if (i < lines.length) i++;
+      if (i < lines.length) {
+        i++;
+      }
       blocks.push({ type: "code", lang, content: codeLines.join("\n") });
       continue;
     }
@@ -88,8 +90,8 @@ function parseMarkdownBlocks(md: string): MdBlock[] {
       continue;
     }
 
-    if (/^[\-\*]\s/.test(line)) {
-      const content = line.replace(/^[\-\*]\s+/, "");
+    if (/^[-*]\s/.test(line)) {
+      const content = line.replace(/^[-*]\s+/, "");
       blocks.push({ type: "list-item", runs: parseInline(content) });
       i++;
       continue;
@@ -151,7 +153,7 @@ function inlineRunsToTextRuns(runs: InlineRun[]): TextRun[] {
         shading: run.code
           ? { fill: "E8E8E8", color: "auto", type: "clear" as const }
           : undefined,
-      }),
+      })
   );
 }
 
@@ -171,9 +173,9 @@ function blocksToDocxParagraphs(blocks: MdBlock[]): Paragraph[] {
                   bold: true,
                   size: (HEADING_FONT_SIZE[block.level] ?? 24) * 2,
                   font: run.code ? "Courier New" : undefined,
-                }),
+                })
             ),
-          }),
+          })
         );
         break;
 
@@ -182,7 +184,7 @@ function blocksToDocxParagraphs(blocks: MdBlock[]): Paragraph[] {
           new Paragraph({
             numbering: { reference: "bullet-list", level: 0 },
             children: inlineRunsToTextRuns(block.runs),
-          }),
+          })
         );
         break;
 
@@ -203,7 +205,7 @@ function blocksToDocxParagraphs(blocks: MdBlock[]): Paragraph[] {
                 color: "auto",
                 type: "clear" as const,
               },
-            }),
+            })
           );
         }
         break;
@@ -214,7 +216,7 @@ function blocksToDocxParagraphs(blocks: MdBlock[]): Paragraph[] {
           new Paragraph({
             children: inlineRunsToTextRuns(block.runs),
             spacing: { after: 120 },
-          }),
+          })
         );
         break;
     }
@@ -272,7 +274,7 @@ function renderBlocksToPdf(blocks: MdBlock[], pdf: jsPDF) {
         const text = "\u2022  " + block.runs.map((r) => r.text).join("");
         const wrapped = pdf.splitTextToSize(
           text,
-          contentWidth - 16,
+          contentWidth - 16
         ) as string[];
         ensureSpace(18 * wrapped.length);
         for (const seg of wrapped) {
@@ -291,7 +293,7 @@ function renderBlocksToPdf(blocks: MdBlock[], pdf: jsPDF) {
         for (const codeLine of codeLines) {
           const wrapped = pdf.splitTextToSize(
             codeLine || " ",
-            contentWidth - 16,
+            contentWidth - 16
           ) as string[];
           for (const seg of wrapped) {
             ensureSpace(14);
@@ -394,7 +396,7 @@ export async function createDocumentBlob(params: {
 
 export function createFileName(
   title: string | undefined,
-  format: ExportFormat,
+  format: ExportFormat
 ) {
   const stem = toSafeFileStem(title || "document");
   const date = new Date().toISOString().slice(0, 10);

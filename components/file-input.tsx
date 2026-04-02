@@ -11,11 +11,11 @@ import type { Attachment } from "@/lib/types";
 import { useUploadThing } from "@/lib/uploadthing/uploadthing";
 
 interface FileInputProps {
-  uploadQueue: string[];
-  setUploadQueue: Dispatch<SetStateAction<string[]>>;
+  isAuthenticated?: boolean;
   setAttachments: Dispatch<SetStateAction<Array<Attachment>>>;
   setShowLoginDialog: Dispatch<SetStateAction<boolean>>;
-  isAuthenticated?: boolean;
+  setUploadQueue: Dispatch<SetStateAction<string[]>>;
+  uploadQueue: string[];
 }
 
 export function FileInput({
@@ -54,17 +54,19 @@ export function FileInput({
   const handleFileChange = useCallback(
     async (e: ChangeEvent<HTMLInputElement>) => {
       const files = Array.from(e.target.files || []);
-      if (files.length === 0) return;
+      if (files.length === 0) {
+        return;
+      }
 
-      if (!isAuthenticated) {
-        setShowLoginDialog(true);
-      } else {
+      if (isAuthenticated) {
         setUploadQueue(files.map((file) => file.name));
 
         await startUpload(files);
+      } else {
+        setShowLoginDialog(true);
       }
     },
-    [startUpload, setUploadQueue, setShowLoginDialog, isAuthenticated],
+    [startUpload, setUploadQueue, setShowLoginDialog, isAuthenticated]
   );
 
   const handlePaperclipClick = () => {
@@ -74,25 +76,25 @@ export function FileInput({
   return (
     <div className="relative flex flex-row gap-2">
       <input
-        type="file"
+        aria-label="Upload files"
         className="sr-only"
-        ref={fileInputRef}
         multiple
         onChange={handleFileChange}
+        ref={fileInputRef}
         tabIndex={-1}
-        aria-label="Upload files"
+        type="file"
       />
       <button
-        type="button"
-        className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-        onClick={handlePaperclipClick}
         aria-label="Attach files"
+        className="cursor-pointer text-muted-foreground transition-colors hover:text-foreground"
         disabled={isUploading}
+        onClick={handlePaperclipClick}
+        type="button"
       >
         <Paperclip className="size-4" />
       </button>
       {uploadQueue.length > 0 && (
-        <div className="bg-muted text-foreground text-xs p-1 rounded">
+        <div className="rounded bg-muted p-1 text-foreground text-xs">
           Uploading {uploadQueue.length} file(s)...
         </div>
       )}

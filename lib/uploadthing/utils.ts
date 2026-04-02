@@ -29,7 +29,7 @@ export function extractFileKeysFromMessages(
   messages: Array<{
     parts: unknown;
     attachments?: unknown;
-  }>,
+  }>
 ): string[] {
   const fileKeys: string[] = [];
 
@@ -46,7 +46,9 @@ export function extractFileKeysFromMessages(
           typeof part.url === "string"
         ) {
           const key = extractFileKey(part.url);
-          if (key) fileKeys.push(key);
+          if (key) {
+            fileKeys.push(key);
+          }
         }
       }
     }
@@ -61,7 +63,9 @@ export function extractFileKeysFromMessages(
           typeof attachment.url === "string"
         ) {
           const key = extractFileKey(attachment.url);
-          if (key) fileKeys.push(key);
+          if (key) {
+            fileKeys.push(key);
+          }
         }
       }
     }
@@ -75,7 +79,7 @@ export function extractFileKeysFromMessages(
  * Returns the count of successfully deleted files
  */
 export async function deleteFilesFromUploadThing(
-  fileKeys: string[],
+  fileKeys: string[]
 ): Promise<{ success: number; failed: number }> {
   if (fileKeys.length === 0) {
     return { success: 0, failed: 0 };
@@ -83,7 +87,7 @@ export async function deleteFilesFromUploadThing(
 
   try {
     console.log(
-      `Attempting to delete ${fileKeys.length} files from UploadThing`,
+      `Attempting to delete ${fileKeys.length} files from UploadThing`
     );
 
     const result = await utapi.deleteFiles(fileKeys);

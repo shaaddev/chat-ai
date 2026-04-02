@@ -10,14 +10,14 @@ import {
 } from "@/components/ui/dialog";
 
 interface LoginContentProps {
-  open: boolean;
   onOpenChange: (open: boolean) => void;
+  open: boolean;
 }
 
 export function LoginContent({ open, onOpenChange }: LoginContentProps) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl mx-auto rounded-2xl p-6 sm:p-8">
+    <Dialog onOpenChange={onOpenChange} open={open}>
+      <DialogContent className="mx-auto max-w-xl rounded-2xl p-6 sm:p-8">
         <DialogHeader className="flex flex-col items-center gap-2">
           <DialogTitle className="text-2xl sm:text-3xl">
             Sign in to continue
@@ -29,8 +29,8 @@ export function LoginContent({ open, onOpenChange }: LoginContentProps) {
         <div className="mt-2">
           <Link href="/login">
             <Button
+              className="w-full gap-2 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90"
               size="lg"
-              className="w-full rounded-xl gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
             >
               Login
               <ArrowRight className="size-4" />

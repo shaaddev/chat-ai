@@ -15,7 +15,7 @@ export function PerformanceMonitor() {
             const firstInputEntry = entry as PerformanceEventTiming;
             console.log(
               "FID:",
-              firstInputEntry.processingStart - firstInputEntry.startTime,
+              firstInputEntry.processingStart - firstInputEntry.startTime
             );
           }
           if (entry.entryType === "layout-shift") {
@@ -31,17 +31,17 @@ export function PerformanceMonitor() {
 
       // Monitor navigation timing
       const navigationEntry = performance.getEntriesByType(
-        "navigation",
+        "navigation"
       )[0] as PerformanceNavigationTiming;
       if (navigationEntry) {
         console.log(
           "Page Load Time:",
-          navigationEntry.loadEventEnd - navigationEntry.loadEventStart,
+          navigationEntry.loadEventEnd - navigationEntry.loadEventStart
         );
         console.log(
           "DOM Content Loaded:",
           navigationEntry.domContentLoadedEventEnd -
-            navigationEntry.domContentLoadedEventStart,
+            navigationEntry.domContentLoadedEventStart
         );
       }
 

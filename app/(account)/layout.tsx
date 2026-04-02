@@ -1,6 +1,6 @@
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="max-w-3xl mx-auto w-full flex flex-col items-center justify-center h-screen">
+    <div className="mx-auto flex h-screen w-full max-w-3xl flex-col items-center justify-center">
       {children}
     </div>
   );

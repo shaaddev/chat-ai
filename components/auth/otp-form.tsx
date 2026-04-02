@@ -95,8 +95,8 @@ export function OTPForm({
     <div className="w-full">
       <Form {...form}>
         <form
-          onSubmit={form.handleSubmit(onSubmit)}
           className="space-y-8 text-center"
+          onSubmit={form.handleSubmit(onSubmit)}
         >
           <FormField
             control={form.control}

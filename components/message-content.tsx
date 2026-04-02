@@ -10,8 +10,8 @@ export const MessageContent = ({
 }: MessageContentProps) => (
   <div
     className={cn(
-      "flex flex-col gap-2 overflow-hidden text-foreground text-base leading-relaxed",
-      className,
+      "flex flex-col gap-2 overflow-hidden text-base text-foreground leading-relaxed",
+      className
     )}
     {...props}
   >

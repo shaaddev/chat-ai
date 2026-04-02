@@ -27,7 +27,9 @@ export const ACCENT_SWATCHES: Record<AccentColor, string> = {
 };
 
 export function getAccentColor(): AccentColor {
-  if (typeof window === "undefined") return DEFAULT_ACCENT;
+  if (typeof window === "undefined") {
+    return DEFAULT_ACCENT;
+  }
   return (
     (localStorage.getItem(ACCENT_STORAGE_KEY) as AccentColor) ?? DEFAULT_ACCENT
   );

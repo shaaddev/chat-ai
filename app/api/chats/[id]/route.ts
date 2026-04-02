@@ -13,7 +13,7 @@ import { convertToUIMessages } from "@/lib/utils";
 
 export async function GET(
   req: Request,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
@@ -32,14 +32,14 @@ export async function GET(
     console.error("Failed to fetch chat:", error);
     return NextResponse.json(
       { error: "Failed to fetch chat" },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }
 
 export async function PATCH(
   req: Request,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
@@ -56,14 +56,14 @@ export async function PATCH(
     console.error("Failed to update chat:", error);
     return NextResponse.json(
       { error: "Failed to update chat" },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }
 
 export async function DELETE(
   req: Request,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
@@ -82,7 +82,7 @@ export async function DELETE(
       });
 
       console.log(
-        `Queued ${fileKeys.length} files for deletion from UploadThing`,
+        `Queued ${fileKeys.length} files for deletion from UploadThing`
       );
     }
 
@@ -94,7 +94,7 @@ export async function DELETE(
     console.error("Failed to delete chat:", error);
     return NextResponse.json(
       { error: "Failed to delete chat" },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

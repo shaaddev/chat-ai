@@ -37,7 +37,7 @@ export function AccountSidebar({
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <h2 className="text-2xl font-bold">Account</h2>
+        <h2 className="font-bold text-2xl">Account</h2>
         <p className="text-muted-foreground">Manage your account settings</p>
       </div>
 
@@ -45,25 +45,25 @@ export function AccountSidebar({
       <nav className="flex flex-col space-y-2">
         {sidebarItems.map((item) => (
           <Button
+            className="cursor-pointer justify-start rounded-2xl"
             key={item.id}
-            variant="ghost"
-            className="justify-start rounded-2xl cursor-pointer"
             onClick={() => setActiveSection(item.id)}
+            variant="ghost"
           >
-            <item.icon className="mr-2 !size-4" />
+            <item.icon className="!size-4 mr-2" />
             {item.label}
           </Button>
         ))}
-        <Button variant="ghost" className="justify-start rounded-2xl" asChild>
+        <Button asChild className="justify-start rounded-2xl" variant="ghost">
           <Link href="/">
             <HomeIcon className="mr-2 h-4 w-4" />
             Back to Home
           </Link>
         </Button>
         <Button
-          variant="ghost"
-          className="justify-start text-destructive hover:bg-destructive/10 hover:text-destructive rounded-2xl hover:cursor-pointer"
+          className="justify-start rounded-2xl text-destructive hover:cursor-pointer hover:bg-destructive/10 hover:text-destructive"
           onClick={handleLogout}
+          variant="ghost"
         >
           <LogOutIcon className="mr-2 h-4 w-4" />
           Log Out

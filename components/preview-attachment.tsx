@@ -15,12 +15,12 @@ export const PreviewAttachment = ({
   const { name, url, contentType } = attachment;
 
   return (
-    <div data-testid="input-attachment-preview" className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2" data-testid="input-attachment-preview">
       <div
         className={cn(
           className,
-          "aspect-video bg-muted rounded-2xl relative flex flex-col items-center justify-center",
-          contentType?.startsWith("image") && "bg-transparent",
+          "relative flex aspect-video flex-col items-center justify-center rounded-2xl bg-muted",
+          contentType?.startsWith("image") && "bg-transparent"
         )}
       >
         {contentType ? (
@@ -28,15 +28,15 @@ export const PreviewAttachment = ({
             <ViewAttachmentDialog attachment={attachment}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
+                alt={name ?? "An image attachment"}
+                className="w-full rounded-2xl object-cover"
                 key={url}
                 src={url}
-                alt={name ?? "An image attachment"}
-                className="rounded-2xl w-full object-cover"
               />
             </ViewAttachmentDialog>
           ) : contentType.startsWith("application/pdf") ? (
             <ViewAttachmentDialog attachment={attachment}>
-              <div className="rounded-2xl size-full bg-muted flex flex-col gap-2 items-center justify-center">
+              <div className="flex size-full flex-col items-center justify-center gap-2 rounded-2xl bg-muted">
                 <File className="size-12" />
                 <small className="text-xs text-zinc-500">PDF Attachment</small>
               </div>
@@ -48,8 +48,8 @@ export const PreviewAttachment = ({
 
         {isUploading && (
           <div
+            className="absolute animate-spin text-zinc-500"
             data-testid="input-attachment-loader"
-            className="animate-spin absolute text-zinc-500"
           >
             <Loader />
           </div>

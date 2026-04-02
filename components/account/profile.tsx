@@ -12,8 +12,8 @@ import { ProfileForm } from "./profile-form";
 
 interface UserInfo {
   email: string;
-  name: string;
   image: string | null;
+  name: string;
 }
 
 export function Profile({ user_info }: { user_info: UserInfo }) {
@@ -73,7 +73,7 @@ export function Profile({ user_info }: { user_info: UserInfo }) {
   };
 
   return (
-    <Card className="rounded-2xl ">
+    <Card className="rounded-2xl">
       <CardHeader>
         <CardTitle>Profile Information</CardTitle>
         <CardDescription>
@@ -82,12 +82,12 @@ export function Profile({ user_info }: { user_info: UserInfo }) {
       </CardHeader>
       <CardContent>
         <ProfileForm
-          profileImage={profileImage}
-          handleSubmit={handleSubmit}
-          handleImageUpload={handleImageUpload}
-          fullName={user_info.name}
           email={user_info.email}
+          fullName={user_info.name}
+          handleImageUpload={handleImageUpload}
+          handleSubmit={handleSubmit}
           isPending={isPending}
+          profileImage={profileImage}
         />
       </CardContent>
     </Card>

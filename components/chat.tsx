@@ -6,10 +6,10 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useChat as useChatContext } from "@/components/chat-context";
 import { Button } from "@/components/ui/button";
-import type { ExportFormat } from "@/lib/document-export";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { image_models } from "@/lib/ai/models";
 import type { Session } from "@/lib/auth";
+import type { ExportFormat } from "@/lib/document-export";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { fetchWithErrorHandlers, generateUUID } from "@/lib/utils";
 import { ChatHistory } from "./chat-history";
@@ -41,7 +41,9 @@ function hasDocumentIntent(text: string) {
 }
 
 function extractMessageText(message: ChatMessage | undefined) {
-  if (!message) return "";
+  if (!message) {
+    return "";
+  }
   return message.parts
     .filter((part) => part.type === "text")
     .map((part) => part.text)
@@ -51,10 +53,10 @@ function extractMessageText(message: ChatMessage | undefined) {
 
 interface ChatProps {
   id: string;
-  session: Session | null;
   initialChatModel: string;
   initialMessages: ChatMessage[];
   initialSystemPrompt?: string;
+  session: Session | null;
 }
 
 export function Chat({
@@ -176,7 +178,7 @@ export function Chat({
         .catch((err) => {
           console.error(
             "Failed to fetch messages after image generation:",
-            err,
+            err
           );
           toast.error("Failed to load image", {
             description: "Please refresh the page to see your generated image.",
@@ -200,7 +202,9 @@ export function Chat({
       .reverse()
       .find((message) => message.role === "assistant");
 
-    if (!latestAssistant) return;
+    if (!latestAssistant) {
+      return;
+    }
 
     const metadata =
       typeof latestAssistant.metadata === "object" && latestAssistant.metadata
@@ -212,19 +216,25 @@ export function Chat({
     const userText = extractMessageText(latestUser);
     const assistantText = extractMessageText(latestAssistant);
 
-    if (!assistantText) return;
+    if (!assistantText) {
+      return;
+    }
 
     const isAlreadyTracked = documentSourceMessageId === latestAssistant.id;
 
     if (!isAlreadyTracked) {
-      if (lastHandledAssistantIdRef.current === latestAssistant.id) return;
+      if (lastHandledAssistantIdRef.current === latestAssistant.id) {
+        return;
+      }
 
       const metadataCandidate = metadata?.documentCandidate === true;
       const fallbackCandidate =
         autoDocumentGeneration &&
         hasDocumentIntent(userText) &&
         !!assistantText;
-      if (!metadataCandidate && !fallbackCandidate) return;
+      if (!metadataCandidate && !fallbackCandidate) {
+        return;
+      }
 
       lastHandledAssistantIdRef.current = latestAssistant.id;
       setDocumentSourceMessageId(latestAssistant.id);
@@ -251,68 +261,68 @@ export function Chat({
       <div className="flex h-screen w-full bg-background text-foreground">
         <ChatHistory session={session} />
 
-        <div className="flex flex-col flex-1 w-full min-w-0">
-          <header className="flex items-center h-14 px-4 gap-3 shrink-0">
+        <div className="flex w-full min-w-0 flex-1 flex-col">
+          <header className="flex h-14 shrink-0 items-center gap-3 px-4">
             <SidebarTrigger className="rounded-lg">
-              <Button variant="ghost" size="icon" className="size-8">
+              <Button className="size-8" size="icon" variant="ghost">
                 <PanelLeft className="size-4" />
                 <span className="sr-only">Toggle sidebar</span>
               </Button>
             </SidebarTrigger>
           </header>
 
-          <div className="flex flex-col flex-1 w-full overflow-hidden">
+          <div className="flex w-full flex-1 flex-col overflow-hidden">
             <Messages
-              status={status}
-              messages={messages}
-              setMessages={setMessages}
               chatId={id}
-              selectedChatModel={initialChatModel}
-              isDocumentSheetOpen={isDocumentSheetOpen}
+              documentDraftFormat={documentFormat}
               documentDraftMarkdown={documentMarkdown}
               documentDraftTitle={documentTitle}
-              documentDraftFormat={documentFormat}
               documentSourceMessageId={documentSourceMessageId}
+              isDocumentSheetOpen={isDocumentSheetOpen}
+              messages={messages}
               onOpenDocumentBuilder={() => setIsDocumentSheetOpen(true)}
               onSuggestionClick={(text) => setInput(text)}
+              selectedChatModel={initialChatModel}
+              setMessages={setMessages}
+              status={status}
             />
 
             <div
-              className={`mx-auto w-full px-4 pb-5 pt-2 ${
+              className={`mx-auto w-full px-4 pt-2 pb-5 ${
                 isDocumentSheetOpen ? "max-w-2xl" : "max-w-3xl"
               }`}
             >
               <ChatInput
-                input={input}
-                setInput={setInput}
-                sendMessage={sendMessage}
-                status={status}
-                chatId={id}
-                stop={stop}
-                initialChatModel={initialChatModel}
-                isAuthenticated={isAuthenticated}
                 attachments={attachments}
-                setAttachments={setAttachments}
-                setMessages={setMessages}
-                useSearch={useSearch}
-                setUseSearch={setUseSearch}
                 autoDocumentGeneration={autoDocumentGeneration}
-                setAutoDocumentGeneration={setAutoDocumentGeneration}
+                chatId={id}
                 clearChatInputState={clearChatInputState}
                 customSystemPrompt={customSystemPrompt}
+                initialChatModel={initialChatModel}
+                input={input}
+                isAuthenticated={isAuthenticated}
+                sendMessage={sendMessage}
+                setAttachments={setAttachments}
+                setAutoDocumentGeneration={setAutoDocumentGeneration}
                 setCustomSystemPrompt={setCustomSystemPrompt}
+                setInput={setInput}
+                setMessages={setMessages}
+                setUseSearch={setUseSearch}
+                status={status}
+                stop={stop}
+                useSearch={useSearch}
               />
-              <p className="text-center text-[11px] text-muted-foreground/50 mt-2 select-none">
+              <p className="mt-2 select-none text-center text-[11px] text-muted-foreground/50">
                 AI can make mistakes. Verify important information.
               </p>
             </div>
           </div>
         </div>
         <DocumentSheet
-          open={isDocumentSheetOpen}
-          onOpenChange={setIsDocumentSheetOpen}
           initialMarkdown={documentMarkdown}
           initialTitle={documentTitle}
+          onOpenChange={setIsDocumentSheetOpen}
+          open={isDocumentSheetOpen}
           suggestedFormat={documentFormat}
         />
       </div>

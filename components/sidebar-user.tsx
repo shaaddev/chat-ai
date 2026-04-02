@@ -20,8 +20,8 @@ import {
 import { authClient } from "@/lib/auth-client";
 
 interface UserProps {
-  email: string;
   avatar?: string;
+  email: string;
   name?: string;
 }
 
@@ -50,11 +50,11 @@ export function SidebarUser({ email, avatar, name }: UserProps) {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
+              className="cursor-pointer rounded-xl transition-all duration-150 ease-in-out hover:bg-sidebar-accent data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
               size="lg"
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground hover:bg-sidebar-accent rounded-xl transition-all ease-in-out duration-150 cursor-pointer"
             >
               <Avatar className="h-8 w-8 rounded-lg">
-                <AvatarImage src={avatar} alt={name} />
+                <AvatarImage alt={name} src={avatar} />
                 <AvatarFallback className="rounded-2xl bg-primary text-primary-foreground">
                   {name?.charAt(0).toUpperCase()}
                 </AvatarFallback>
@@ -66,21 +66,21 @@ export function SidebarUser({ email, avatar, name }: UserProps) {
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
+            align="end"
             className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-xl"
             side={isMobile ? "bottom" : "right"}
-            align="end"
             sideOffset={4}
           >
             <DropdownMenuLabel className="p-0 font-normal">
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar className="size-8 rounded-2xl">
-                  <AvatarImage src={avatar} alt={name} />
+                  <AvatarImage alt={name} src={avatar} />
                   <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
                     {name?.charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate text-xs text-muted-foreground">
+                  <span className="truncate text-muted-foreground text-xs">
                     {name}
                   </span>
                   <span className="truncate font-semibold">{email}</span>

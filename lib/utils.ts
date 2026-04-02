@@ -33,7 +33,7 @@ export const fetcher = async (url: string) => {
 
   if (!res.ok) {
     const error = new Error(
-      "An error occurred while fetching the data.",
+      "An error occurred while fetching the data."
     ) as ApplicationError;
 
     error.info = await res.json();
@@ -71,16 +71,20 @@ export function sanitizeResponseMessages({
   }
 
   const messagesBySanitizedContent = messages.map((message) => {
-    if (message.role !== "assistant") return message;
+    if (message.role !== "assistant") {
+      return message;
+    }
 
-    if (typeof message.content === "string") return message;
+    if (typeof message.content === "string") {
+      return message;
+    }
 
     const sanitizedContent = message.content.filter((content) =>
       content.type === "tool-call"
         ? toolResultIds.includes(content.toolCallId)
         : content.type === "text"
           ? content.text.length > 0
-          : true,
+          : true
     );
 
     // if (reasoning) {
@@ -95,7 +99,7 @@ export function sanitizeResponseMessages({
   });
 
   return messagesBySanitizedContent.filter(
-    (message) => message.content.length > 0,
+    (message) => message.content.length > 0
   );
 }
 
@@ -106,7 +110,9 @@ export function getTrailingMessageId({
 }): string | null {
   const trailingMessage = messages.at(-1);
 
-  if (!trailingMessage) return null;
+  if (!trailingMessage) {
+    return null;
+  }
 
   return trailingMessage.id;
 }
@@ -125,7 +131,7 @@ export function convertToUIMessages(messages: DbMessage[]): ChatMessage[] {
 
 export async function fetchWithErrorHandlers(
   input: RequestInfo | URL,
-  init?: RequestInit,
+  init?: RequestInit
 ) {
   try {
     const response = await fetch(input, init);

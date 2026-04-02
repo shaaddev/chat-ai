@@ -1,8 +1,8 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
 import equal from "fast-deep-equal";
-import { FileText, LoaderIcon, ImageIcon } from "lucide-react";
-import { Fragment, memo, useEffect, useRef } from "react";
+import { FileText, ImageIcon, LoaderIcon } from "lucide-react";
 import { motion } from "motion/react";
+import { Fragment, memo, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -23,17 +23,17 @@ import { ThinkingIndicator } from "./thinking-indicator";
 
 interface MessagesProps {
   chatId: string;
-  status: UseChatHelpers<ChatMessage>["status"];
-  messages: ChatMessage[];
-  setMessages: UseChatHelpers<ChatMessage>["setMessages"];
-  selectedChatModel: string;
-  isDocumentSheetOpen?: boolean;
+  documentDraftFormat?: ExportFormat;
   documentDraftMarkdown?: string;
   documentDraftTitle?: string;
-  documentDraftFormat?: ExportFormat;
   documentSourceMessageId?: string | null;
+  isDocumentSheetOpen?: boolean;
+  messages: ChatMessage[];
   onOpenDocumentBuilder?: () => void;
   onSuggestionClick?: (text: string) => void;
+  selectedChatModel: string;
+  setMessages: UseChatHelpers<ChatMessage>["setMessages"];
+  status: UseChatHelpers<ChatMessage>["status"];
 }
 
 function DocumentCard({
@@ -57,7 +57,7 @@ function DocumentCard({
     >
       <Card className="border-border bg-card">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm text-foreground flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-foreground text-sm">
             <FileText className="size-4" />
             Document Draft Ready
           </CardTitle>
@@ -72,15 +72,15 @@ function DocumentCard({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="max-h-40 overflow-auto rounded-md border border-border bg-background p-3 text-xs text-muted-foreground">
+          <div className="max-h-40 overflow-auto rounded-md border border-border bg-background p-3 text-muted-foreground text-xs">
             <Markdown>{documentDraftMarkdown}</Markdown>
           </div>
           <div className="flex justify-end">
             <Button
-              type="button"
-              size="sm"
               className="bg-primary text-primary-foreground hover:bg-primary/90"
               onClick={onOpenDocumentBuilder}
+              size="sm"
+              type="button"
             >
               Open in Document Builder
             </Button>
@@ -138,7 +138,7 @@ function PureMessages({
   })();
 
   const isImageModelSelected = image_models.some(
-    (im) => im.id === selectedChatModel,
+    (im) => im.id === selectedChatModel
   );
 
   const hasAssistantImageAttachment = (() => {
@@ -165,7 +165,7 @@ function PureMessages({
     !hasAssistantImageAttachment;
 
   return (
-    <ScrollArea className="flex-1 w-full overflow-auto">
+    <ScrollArea className="w-full flex-1 overflow-auto">
       <div className="p-4">
         {messages.length === 0 && !showThinking && !isGeneratingImage ? (
           <EmptyChatState onSuggestionClick={onSuggestionClick} />
@@ -175,22 +175,22 @@ function PureMessages({
               <Fragment key={message.id}>
                 <div className={index > 0 ? "mt-6" : ""}>
                   <PreviewMessage
-                    message={message}
                     isDocumentSheetOpen={isDocumentSheetOpen}
                     isStreaming={
                       status === "streaming" &&
                       message.role === "assistant" &&
                       message.id === messages[messages.length - 1]?.id
                     }
+                    message={message}
                   />
                 </div>
                 {documentDraftMarkdown &&
                   documentSourceMessageId === message.id && (
                     <DocumentCard
-                      isDocumentSheetOpen={isDocumentSheetOpen}
+                      documentDraftFormat={documentDraftFormat}
                       documentDraftMarkdown={documentDraftMarkdown}
                       documentDraftTitle={documentDraftTitle}
-                      documentDraftFormat={documentDraftFormat}
+                      isDocumentSheetOpen={isDocumentSheetOpen}
                       onOpenDocumentBuilder={onOpenDocumentBuilder}
                     />
                   )}
@@ -210,12 +210,12 @@ function PureMessages({
             className={`mx-auto mt-4 ${isDocumentSheetOpen ? "max-w-2xl" : "max-w-3xl"}`}
           >
             <motion.div
-              initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="relative size-72 rounded-xl bg-muted/30 border border-border overflow-hidden"
+              className="relative size-72 overflow-hidden rounded-xl border border-border bg-muted/30"
+              initial={{ opacity: 0 }}
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-muted/40 via-transparent to-muted/40 animate-pulse" />
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-foreground/[0.02] to-transparent -translate-x-full animate-[shimmer_2s_infinite]" />
+              <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-muted/40 via-transparent to-muted/40" />
+              <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-foreground/[0.02] to-transparent" />
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
                 <ImageIcon className="size-6 text-muted-foreground/40" />
                 <div className="flex items-center gap-2 text-muted-foreground/60">
@@ -234,24 +234,41 @@ function PureMessages({
 
 export const Messages = memo(PureMessages, (prevProps, nextProps) => {
   // Always re-render during streaming so streamed text appears in real time
-  if (nextProps.status === "streaming" || prevProps.status === "streaming")
+  if (nextProps.status === "streaming" || prevProps.status === "streaming") {
     return false;
-  if (prevProps.status !== nextProps.status) return false;
-  if (prevProps.selectedChatModel !== nextProps.selectedChatModel) return false;
-  if (prevProps.isDocumentSheetOpen !== nextProps.isDocumentSheetOpen)
+  }
+  if (prevProps.status !== nextProps.status) {
     return false;
-  if (prevProps.documentDraftMarkdown !== nextProps.documentDraftMarkdown)
+  }
+  if (prevProps.selectedChatModel !== nextProps.selectedChatModel) {
     return false;
-  if (prevProps.documentDraftTitle !== nextProps.documentDraftTitle)
+  }
+  if (prevProps.isDocumentSheetOpen !== nextProps.isDocumentSheetOpen) {
     return false;
-  if (prevProps.documentDraftFormat !== nextProps.documentDraftFormat)
+  }
+  if (prevProps.documentDraftMarkdown !== nextProps.documentDraftMarkdown) {
     return false;
-  if (prevProps.documentSourceMessageId !== nextProps.documentSourceMessageId)
+  }
+  if (prevProps.documentDraftTitle !== nextProps.documentDraftTitle) {
     return false;
-  if (prevProps.onOpenDocumentBuilder !== nextProps.onOpenDocumentBuilder)
+  }
+  if (prevProps.documentDraftFormat !== nextProps.documentDraftFormat) {
     return false;
-  if (prevProps.onSuggestionClick !== nextProps.onSuggestionClick) return false;
-  if (prevProps.messages.length !== nextProps.messages.length) return false;
-  if (!equal(prevProps.messages, nextProps.messages)) return false;
+  }
+  if (prevProps.documentSourceMessageId !== nextProps.documentSourceMessageId) {
+    return false;
+  }
+  if (prevProps.onOpenDocumentBuilder !== nextProps.onOpenDocumentBuilder) {
+    return false;
+  }
+  if (prevProps.onSuggestionClick !== nextProps.onSuggestionClick) {
+    return false;
+  }
+  if (prevProps.messages.length !== nextProps.messages.length) {
+    return false;
+  }
+  if (!equal(prevProps.messages, nextProps.messages)) {
+    return false;
+  }
   return true;
 });

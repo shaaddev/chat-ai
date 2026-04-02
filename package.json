@@ -8,13 +8,10 @@
     "convex:deploy": "bunx convex deploy",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint",
-    "lint:fix": "eslint --fix",
     "email:dev": "email dev",
-    "format:write": "prettier --write \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
-    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
-    "check": "concurrently --names \"prettier,lint,format\" --prefix-colors \"magenta,blue,green\" \"pnpm run format:write\" \"pnpm run lint\" \"pnpm run format:check\"",
-    "biome:check": "biome check --write"
+    "check": "ultracite check",
+    "biome:check": "biome check --write",
+    "fix": "ultracite fix"
   },
   "dependencies": {
     "@ai-sdk/google": "^2.0.45",
@@ -103,6 +100,7 @@
     "zod": "^4.0.1"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.4.9",
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4.1.7",
     "@types/node": "^20",
@@ -115,7 +113,8 @@
     "react-email": "3.0.7",
     "tailwindcss": "^4.1.7",
     "tw-animate-css": "^1.3.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "ultracite": "7.4.2"
   },
   "overrides": {
     "@types/react": "19.2.14",

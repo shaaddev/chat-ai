@@ -15,8 +15,8 @@ import { toast } from "sonner";
 import {
   createDocumentBlob,
   createFileName,
-  type ExportFormat,
   downloadBlob,
+  type ExportFormat,
 } from "@/lib/document-export";
 import { useUploadThing } from "@/lib/uploadthing/uploadthing";
 import { Markdown } from "./markdown";
@@ -31,16 +31,16 @@ import {
 } from "./ui/sheet";
 
 interface DocumentSheetProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
   initialMarkdown?: string;
   initialTitle?: string;
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
   suggestedFormat?: ExportFormat;
 }
 
 interface CodeBlock {
-  language: string;
   code: string;
+  language: string;
 }
 
 function formatToMimeType(format: ExportFormat) {
@@ -95,7 +95,9 @@ export function DocumentSheet({
 
   const wrapSelection = useCallback((before: string, after: string) => {
     const textarea = textareaRef.current;
-    if (!textarea) return;
+    if (!textarea) {
+      return;
+    }
 
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
@@ -119,7 +121,9 @@ export function DocumentSheet({
 
   const insertListItem = useCallback(() => {
     const textarea = textareaRef.current;
-    if (!textarea) return;
+    if (!textarea) {
+      return;
+    }
 
     const start = textarea.selectionStart;
     const text = textarea.value;
@@ -175,7 +179,7 @@ export function DocumentSheet({
   const handleRunCode = async (
     index: number,
     code: string,
-    language: string,
+    language: string
   ) => {
     setCodeOutputs((prev) => {
       const next = new Map(prev);
@@ -215,10 +219,10 @@ export function DocumentSheet({
   const codeBlocks = extractCodeBlocksFromMarkdown(markdown);
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet onOpenChange={onOpenChange} open={open}>
       <SheetContent
+        className="flex w-full flex-col border-border bg-background text-foreground sm:max-w-xl"
         side="right"
-        className="w-full sm:max-w-xl bg-background border-border text-foreground flex flex-col"
       >
         <SheetHeader>
           <SheetTitle className="text-foreground">Document Builder</SheetTitle>
@@ -227,76 +231,76 @@ export function DocumentSheet({
           </SheetDescription>
         </SheetHeader>
 
-        <div className="px-4 flex items-center gap-2">
+        <div className="flex items-center gap-2 px-4">
           <Button
-            type="button"
-            size="icon"
-            variant="outline"
-            className="bg-transparent border-border hover:bg-accent"
+            className="border-border bg-transparent hover:bg-accent"
             onClick={() => wrapSelection("**", "**")}
+            size="icon"
             title="Bold"
+            type="button"
+            variant="outline"
           >
             <Bold className="size-4" />
           </Button>
           <Button
-            type="button"
-            size="icon"
-            variant="outline"
-            className="bg-transparent border-border hover:bg-accent"
+            className="border-border bg-transparent hover:bg-accent"
             onClick={() => wrapSelection("*", "*")}
+            size="icon"
             title="Italic"
+            type="button"
+            variant="outline"
           >
             <Italic className="size-4" />
           </Button>
           <Button
-            type="button"
-            size="icon"
-            variant="outline"
-            className="bg-transparent border-border hover:bg-accent"
+            className="border-border bg-transparent hover:bg-accent"
             onClick={() => wrapSelection("`", "`")}
+            size="icon"
             title="Inline code"
+            type="button"
+            variant="outline"
           >
             <Code className="size-4" />
           </Button>
           <Button
-            type="button"
-            size="icon"
-            variant="outline"
-            className="bg-transparent border-border hover:bg-accent"
+            className="border-border bg-transparent hover:bg-accent"
             onClick={insertListItem}
+            size="icon"
             title="Bullet list"
+            type="button"
+            variant="outline"
           >
             <List className="size-4" />
           </Button>
 
           <select
             aria-label="Document format"
-            className="ml-auto h-9 rounded-md border border-border bg-muted px-3 text-sm text-foreground"
-            value={format}
+            className="ml-auto h-9 rounded-md border border-border bg-muted px-3 text-foreground text-sm"
             onChange={(e) => setFormat(e.target.value as ExportFormat)}
+            value={format}
           >
             <option value="docx">DOCX</option>
             <option value="pdf">PDF</option>
           </select>
         </div>
 
-        <div className="px-4 py-2 min-h-0 flex-1 flex flex-col gap-3 overflow-hidden">
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden px-4 py-2">
           <textarea
+            className="max-h-[40%] min-h-[120px] shrink-0 resize-y rounded-lg border border-border bg-muted p-3 font-mono text-foreground text-sm leading-6 placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            onChange={(e) => setMarkdown(e.target.value)}
+            placeholder="Write or edit markdown here..."
             ref={textareaRef}
             value={markdown}
-            onChange={(e) => setMarkdown(e.target.value)}
-            className="min-h-[120px] max-h-[40%] shrink-0 resize-y rounded-lg border border-border bg-muted p-3 text-sm font-mono leading-6 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-            placeholder="Write or edit markdown here..."
           />
 
-          <div className="flex-1 min-h-0 overflow-auto rounded-lg border border-border bg-muted p-4 text-sm leading-6">
+          <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-border bg-muted p-4 text-sm leading-6">
             <Markdown>{markdown}</Markdown>
           </div>
         </div>
 
         {codeBlocks.length > 0 && (
-          <div className="px-4 pb-2 space-y-2 max-h-48 overflow-auto">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="max-h-48 space-y-2 overflow-auto px-4 pb-2">
+            <div className="flex items-center gap-2 text-muted-foreground text-xs">
               <Terminal className="size-3" />
               <span>Code Blocks</span>
             </div>
@@ -304,36 +308,36 @@ export function DocumentSheet({
               const output = codeOutputs.get(idx);
               return (
                 <div
+                  className="overflow-hidden rounded-md border border-border bg-background"
                   key={idx}
-                  className="rounded-md border border-border bg-background overflow-hidden"
                 >
-                  <div className="flex items-center justify-between px-3 py-1.5 border-b border-border">
-                    <span className="text-xs text-muted-foreground font-mono">
+                  <div className="flex items-center justify-between border-border border-b px-3 py-1.5">
+                    <span className="font-mono text-muted-foreground text-xs">
                       {block.language || "code"}
                     </span>
                     <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+                      className="h-6 px-2 text-muted-foreground text-xs hover:text-foreground"
                       disabled={output?.running}
                       onClick={() =>
                         handleRunCode(idx, block.code, block.language)
                       }
+                      size="sm"
+                      type="button"
+                      variant="ghost"
                     >
-                      <Play className="size-3 mr-1" />
+                      <Play className="mr-1 size-3" />
                       {output?.running ? "Running..." : "Run"}
                     </Button>
                   </div>
                   {output && !output.running && (
-                    <div className="p-2 text-xs font-mono">
+                    <div className="p-2 font-mono text-xs">
                       {output.stdout && (
-                        <pre className="text-green-400 whitespace-pre-wrap">
+                        <pre className="whitespace-pre-wrap text-green-400">
                           {output.stdout}
                         </pre>
                       )}
                       {output.stderr && (
-                        <pre className="text-red-400 whitespace-pre-wrap">
+                        <pre className="whitespace-pre-wrap text-red-400">
                           {output.stderr}
                         </pre>
                       )}
@@ -350,31 +354,31 @@ export function DocumentSheet({
           </div>
         )}
 
-        <SheetFooter className="border-t border-border">
+        <SheetFooter className="border-border border-t">
           <Button
+            className="border-border bg-transparent hover:bg-accent"
+            onClick={handleDownload}
             type="button"
             variant="outline"
-            className="bg-transparent border-border hover:bg-accent"
-            onClick={handleDownload}
           >
             <Download className="mr-2 size-4" />
             Download
           </Button>
           <Button
-            type="button"
             className="bg-primary text-primary-foreground hover:bg-primary/90"
             disabled={isUploading}
             onClick={handleSave}
+            type="button"
           >
             <Save className="mr-2 size-4" />
             {isUploading ? "Saving..." : "Save to cloud"}
           </Button>
           {savedUrl ? (
             <a
+              className="text-muted-foreground text-xs underline underline-offset-2"
               href={savedUrl}
-              target="_blank"
               rel="noreferrer"
-              className="text-xs text-muted-foreground underline underline-offset-2"
+              target="_blank"
             >
               Open saved file
             </a>

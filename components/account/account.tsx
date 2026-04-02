@@ -6,18 +6,22 @@ import { AccountSidebar } from "./sidebar";
 import { Usage } from "./usage/usage";
 
 interface AccountProps {
+  initialTab?: string;
   user: {
     email: string;
     name: string;
     image: string | null;
   };
-  initialTab?: string;
 }
 
 export function Account({ user, initialTab }: AccountProps) {
   const [activeSection, setActiveSection] = useState(() => {
-    if (initialTab === "appearance") return "appearance";
-    if (initialTab === "usage") return "usage";
+    if (initialTab === "appearance") {
+      return "appearance";
+    }
+    if (initialTab === "usage") {
+      return "usage";
+    }
     return "profile";
   });
 
@@ -35,12 +39,10 @@ export function Account({ user, initialTab }: AccountProps) {
   };
 
   return (
-    <div className="container mx-auto py-10 min-h-[calc(100vh-4rem)]">
+    <div className="container mx-auto min-h-[calc(100vh-4rem)] py-10">
       <div className="grid gap-8 md:grid-cols-[200px_1fr]">
         <AccountSidebar setActiveSection={setActiveSection} />
-        <div className="w-full max-w-2xl">
-          {renderContent()}
-        </div>
+        <div className="w-full max-w-2xl">{renderContent()}</div>
       </div>
     </div>
   );

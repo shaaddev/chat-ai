@@ -13,21 +13,21 @@ export function ViewAttachmentDialog({
   return (
     <Dialog>
       <DialogTrigger className="cursor-pointer">{children}</DialogTrigger>
-      <DialogContent className="border-opacity-5 border max-w-[90vw] md:max-w-[80vw] lg:max-w-[70vw]">
+      <DialogContent className="max-w-[90vw] border border-opacity-5 md:max-w-[80vw] lg:max-w-[70vw]">
         {contentType?.startsWith("image") ? (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={url}
               alt={name ?? "Attachment"}
-              className="rounded-2xl size-full object-contain max-h-[80vh] max-w-full mx-auto"
+              className="mx-auto size-full max-h-[80vh] max-w-full rounded-2xl object-contain"
+              src={url}
             />
           </>
         ) : (
-          <div className="rounded-2xl size-full bg-muted flex items-center justify-center overflow-hidden max-w-3xl w-full h-[70vh] md:h-[80vh] mx-auto">
+          <div className="mx-auto flex size-full h-[70vh] w-full max-w-3xl items-center justify-center overflow-hidden rounded-2xl bg-muted md:h-[80vh]">
             <iframe
+              className="size-full rounded-2xl object-cover"
               src={url}
-              className="rounded-2xl size-full object-cover"
               title={name ?? "An attachment"}
             />
           </div>

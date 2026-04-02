@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 
 interface UseIntersectionObserverOptions {
-  threshold?: number;
-  rootMargin?: string;
   root?: Element | null;
+  rootMargin?: string;
+  threshold?: number;
 }
 
 export function useIntersectionObserver(
-  options: UseIntersectionObserverOptions = {},
+  options: UseIntersectionObserverOptions = {}
 ) {
   const [isIntersecting, setIsIntersecting] = useState(false);
   const [hasIntersected, setHasIntersected] = useState(false);
@@ -15,7 +15,9 @@ export function useIntersectionObserver(
 
   useEffect(() => {
     const element = elementRef.current;
-    if (!element) return;
+    if (!element) {
+      return;
+    }
 
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -28,7 +30,7 @@ export function useIntersectionObserver(
         threshold: options.threshold || 0,
         rootMargin: options.rootMargin || "0px",
         root: options.root || null,
-      },
+      }
     );
 
     observer.observe(element);

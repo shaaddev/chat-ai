@@ -14,6 +14,10 @@ import {
   type ResumableStreamContext,
 } from "resumable-stream";
 import { generateTitleFromUserMessage } from "@/app/actions";
+import { auth } from "@/app/auth";
+import { image_models, myProvider, stable_models } from "@/lib/ai/models";
+import { systemPrompt } from "@/lib/ai/prompts";
+import { getToolsForModel } from "@/lib/ai/tools";
 import {
   createStreamId,
   getChatById,
@@ -22,10 +26,6 @@ import {
   saveMessages,
   updateChatTitle,
 } from "@/lib/convex/queries";
-import { image_models, myProvider, stable_models } from "@/lib/ai/models";
-import { systemPrompt } from "@/lib/ai/prompts";
-import { getToolsForModel } from "@/lib/ai/tools";
-import { auth } from "@/app/auth";
 import { ChatSDKError } from "@/lib/errors";
 import type { ChatMessage } from "@/lib/types";
 import { utapi } from "@/lib/uploadthing/core";
@@ -40,27 +40,39 @@ export const maxDuration = 60;
 
 function getUploadThingUrlFromResult(result: unknown): string | undefined {
   const extract = (obj: unknown): string | undefined => {
-    if (!obj || typeof obj !== "object") return undefined;
+    if (!obj || typeof obj !== "object") {
+      return undefined;
+    }
     const rec = obj as Record<string, unknown>;
     const data = rec["data"];
     if (data && typeof data === "object") {
       const drec = data as Record<string, unknown>;
       const ufs = drec["ufsUrl"];
-      if (typeof ufs === "string") return ufs;
+      if (typeof ufs === "string") {
+        return ufs;
+      }
       const url = drec["url"];
-      if (typeof url === "string") return url;
+      if (typeof url === "string") {
+        return url;
+      }
     }
     const ufs = rec["ufsUrl"];
-    if (typeof ufs === "string") return ufs;
+    if (typeof ufs === "string") {
+      return ufs;
+    }
     const url = rec["url"];
-    if (typeof url === "string") return url;
+    if (typeof url === "string") {
+      return url;
+    }
     return undefined;
   };
 
   if (Array.isArray(result)) {
     for (const item of result) {
       const found = extract(item);
-      if (found) return found;
+      if (found) {
+        return found;
+      }
     }
     return undefined;
   }
@@ -69,7 +81,7 @@ function getUploadThingUrlFromResult(result: unknown): string | undefined {
 
 function detectDocumentIntent(
   text: string,
-  autoDocumentGeneration: boolean,
+  autoDocumentGeneration: boolean
 ): { documentCandidate: boolean; suggestedFormat: "docx" | "pdf" } {
   if (!autoDocumentGeneration) {
     return { documentCandidate: false, suggestedFormat: "docx" };
@@ -116,7 +128,7 @@ export function getStreamContext() {
     } catch (error: any) {
       if (error.message.includes("REDIS_URL")) {
         console.log(
-          " > Resumable streams are disabled due to missing REDIS_URL",
+          " > Resumable streams are disabled due to missing REDIS_URL"
         );
       } else {
         console.error("Resumable stream context error:", error);
@@ -160,11 +172,11 @@ export async function POST(req: Request) {
       .map((part) => part.text)
       .join("\n")
       .trim()
-      .slice(0, 10000);
+      .slice(0, 10_000);
 
     const documentIntent = detectDocumentIntent(
       latestUserText,
-      autoDocumentGeneration,
+      autoDocumentGeneration
     );
 
     const session = await auth();
@@ -172,7 +184,7 @@ export async function POST(req: Request) {
     const existingChat = await getChatById({ id });
 
     if (!existingChat && session) {
-      const title = await generateTitleFromUserMessage({ message: message });
+      const title = await generateTitleFromUserMessage({ message });
       await saveChat({
         id,
         userId: session.user.id,
@@ -188,7 +200,7 @@ export async function POST(req: Request) {
         existingChat.title === "New chat" ||
         existingChat.title === message.parts[0].type.slice(0, 80)
       ) {
-        const title = await generateTitleFromUserMessage({ message: message });
+        const title = await generateTitleFromUserMessage({ message });
         await updateChatTitle({ id, title });
       }
     } else if (!session) {
@@ -239,7 +251,7 @@ export async function POST(req: Request) {
       execute: async ({ writer: dataStream }) => {
         try {
           const isImageModel = image_models.some(
-            (m) => m.id === selectedChatModel,
+            (m) => m.id === selectedChatModel
           );
 
           if (isImageModel) {
@@ -249,7 +261,7 @@ export async function POST(req: Request) {
               .map((p) => p.text)
               .join("\n")
               .trim()
-              .slice(0, 10000); // Allow longer prompts for image generation
+              .slice(0, 10_000); // Allow longer prompts for image generation
 
             try {
               // Use OpenRouter API for image generation
@@ -275,7 +287,7 @@ export async function POST(req: Request) {
                     ],
                     modalities: ["image", "text"],
                   }),
-                },
+                }
               );
 
               if (!response.ok) {
@@ -284,13 +296,13 @@ export async function POST(req: Request) {
 
                 if (response.status === 429) {
                   throw new Error(
-                    "Rate limit exceeded. Please try again later.",
+                    "Rate limit exceeded. Please try again later."
                   );
                 }
 
                 throw new Error(
                   (errorData as { error?: { message?: string } })?.error
-                    ?.message || `OpenRouter API error: ${response.status}`,
+                    ?.message || `OpenRouter API error: ${response.status}`
                 );
               }
 
@@ -357,7 +369,7 @@ export async function POST(req: Request) {
               if (!imageDataUrl) {
                 console.error(
                   "No image data found in response:",
-                  JSON.stringify(result, null, 2),
+                  JSON.stringify(result, null, 2)
                 );
                 throw new Error("No image was generated");
               }
@@ -369,7 +381,7 @@ export async function POST(req: Request) {
               if (imageDataUrl.startsWith("data:")) {
                 // Extract base64 and mime type from data URL
                 const dataUrlMatch = imageDataUrl.match(
-                  /^data:(image\/[^;]+);base64,(.+)$/,
+                  /^data:(image\/[^;]+);base64,(.+)$/
                 );
                 if (!dataUrlMatch) {
                   throw new Error("Invalid image data URL format");
@@ -384,7 +396,7 @@ export async function POST(req: Request) {
                 try {
                   fs.writeFileSync(
                     fileName,
-                    Buffer.from(imageBase64, "base64"),
+                    Buffer.from(imageBase64, "base64")
                   );
                   const buffer = await fs.promises.readFile(fileName);
                   const uint8 = new Uint8Array(buffer);
@@ -405,7 +417,7 @@ export async function POST(req: Request) {
                   const imageResponse = await fetch(imageDataUrl);
                   if (!imageResponse.ok) {
                     throw new Error(
-                      `Failed to fetch image: ${imageResponse.status}`,
+                      `Failed to fetch image: ${imageResponse.status}`
                     );
                   }
 
@@ -431,7 +443,7 @@ export async function POST(req: Request) {
                 } catch (downloadErr) {
                   console.error(
                     "Failed to download/upload external image:",
-                    downloadErr,
+                    downloadErr
                   );
                   // Fallback to using the external URL directly
                   uploadedUrl = imageDataUrl;
@@ -451,7 +463,7 @@ export async function POST(req: Request) {
                 parts: [
                   {
                     type: "file",
-                    mediaType: mediaType,
+                    mediaType,
                     name: "generated-image",
                     url: uploadedUrl,
                   },
@@ -591,7 +603,7 @@ export async function POST(req: Request) {
           // If the image assistant message wasn't captured, persist it explicitly
           if (fallbackImageAssistantMessage) {
             const alreadyIncluded = toSave.some(
-              (m) => m.id === fallbackImageAssistantMessage!.id,
+              (m) => m.id === fallbackImageAssistantMessage!.id
             );
 
             if (!alreadyIncluded) {

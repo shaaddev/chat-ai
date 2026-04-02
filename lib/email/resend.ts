@@ -12,7 +12,7 @@ export const magic_link_message = async (email: string, url: string) => {
     await resend.emails.send({
       from: "chat <chat@shaaddev.com>",
       to: [email],
-      subject: `Magic Link Verification`,
+      subject: "Magic Link Verification",
       react: React.createElement(MagicLinkEmail, {
         email: email as string,
         link: url as string,
@@ -25,7 +25,7 @@ export const magic_link_message = async (email: string, url: string) => {
   } catch (error) {
     return {
       success: false,
-      error: error,
+      error,
     };
   }
 };
@@ -35,7 +35,7 @@ export const email_otp_message = async (email: string, pin: string) => {
     await resend.emails.send({
       from: "chat <chat@shaaddev.com>",
       to: [email],
-      subject: `One-Time Password Verification`,
+      subject: "One-Time Password Verification",
       react: React.createElement(OtpEmail, {
         email: email as string,
         pin: pin as string,
@@ -48,7 +48,7 @@ export const email_otp_message = async (email: string, pin: string) => {
   } catch (error) {
     return {
       success: false,
-      error: error,
+      error,
     };
   }
 };

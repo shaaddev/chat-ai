@@ -1,9 +1,9 @@
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
-import { Chat } from "@/components/chat";
-import { getChatById, getMessagesByChatId } from "@/lib/convex/queries";
-import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
 import { auth } from "@/app/auth";
+import { Chat } from "@/components/chat";
+import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
+import { getChatById, getMessagesByChatId } from "@/lib/convex/queries";
 import { convertToUIMessages } from "@/lib/utils";
 
 export default async function Page(props: { params: Promise<{ id: string }> }) {
@@ -33,13 +33,13 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
 
   if (!modelIdFromCookie) {
     return (
-      <div className="flex flex-col min-h-screen w-full">
+      <div className="flex min-h-screen w-full flex-col">
         <Chat
           id={chat.id}
           initialChatModel={DEFAULT_CHAT_MODEL}
           initialMessages={uiMessages}
-          session={session}
           initialSystemPrompt={initialSystemPrompt}
+          session={session}
         />
       </div>
     );
@@ -50,8 +50,8 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
         id={chat.id}
         initialChatModel={modelIdFromCookie.value}
         initialMessages={uiMessages}
-        session={session}
         initialSystemPrompt={initialSystemPrompt}
+        session={session}
       />
     </>
   );

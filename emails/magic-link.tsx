@@ -21,10 +21,10 @@ export default function MagicLinkEmail({ email, link }: MagicLinkProps) {
     <Html>
       <Head />
       <Tailwind>
-        <Body className="bg-[#f5f5f5] font-sans p-10">
-          <Container className="border border-black  shadow-md rounded-lg px-5 py-2">
+        <Body className="bg-[#f5f5f5] p-10 font-sans">
+          <Container className="rounded-lg border border-black px-5 py-2 shadow-md">
             <Section className="flex items-center justify-center">
-              <Text className="text-lg font-medium text-center">
+              <Text className="text-center font-medium text-lg">
                 Verify your email to sign-in to{" "}
                 <span className="font-bold">Chat - Shaaddev</span>
               </Text>
@@ -35,15 +35,15 @@ export default function MagicLinkEmail({ email, link }: MagicLinkProps) {
               <Text>To complete the sign-in process; click the link below</Text>
               <Section className="flex items-center justify-center">
                 <Button
-                  className="text-md font-bold rounded-xl py-3 px-5 bg-neutral-900 text-slate-50 text-center"
+                  className="rounded-xl bg-neutral-900 px-5 py-3 text-center font-bold text-md text-slate-50"
                   href={`${link}`}
                 >
                   Open Chat
                 </Button>
               </Section>
             </Section>
-            <Hr className="border-[#cccccc] mt-5" />
-            <Text className="text-[#8898aa] leading-7 text-xs text-center">
+            <Hr className="mt-5 border-[#cccccc]" />
+            <Text className="text-center text-[#8898aa] text-xs leading-7">
               If you {"didn't"} attempt to sign-in but received this email,
               please ignore this email.
             </Text>

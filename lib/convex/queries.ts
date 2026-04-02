@@ -1,30 +1,30 @@
 import "server-only";
 
-import { convex, api } from "./server";
 import type { Id } from "@/convex/_generated/dataModel";
+import { api, convex } from "./server";
 
 // Convex document shapes (matching the schema)
 interface ConvexChatDoc {
-  _id: Id<"chats">;
   _creationTime: number;
+  _id: Id<"chats">;
   clientId?: string;
+  createdAt: number;
+  systemPrompt?: string;
   title: string;
+  updatedAt: number;
   userId: string;
   visibility: "public" | "private";
-  systemPrompt?: string;
-  createdAt: number;
-  updatedAt: number;
 }
 
 interface ConvexMessageDoc {
-  _id: Id<"messages">;
   _creationTime: number;
-  chatId: Id<"chats">;
-  role: string;
-  parts: unknown;
+  _id: Id<"messages">;
   attachments: unknown;
+  chatId: Id<"chats">;
   createdAt: number;
   model?: string;
+  parts: unknown;
+  role: string;
 }
 
 // Types that match the old Drizzle schema types
@@ -52,7 +52,9 @@ export type Message = {
 
 // Helper to convert Convex doc to the expected shape
 function convertChat(doc: ConvexChatDoc | null): Chat | null {
-  if (!doc) return null;
+  if (!doc) {
+    return null;
+  }
   return {
     _id: doc._id,
     id: doc.clientId || doc._id, // Use clientId if available, otherwise Convex ID
@@ -93,7 +95,7 @@ export async function saveChat({
   const chatId = await convex.mutation(api.chats.create, {
     clientId: id,
     title,
-    userId: userId, // Better Auth user ID (string)
+    userId, // Better Auth user ID (string)
     systemPrompt,
   });
   return chatId;
@@ -137,7 +139,9 @@ export async function saveMessages({
     model?: string | null;
   }>;
 }) {
-  if (messages.length === 0) return [];
+  if (messages.length === 0) {
+    return [];
+  }
 
   const clientChatId = messages[0].chatId;
   const convexMessages = messages.map((m) => ({

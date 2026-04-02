@@ -2,8 +2,8 @@
 
 import { useCallback, useSyncExternalStore } from "react";
 import {
-  type AccentColor,
   ACCENT_STORAGE_KEY,
+  type AccentColor,
   DEFAULT_ACCENT,
   setAccentColor as setAccentColorUtil,
 } from "@/lib/theme";
@@ -31,7 +31,7 @@ export function useAccentColor() {
   const accentColor = useSyncExternalStore(
     subscribe,
     getSnapshot,
-    getServerSnapshot,
+    getServerSnapshot
   );
 
   const setAccentColor = useCallback((color: AccentColor) => {

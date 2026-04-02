@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getChatsByUserId } from "@/lib/convex/queries";
 import { auth } from "@/app/auth";
+import { getChatsByUserId } from "@/lib/convex/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +17,7 @@ export async function GET() {
     console.error("Failed to fetch chats: ", error);
     return NextResponse.json(
       { error: "Failed to fetch chats" },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

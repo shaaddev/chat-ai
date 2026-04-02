@@ -1,8 +1,8 @@
 import { cookies } from "next/headers";
+import { auth } from "@/app/auth";
 import { Chat } from "@/components/chat";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
 import { generateUUID } from "@/lib/utils";
-import { auth } from "@/app/auth";
 
 export default async function Page() {
   const id = generateUUID();
@@ -13,7 +13,7 @@ export default async function Page() {
 
   if (!modelIdFromCookie) {
     return (
-      <div className="flex flex-col min-h-screen w-full">
+      <div className="flex min-h-screen w-full flex-col">
         <Chat
           id={id}
           initialChatModel={DEFAULT_CHAT_MODEL}
@@ -25,7 +25,7 @@ export default async function Page() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen w-full">
+    <div className="flex min-h-screen w-full flex-col">
       <Chat
         id={id}
         initialChatModel={modelIdFromCookie.value}

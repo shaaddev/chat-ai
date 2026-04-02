@@ -1,6 +1,6 @@
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { customProvider } from "ai";
 import { FlaskConical, Image, Info, type LucideIcon } from "lucide-react";
-import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 
 const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
@@ -61,17 +61,17 @@ export type ModelCapability =
   | "code";
 
 export interface model_selection {
-  id: string;
-  name: string;
-  icon: LucideIcon;
-  image?: LucideIcon;
-  unstable?: LucideIcon;
-  provider: ModelProvider;
-  description: string;
-  contextWindow: string;
-  inputPrice: string;
-  outputPrice: string;
   capabilities: ModelCapability[];
+  contextWindow: string;
+  description: string;
+  icon: LucideIcon;
+  id: string;
+  image?: LucideIcon;
+  inputPrice: string;
+  name: string;
+  outputPrice: string;
+  provider: ModelProvider;
+  unstable?: LucideIcon;
 }
 
 export const stable_models: model_selection[] = [

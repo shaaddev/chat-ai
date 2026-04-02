@@ -25,10 +25,10 @@ export default function OtpEmail({
     <Html>
       <Head />
       <Tailwind>
-        <Body className="bg-[#f5f5f5] font-sans p-10 mx-auto my-auto">
-          <Container className="border border-black bg-white shadow-md rounded-lg px-5 py-2 mx-auto max-w-lg">
+        <Body className="mx-auto my-auto bg-[#f5f5f5] p-10 font-sans">
+          <Container className="mx-auto max-w-lg rounded-lg border border-black bg-white px-5 py-2 shadow-md">
             <Section className="text-center">
-              <Text className="text-lg font-medium text-center">
+              <Text className="text-center font-medium text-lg">
                 Your verification code for{" "}
                 <span className="font-bold">Chat - Shaaddev</span>
               </Text>
@@ -40,18 +40,18 @@ export default function OtpEmail({
                 Use the one-time password (OTP) below to complete your sign in:
               </Text>
               <Section className="mt-5 text-center">
-                <Text className="tracking-widest text-3xl font-bold font-mono bg-neutral-200 text-black rounded-xl px-6 py-3">
+                <Text className="rounded-xl bg-neutral-200 px-6 py-3 font-bold font-mono text-3xl text-black tracking-widest">
                   {pin}
                 </Text>
               </Section>
-              <Text className="text-xs text-center text-[#8898aa]">
+              <Text className="text-center text-[#8898aa] text-xs">
                 This code expires in {expiresInMinutes} minutes. If you
                 didn&apos;t request it, you can ignore this email.
               </Text>
             </Section>
 
-            <Hr className="border-[#cccccc] mt-5" />
-            <Text className="text-[#8898aa] leading-7 text-xs text-center">
+            <Hr className="mt-5 border-[#cccccc]" />
+            <Text className="text-center text-[#8898aa] text-xs leading-7">
               For your security, never share this code with anyone.
             </Text>
           </Container>

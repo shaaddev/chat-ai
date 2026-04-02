@@ -7,12 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 interface ProfileFormProps {
-  profileImage: string | null;
-  handleSubmit: (e: React.FormEvent) => void;
-  handleImageUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  fullName: string;
   email: string;
+  fullName: string;
+  handleImageUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  handleSubmit: (e: React.FormEvent) => void;
   isPending: boolean;
+  profileImage: string | null;
 }
 
 export function ProfileForm({
@@ -31,27 +31,27 @@ export function ProfileForm({
   }, [fullName, email, setValue]);
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form className="space-y-6" onSubmit={handleSubmit}>
       <div className="flex flex-col items-center space-y-4">
         <Avatar className="h-24 w-24">
-          <AvatarImage src={profileImage || ""} alt="Profile picture" />
+          <AvatarImage alt="Profile picture" src={profileImage || ""} />
           <AvatarFallback className="bg-muted">
             <UserIcon className="h-12 w-12 text-muted-foreground" />
           </AvatarFallback>
         </Avatar>
         <div className="flex flex-col items-center space-y-2">
           <Label
+            className="cursor-pointer font-medium text-primary text-sm transition-colors hover:text-primary/80"
             htmlFor="picture"
-            className="cursor-pointer text-sm font-medium text-primary hover:text-primary/80 transition-colors"
           >
             Change profile picture
           </Label>
           <Input
-            id="picture"
-            type="file"
             accept="image/*"
             className="hidden"
+            id="picture"
             onChange={handleImageUpload}
+            type="file"
           />
         </div>
       </div>
@@ -59,10 +59,10 @@ export function ProfileForm({
       <div className="space-y-2">
         <Label htmlFor="new_fullName">Full Name</Label>
         <Input
+          className="rounded-xl"
           id="new_fullName"
           placeholder="Your name"
           required
-          className="rounded-xl"
           {...register("new_fullName", { required: true })}
         />
       </div>
@@ -70,23 +70,19 @@ export function ProfileForm({
       <div className="space-y-2">
         <Label htmlFor="new_email">Email</Label>
         <Input
-          id="new_email"
-          type="email"
-          placeholder="you@example.com"
-          className="rounded-xl bg-muted cursor-not-allowed"
+          className="cursor-not-allowed rounded-xl bg-muted"
           disabled
+          id="new_email"
+          placeholder="you@example.com"
+          type="email"
           {...register("new_email")}
         />
-        <p className="text-xs text-muted-foreground">
+        <p className="text-muted-foreground text-xs">
           Email cannot be changed from this page.
         </p>
       </div>
 
-      <Button
-        type="submit"
-        className="rounded-xl"
-        disabled={isPending}
-      >
+      <Button className="rounded-xl" disabled={isPending} type="submit">
         {isPending ? "Updating..." : "Update Profile"}
       </Button>
     </form>

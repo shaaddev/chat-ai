@@ -2,7 +2,7 @@ import { spawn } from "child_process";
 import { auth } from "@/app/auth";
 
 const TIMEOUT_MS = 5000;
-const MAX_OUTPUT = 10000;
+const MAX_OUTPUT = 10_000;
 
 function truncate(str: string) {
   return str.length > MAX_OUTPUT
@@ -52,7 +52,7 @@ export async function POST(req: Request) {
         stderr: `Unsupported language: ${language}. Supported: javascript, typescript, python.`,
         exitCode: 1,
       },
-      { status: 200 },
+      { status: 200 }
     );
   }
 
@@ -76,31 +76,37 @@ export async function POST(req: Request) {
     });
 
     proc.on("close", (exitCode) => {
-      if (resolved) return;
+      if (resolved) {
+        return;
+      }
       resolved = true;
       resolve(
         Response.json({
           stdout: truncate(stdout),
           stderr: truncate(stderr),
           exitCode: exitCode ?? 1,
-        }),
+        })
       );
     });
 
     proc.on("error", (err) => {
-      if (resolved) return;
+      if (resolved) {
+        return;
+      }
       resolved = true;
       resolve(
         Response.json({
           stdout: "",
           stderr: err.message,
           exitCode: 1,
-        }),
+        })
       );
     });
 
     setTimeout(() => {
-      if (resolved) return;
+      if (resolved) {
+        return;
+      }
       resolved = true;
       try {
         proc.kill("SIGKILL");
@@ -110,7 +116,7 @@ export async function POST(req: Request) {
           stdout: truncate(stdout),
           stderr: truncate(stderr + "\nExecution timed out (5s limit)"),
           exitCode: 124,
-        }),
+        })
       );
     }, TIMEOUT_MS + 500);
   });

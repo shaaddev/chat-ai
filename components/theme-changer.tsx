@@ -9,8 +9,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ACCENT_COLORS, ACCENT_SWATCHES, type AccentColor } from "@/lib/theme";
 import { useAccentColor } from "@/hooks/use-accent-color";
+import { ACCENT_COLORS, ACCENT_SWATCHES, type AccentColor } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
 const modes = [
@@ -34,21 +34,21 @@ export function ThemeChanger() {
       <CardContent className="space-y-8">
         {/* Mode */}
         <div className="space-y-3">
-          <label className="text-sm font-medium text-foreground">Mode</label>
+          <label className="font-medium text-foreground text-sm">Mode</label>
           <div className="grid grid-cols-3 gap-2">
             {modes.map((mode) => (
               <button
-                key={mode.value}
-                onClick={() => setTheme(mode.value)}
                 className={cn(
-                  "flex flex-col items-center gap-1.5 rounded-xl px-3 py-3 text-sm transition-all cursor-pointer border",
+                  "flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border px-3 py-3 text-sm transition-all",
                   theme === mode.value
                     ? "border-foreground/20 bg-accent text-foreground"
-                    : "border-transparent text-muted-foreground hover:text-foreground hover:bg-accent/50",
+                    : "border-transparent text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                 )}
+                key={mode.value}
+                onClick={() => setTheme(mode.value)}
               >
                 <mode.icon className="size-5" />
-                <span className="text-xs font-medium">{mode.label}</span>
+                <span className="font-medium text-xs">{mode.label}</span>
               </button>
             ))}
           </div>
@@ -56,23 +56,21 @@ export function ThemeChanger() {
 
         {/* Accent */}
         <div className="space-y-3">
-          <label className="text-sm font-medium text-foreground">
-            Accent
-          </label>
+          <label className="font-medium text-foreground text-sm">Accent</label>
           <div className="flex flex-wrap gap-3">
             {ACCENT_COLORS.map((color) => (
               <button
+                className="group flex cursor-pointer flex-col items-center gap-1.5"
                 key={color.value}
                 onClick={() => setAccentColor(color.value)}
-                className="group flex flex-col items-center gap-1.5 cursor-pointer"
                 title={color.name}
               >
                 <div
                   className={cn(
                     "size-8 rounded-full transition-all",
                     accentColor === color.value
-                      ? "ring-2 ring-foreground ring-offset-2 ring-offset-background scale-110"
-                      : "hover:scale-105 opacity-70 hover:opacity-100",
+                      ? "scale-110 ring-2 ring-foreground ring-offset-2 ring-offset-background"
+                      : "opacity-70 hover:scale-105 hover:opacity-100"
                   )}
                   style={{
                     backgroundColor:
@@ -83,8 +81,8 @@ export function ThemeChanger() {
                   className={cn(
                     "text-[10px]",
                     accentColor === color.value
-                      ? "text-foreground font-medium"
-                      : "text-muted-foreground/60",
+                      ? "font-medium text-foreground"
+                      : "text-muted-foreground/60"
                   )}
                 >
                   {color.name}

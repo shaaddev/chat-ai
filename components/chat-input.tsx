@@ -35,24 +35,24 @@ import { ModelsPopover } from "./models-popover";
 import { PreviewAttachment } from "./preview-attachment";
 
 interface ChatInputProps {
-  setInput: Dispatch<SetStateAction<string>>;
-  input: string;
-  sendMessage: UseChatHelpers<ChatMessage>["sendMessage"];
-  stop: () => void;
-  status: UseChatHelpers<ChatMessage>["status"];
-  chatId: string | undefined;
-  initialChatModel: string;
   attachments: Array<Attachment>;
-  setAttachments: Dispatch<SetStateAction<Array<Attachment>>>;
-  isAuthenticated?: boolean;
-  setMessages: UseChatHelpers<ChatMessage>["setMessages"];
-  useSearch: boolean;
-  setUseSearch: Dispatch<SetStateAction<boolean>>;
   autoDocumentGeneration: boolean;
-  setAutoDocumentGeneration: Dispatch<SetStateAction<boolean>>;
+  chatId: string | undefined;
   clearChatInputState: (chatId: string) => void;
   customSystemPrompt?: string;
+  initialChatModel: string;
+  input: string;
+  isAuthenticated?: boolean;
+  sendMessage: UseChatHelpers<ChatMessage>["sendMessage"];
+  setAttachments: Dispatch<SetStateAction<Array<Attachment>>>;
+  setAutoDocumentGeneration: Dispatch<SetStateAction<boolean>>;
   setCustomSystemPrompt: Dispatch<SetStateAction<string | undefined>>;
+  setInput: Dispatch<SetStateAction<string>>;
+  setMessages: UseChatHelpers<ChatMessage>["setMessages"];
+  setUseSearch: Dispatch<SetStateAction<boolean>>;
+  status: UseChatHelpers<ChatMessage>["status"];
+  stop: () => void;
+  useSearch: boolean;
 }
 
 export function ChatInput({
@@ -80,7 +80,7 @@ export function ChatInput({
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [showSystemPromptDialog, setShowSystemPromptDialog] = useState(false);
   const [systemPromptDraft, setSystemPromptDraft] = useState(
-    customSystemPrompt ?? "",
+    customSystemPrompt ?? ""
   );
   const { addOptimisticChat, setChatLoading } = useChat();
   const [uploadQueue, setUploadQueue] = useState<Array<string>>([]);
@@ -119,7 +119,7 @@ export function ChatInput({
             },
           ],
         },
-        { body: { useSearch, customSystemPrompt, autoDocumentGeneration } },
+        { body: { useSearch, customSystemPrompt, autoDocumentGeneration } }
       );
     } catch (error) {
       setChatLoading(chatId!, false);
@@ -149,7 +149,9 @@ export function ChatInput({
 
   const adjustTextareaHeight = useCallback(() => {
     const textarea = textareaRef.current;
-    if (!textarea) return;
+    if (!textarea) {
+      return;
+    }
 
     textarea.style.height = "56px";
     const newHeight = Math.min(200, Math.max(56, textarea.scrollHeight));
@@ -171,53 +173,53 @@ export function ChatInput({
 
   return (
     <div className="relative">
-      <div className="rounded-2xl border border-border bg-card shadow-sm flex flex-col overflow-hidden transition-shadow focus-within:shadow-md focus-within:border-ring/30">
+      <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-shadow focus-within:border-ring/30 focus-within:shadow-md">
         {(attachments.length > 0 || uploadQueue.length > 0) && (
           <div
-            data-testid="attachments-preview"
             className="flex flex-row gap-2 overflow-x-auto p-3 pb-0"
+            data-testid="attachments-preview"
           >
             {attachments.map((attachment) => (
               <PreviewAttachment
-                key={attachment.url}
                 attachment={attachment}
                 className="size-20"
+                key={attachment.url}
               />
             ))}
             {uploadQueue.map((filename) => (
               <PreviewAttachment
-                key={filename}
                 attachment={{ url: "", name: filename, contentType: "" }}
-                isUploading={true}
                 className="size-20"
+                isUploading={true}
+                key={filename}
               />
             ))}
           </div>
         )}
 
         <textarea
-          ref={textareaRef}
-          value={input}
-          onChange={handleInput}
-          placeholder="Message..."
-          className="w-full resize-none bg-transparent border-0 focus:ring-0 text-[15px] text-foreground placeholder:text-muted-foreground/50 px-4 pt-3.5 pb-0 outline-hidden disabled:opacity-50"
-          rows={1}
           autoFocus
-          style={{ height: textareaHeight }}
+          className="w-full resize-none border-0 bg-transparent px-4 pt-3.5 pb-0 text-[15px] text-foreground outline-hidden placeholder:text-muted-foreground/50 focus:ring-0 disabled:opacity-50"
+          onChange={handleInput}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
               if (status !== "ready") {
                 toast.error(
-                  "Please wait for the model to finish its response!",
+                  "Please wait for the model to finish its response!"
                 );
-              } else if (!isAuthenticated) {
-                setShowLoginDialog(true);
-              } else {
+              } else if (isAuthenticated) {
                 submitForm();
+              } else {
+                setShowLoginDialog(true);
               }
             }
           }}
+          placeholder="Message..."
+          ref={textareaRef}
+          rows={1}
+          style={{ height: textareaHeight }}
+          value={input}
         />
 
         <div className="flex items-center justify-between px-3 py-2">
@@ -226,47 +228,47 @@ export function ChatInput({
             <Popover>
               <PopoverTrigger asChild>
                 <button
-                  type="button"
                   className={cn(
-                    "inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs transition-colors cursor-pointer",
+                    "inline-flex cursor-pointer items-center gap-1 rounded-lg px-2 py-1 text-xs transition-colors",
                     hasActiveSettings
-                      ? "text-foreground bg-muted"
-                      : "text-muted-foreground hover:text-foreground",
+                      ? "bg-muted text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
                   )}
+                  type="button"
                 >
                   <Settings2 className="size-3.5" />
                 </button>
               </PopoverTrigger>
               <PopoverContent
                 align="start"
+                className="w-64 border-border bg-popover p-0"
                 side="top"
                 sideOffset={8}
-                className="w-64 bg-popover border-border p-0"
               >
                 <div className="flex flex-col divide-y divide-border">
                   <div className="flex items-center justify-between px-3.5 py-2.5">
                     <Label
+                      className="cursor-pointer text-sm"
                       htmlFor="search-toggle"
-                      className="text-sm cursor-pointer"
                     >
                       Web Search
                     </Label>
                     <Switch
-                      id="search-toggle"
                       checked={useSearch}
+                      id="search-toggle"
                       onCheckedChange={(checked) => setUseSearch(checked)}
                     />
                   </div>
                   <div className="flex items-center justify-between px-3.5 py-2.5">
                     <Label
+                      className="cursor-pointer text-sm"
                       htmlFor="document-toggle"
-                      className="text-sm cursor-pointer"
                     >
                       Auto Document
                     </Label>
                     <Switch
-                      id="document-toggle"
                       checked={autoDocumentGeneration}
+                      id="document-toggle"
                       onCheckedChange={(checked) =>
                         setAutoDocumentGeneration(checked)
                       }
@@ -275,14 +277,14 @@ export function ChatInput({
                   <div className="flex flex-col gap-1.5 px-3.5 py-2.5">
                     <div className="flex items-center justify-between">
                       <Label
+                        className="cursor-pointer text-sm"
                         htmlFor="system-prompt-toggle"
-                        className="text-sm cursor-pointer"
                       >
                         Custom Prompt
                       </Label>
                       <Switch
-                        id="system-prompt-toggle"
                         checked={!!customSystemPrompt}
+                        id="system-prompt-toggle"
                         onCheckedChange={(checked) => {
                           if (checked) {
                             setSystemPromptDraft(customSystemPrompt ?? "");
@@ -306,12 +308,12 @@ export function ChatInput({
                     </div>
                     {customSystemPrompt && (
                       <button
-                        type="button"
+                        className="cursor-pointer truncate text-left text-muted-foreground text-xs transition-colors hover:text-foreground"
                         onClick={() => {
                           setSystemPromptDraft(customSystemPrompt ?? "");
                           setShowSystemPromptDialog(true);
                         }}
-                        className="text-xs text-muted-foreground hover:text-foreground text-left truncate transition-colors cursor-pointer"
+                        type="button"
                       >
                         {customSystemPrompt.slice(0, 50)}... — Edit
                       </button>
@@ -321,31 +323,31 @@ export function ChatInput({
               </PopoverContent>
             </Popover>
             <FileInput
-              uploadQueue={uploadQueue}
-              setUploadQueue={setUploadQueue}
-              setAttachments={setAttachments}
               isAuthenticated={isAuthenticated}
+              setAttachments={setAttachments}
               setShowLoginDialog={setShowLoginDialog}
+              setUploadQueue={setUploadQueue}
+              uploadQueue={uploadQueue}
             />
           </div>
 
           {status === "submitted" || status === "streaming" ? (
-            <StopButton stop={stop} setMessages={setMessages} />
+            <StopButton setMessages={setMessages} stop={stop} />
           ) : (
             <SendButton
               input={input}
-              uploadQueue={uploadQueue}
               submitForm={submitForm}
+              uploadQueue={uploadQueue}
             />
           )}
         </div>
       </div>
 
       <Dialog
-        open={showSystemPromptDialog}
         onOpenChange={setShowSystemPromptDialog}
+        open={showSystemPromptDialog}
       >
-        <DialogContent className="sm:max-w-lg bg-popover border-border">
+        <DialogContent className="border-border bg-popover sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Custom System Prompt</DialogTitle>
             <DialogDescription className="text-muted-foreground">
@@ -353,22 +355,21 @@ export function ChatInput({
             </DialogDescription>
           </DialogHeader>
           <textarea
-            value={systemPromptDraft}
+            className="min-h-[120px] w-full resize-y rounded-lg border border-border bg-muted p-3 text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             onChange={(e) => setSystemPromptDraft(e.target.value)}
             placeholder="You are a helpful assistant..."
-            className="w-full min-h-[120px] resize-y rounded-lg border border-border bg-muted p-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             rows={5}
+            value={systemPromptDraft}
           />
           <DialogFooter>
             <Button
+              onClick={() => setShowSystemPromptDialog(false)}
               type="button"
               variant="outline"
-              onClick={() => setShowSystemPromptDialog(false)}
             >
               Cancel
             </Button>
             <Button
-              type="button"
               onClick={() => {
                 const trimmed = systemPromptDraft.trim();
                 const newPrompt = trimmed || undefined;
@@ -384,9 +385,10 @@ export function ChatInput({
                 toast.success(
                   newPrompt
                     ? "Custom system prompt saved"
-                    : "System prompt reset to default",
+                    : "System prompt reset to default"
                 );
               }}
+              type="button"
             >
               Save
             </Button>
@@ -394,7 +396,7 @@ export function ChatInput({
         </DialogContent>
       </Dialog>
 
-      <LoginContent open={showLoginDialog} onOpenChange={setShowLoginDialog} />
+      <LoginContent onOpenChange={setShowLoginDialog} open={showLoginDialog} />
     </div>
   );
 }
@@ -408,8 +410,8 @@ function PureStopButton({
 }) {
   return (
     <button
+      className="flex size-8 cursor-pointer items-center justify-center rounded-lg bg-foreground transition-colors hover:bg-foreground/80"
       data-testid="stop-button"
-      className="size-8 rounded-lg bg-foreground flex items-center justify-center hover:bg-foreground/80 transition-colors cursor-pointer"
       onClick={(e) => {
         e.preventDefault();
         stop();
@@ -435,23 +437,23 @@ function PureSendButton({
   const enabled = input.trim().length > 0 && uploadQueue.length === 0;
   return (
     <button
-      type="submit"
       className={cn(
-        "size-8 rounded-lg flex items-center justify-center transition-colors cursor-pointer",
+        "flex size-8 cursor-pointer items-center justify-center rounded-lg transition-colors",
         enabled
           ? "bg-foreground hover:bg-foreground/80"
-          : "bg-muted cursor-default",
+          : "cursor-default bg-muted"
       )}
       disabled={!enabled}
       onClick={(e) => {
         e.preventDefault();
         submitForm();
       }}
+      type="submit"
     >
       <ArrowUp
         className={cn(
           "size-4",
-          enabled ? "text-background" : "text-muted-foreground/50",
+          enabled ? "text-background" : "text-muted-foreground/50"
         )}
       />
     </button>

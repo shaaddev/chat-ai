@@ -1,13 +1,13 @@
 "use node";
 
-import { v } from "convex/values";
-import { action, internalAction } from "./_generated/server";
-import { components } from "./_generated/api";
 import { Resend } from "@convex-dev/resend";
-import * as ReactDOMServer from "react-dom/server";
-import OtpEmail from "../emails/otp-link";
-import MagicLinkEmail from "../emails/magic-link";
+import { v } from "convex/values";
 import React from "react";
+import * as ReactDOMServer from "react-dom/server";
+import MagicLinkEmail from "../emails/magic-link";
+import OtpEmail from "../emails/otp-link";
+import { components } from "./_generated/api";
+import { action, internalAction } from "./_generated/server";
 
 // Initialize Resend component
 export const resend = new Resend(components.resend, {
@@ -30,7 +30,7 @@ export const sendOtpEmail = internalAction({
       React.createElement(OtpEmail, {
         email: args.to,
         pin: args.otp,
-      }),
+      })
     );
 
     await resend.sendEmail(ctx, {
@@ -53,7 +53,7 @@ export const sendMagicLinkEmail = internalAction({
       React.createElement(MagicLinkEmail, {
         email: args.to,
         link: args.link,
-      }),
+      })
     );
 
     await resend.sendEmail(ctx, {
@@ -85,7 +85,7 @@ export const sendCustomEmail = action({
         React.createElement(OtpEmail, {
           email: args.data.email,
           pin: args.data.pin,
-        }),
+        })
       );
     } else if (
       args.template === "magic-link" &&
@@ -96,7 +96,7 @@ export const sendCustomEmail = action({
         React.createElement(MagicLinkEmail, {
           email: args.data.email,
           link: args.data.link,
-        }),
+        })
       );
     } else {
       throw new Error("Invalid template or missing data");

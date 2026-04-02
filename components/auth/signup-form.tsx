@@ -70,7 +70,7 @@ export function SignupForm({
           }
         } else {
           setErrorMessage(
-            signUpResult.error.message || "Failed to create account",
+            signUpResult.error.message || "Failed to create account"
           );
           return;
         }
@@ -82,7 +82,7 @@ export function SignupForm({
 
         if (otpResult.error) {
           setErrorMessage(
-            otpResult.error.message || "Failed to send verification code",
+            otpResult.error.message || "Failed to send verification code"
           );
           return;
         }
@@ -104,11 +104,18 @@ export function SignupForm({
 
   return (
     <div className="w-full">
-      {!isOtpStep ? (
+      {isOtpStep ? (
+        <div className="space-y-6">
+          <p className="text-center text-muted-foreground text-sm">
+            We&apos;ve sent a verification code to {submittedEmail}.
+          </p>
+          <OTPForm email={submittedEmail} isSignUp={true} />
+        </div>
+      ) : (
         <Form {...form}>
           <form
-            onSubmit={form.handleSubmit(onSubmit)}
             className="space-y-4 text-center"
+            onSubmit={form.handleSubmit(onSubmit)}
           >
             <FormField
               control={form.control}
@@ -144,31 +151,24 @@ export function SignupForm({
               )}
             />
             <Button
-              type="submit"
-              className="w-full bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 mt-4"
+              className="mt-4 w-full rounded-xl bg-primary text-primary-foreground hover:bg-primary/90"
               disabled={isPending}
+              type="submit"
             >
               {isPending ? "Creating Account..." : "Create Account"}
             </Button>
           </form>
         </Form>
-      ) : (
-        <div className="space-y-6">
-          <p className="text-sm text-muted-foreground text-center">
-            We&apos;ve sent a verification code to {submittedEmail}.
-          </p>
-          <OTPForm email={submittedEmail} isSignUp={true} />
-        </div>
       )}
 
       {errorMessage && (
-        <div className="mt-4 p-4 bg-destructive/10 border border-destructive/20 rounded-xl animate-in fade-in slide-in-from-bottom-2 duration-500">
+        <div className="fade-in slide-in-from-bottom-2 mt-4 animate-in rounded-xl border border-destructive/20 bg-destructive/10 p-4 duration-500">
           <div className="flex">
             <div className="flex-shrink-0">
               <AlertCircle className="h-5 w-5 text-destructive" />
             </div>
             <div className="ml-3">
-              <p className="text-sm font-medium text-destructive">
+              <p className="font-medium text-destructive text-sm">
                 {errorMessage}
               </p>
             </div>
@@ -177,23 +177,23 @@ export function SignupForm({
       )}
 
       {successMessage && (
-        <div className="mt-4 p-4 bg-green-500/10 border border-green-500/20 rounded-xl animate-in fade-in slide-in-from-bottom-2 duration-500">
+        <div className="fade-in slide-in-from-bottom-2 mt-4 animate-in rounded-xl border border-green-500/20 bg-green-500/10 p-4 duration-500">
           <div className="flex">
             <div className="shrink-0">
               <svg
                 className="h-5 w-5 text-green-500"
-                viewBox="0 0 20 20"
                 fill="currentColor"
+                viewBox="0 0 20 20"
               >
                 <path
-                  fillRule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
                   clipRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                  fillRule="evenodd"
                 />
               </svg>
             </div>
             <div className="ml-3">
-              <p className="text-sm font-medium text-green-500">
+              <p className="font-medium text-green-500 text-sm">
                 {successMessage}
               </p>
             </div>

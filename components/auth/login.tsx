@@ -13,13 +13,13 @@ export function Login() {
 
   return (
     <div className="w-full space-y-8">
-      <div className="flex flex-col w-full">
-        <div className="flex items-center justify-between mb-6">
+      <div className="flex w-full flex-col">
+        <div className="mb-6 flex items-center justify-between">
           <Button
-            variant="ghost"
-            size="sm"
+            className="flex items-center p-0 px-2 text-muted-foreground hover:bg-accent hover:text-foreground"
             onClick={() => router.push("/")}
-            className="flex items-center text-muted-foreground hover:text-foreground p-0 hover:bg-accent px-2"
+            size="sm"
+            variant="ghost"
           >
             <ArrowLeft className="size-4" />
             Back to Home
@@ -27,12 +27,12 @@ export function Login() {
         </div>
 
         {!isOtpStep && (
-          <p className="mt-2 text-sm text-muted-foreground text-center">
+          <p className="mt-2 text-center text-muted-foreground text-sm">
             {isLogin ? "Don't have an account?" : "Already have an account?"}
             <Button
+              className="mb-10 ml-1 text-primary hover:text-primary/80 hover:underline"
               onClick={() => setIsLogin(!isLogin)}
               variant="link"
-              className="text-primary hover:text-primary/80 hover:underline ml-1 mb-10"
             >
               {isLogin ? "Sign up" : "Login"}
             </Button>

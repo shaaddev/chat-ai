@@ -1,6 +1,6 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
+import { mutation, query } from "./_generated/server";
 
 export const create = mutation({
   args: {
@@ -38,7 +38,7 @@ export const createMany = mutation({
         parts: v.any(),
         attachments: v.any(),
         model: v.optional(v.string()),
-      }),
+      })
     ),
   },
   handler: async (ctx, args) => {
@@ -110,7 +110,7 @@ export const createManyByClientChatId = mutation({
         parts: v.any(),
         attachments: v.any(),
         model: v.optional(v.string()),
-      }),
+      })
     ),
   },
   handler: async (ctx, args) => {

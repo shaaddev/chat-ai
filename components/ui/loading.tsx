@@ -18,10 +18,10 @@ export function Loading({ className, size = "md", text }: LoadingProps) {
       <div
         className={cn(
           "animate-spin rounded-full border-2 border-muted border-t-foreground",
-          sizeClasses[size],
+          sizeClasses[size]
         )}
       />
-      {text && <span className="text-sm text-muted-foreground">{text}</span>}
+      {text && <span className="text-muted-foreground text-sm">{text}</span>}
     </div>
   );
 }
@@ -41,29 +41,27 @@ export function LoadingSpinner({
       className={cn(
         "animate-spin rounded-full border-2 border-muted border-t-foreground",
         sizeClasses[size],
-        className,
+        className
       )}
     />
   );
 }
 
 export function LoadingSkeleton({ className }: { className?: string }) {
-  return (
-    <div className={cn("animate-pulse bg-muted rounded", className)} />
-  );
+  return <div className={cn("animate-pulse rounded bg-muted", className)} />;
 }
 
 export function ChatLoadingSkeleton() {
   return (
     <div className="flex flex-col space-y-4 p-4">
       <div className="flex items-center space-x-3">
-        <div className="w-8 h-8 bg-muted rounded-full animate-pulse" />
-        <div className="h-4 bg-muted rounded w-24 animate-pulse" />
+        <div className="h-8 w-8 animate-pulse rounded-full bg-muted" />
+        <div className="h-4 w-24 animate-pulse rounded bg-muted" />
       </div>
       <div className="space-y-2">
-        <div className="h-4 bg-muted rounded w-full animate-pulse" />
-        <div className="h-4 bg-muted rounded w-3/4 animate-pulse" />
-        <div className="h-4 bg-muted rounded w-1/2 animate-pulse" />
+        <div className="h-4 w-full animate-pulse rounded bg-muted" />
+        <div className="h-4 w-3/4 animate-pulse rounded bg-muted" />
+        <div className="h-4 w-1/2 animate-pulse rounded bg-muted" />
       </div>
     </div>
   );

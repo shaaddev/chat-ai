@@ -1,0 +1,46 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "extends": ["ultracite/biome/core", "ultracite/biome/next"],
+  "files": {
+    "includes": [
+      "**/*",
+      "!apps/web/components/ui",
+      "!apps/web/lib/utils.ts",
+      "!apps/web/hooks/use-mobile.ts",
+      "!packages/backend/convex/**/*"
+    ]
+  },
+  "linter": {
+    "rules": {
+      "suspicious": {
+        "noExplicitAny": "off",
+        "noUnknownAtRules": "off",
+        "noConsole": "off",
+        "noBitwiseOperators": "off",
+        "useAwait": "off",
+        "noEvolvingTypes": "off",
+        "noArrayIndexKey": "off", // temp: we may take this back on later
+        "noImplicitAnyLet": "off"
+      },
+      "correctness": {
+        "noUnusedVariables": "off", // temp: we may take this back on later
+        "noUnusedImports": "off"
+      },
+      "style": {
+        "noMagicNumbers": "off",
+        "noNestedTernary": "off",
+        "useCollapsedElseIf": "off"
+      },
+      "nursery": {
+        "noUnnecessaryConditions": "off"
+      },
+      "complexity": {
+        "noExcessiveCognitiveComplexity": "off",
+        "useSimplifiedLogicExpression": "off"
+      },
+      "a11y": {
+        "noSvgWithoutTitle": "off"
+      }
+    }
+  }
+}

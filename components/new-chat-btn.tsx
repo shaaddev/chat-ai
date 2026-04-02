@@ -16,12 +16,12 @@ export function NewChat() {
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
-            variant="ghost"
-            className="opacity-70 hover:opacity-100 rounded-lg hover:bg-sidebar-accent cursor-pointer transition-opacity"
+            className="cursor-pointer rounded-lg opacity-70 transition-opacity hover:bg-sidebar-accent hover:opacity-100"
             onClick={() => {
               router.push("/");
               router.refresh();
             }}
+            variant="ghost"
           >
             <SquarePen className="size-4" />
           </Button>
