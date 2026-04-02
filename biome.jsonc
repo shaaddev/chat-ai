@@ -4,10 +4,10 @@
   "files": {
     "includes": [
       "**/*",
-      "!apps/web/components/ui",
-      "!apps/web/lib/utils.ts",
-      "!apps/web/hooks/use-mobile.ts",
-      "!packages/backend/convex/**/*"
+      "!components/ui",
+      "!lib/utils.ts",
+      "!hooks/use-mobile.ts",
+      "!convex/**/*"
     ]
   },
   "linter": {
