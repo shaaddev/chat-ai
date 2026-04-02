@@ -2,9 +2,13 @@
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { PanelLeft } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { useChat as useChatContext } from "@/components/chat-context";
+import {
+  useChat as useChatContext,
+  useChatDraft,
+} from "@/components/chat-context";
 import { Button } from "@/components/ui/button";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { image_models } from "@/lib/ai/models";
@@ -15,7 +19,24 @@ import { fetchWithErrorHandlers, generateUUID } from "@/lib/utils";
 import { ChatHistory } from "./chat-history";
 import { ChatInput } from "./chat-input";
 import { Messages } from "./chat-messages";
-import { DocumentSheet } from "./document-sheet";
+
+const DRAFT_SAVE_DELAY_MS = 200;
+const LazyDocumentSheet = dynamic(
+  () => import("./document-sheet").then((module) => module.DocumentSheet),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="fixed inset-y-0 right-0 z-50 block w-full max-w-xl border-border border-l bg-background/95 p-6 backdrop-blur">
+        <div className="animate-pulse space-y-4">
+          <div className="h-5 w-40 rounded bg-muted" />
+          <div className="h-4 w-64 rounded bg-muted" />
+          <div className="h-32 rounded-lg bg-muted" />
+          <div className="h-48 rounded-lg bg-muted" />
+        </div>
+      </div>
+    ),
+  }
+);
 
 const DOC_HINTS = [
   "document",
@@ -51,6 +72,29 @@ function extractMessageText(message: ChatMessage | undefined) {
     .trim();
 }
 
+function getLatestConversationMessages(messages: ChatMessage[]) {
+  let latestAssistantMessage: ChatMessage | undefined;
+  let latestUserMessage: ChatMessage | undefined;
+
+  for (let index = messages.length - 1; index >= 0; index--) {
+    const message = messages[index];
+
+    if (!latestAssistantMessage && message.role === "assistant") {
+      latestAssistantMessage = message;
+    }
+
+    if (!latestUserMessage && message.role === "user") {
+      latestUserMessage = message;
+    }
+
+    if (latestAssistantMessage && latestUserMessage) {
+      break;
+    }
+  }
+
+  return { latestAssistantMessage, latestUserMessage };
+}
+
 interface ChatProps {
   id: string;
   initialChatModel: string;
@@ -66,18 +110,14 @@ export function Chat({
   session,
   initialSystemPrompt,
 }: ChatProps) {
-  const [isAuthenticated] = useState(session ? true : false);
-  const {
-    setChatLoading,
-    refreshChats,
-    getChatInputState,
-    setChatInputState,
-    clearChatInputState,
-  } = useChatContext();
+  const [isAuthenticated] = useState(!!session);
+  const { setChatLoading, refreshChats } = useChatContext();
+  const { getChatInputState, setChatInputState, clearChatInputState } =
+    useChatDraft();
   const [isNewChat, setIsNewChat] = useState(initialMessages?.length === 0);
 
   const [input, setInput] = useState("");
-  const [attachments, setAttachments] = useState<Array<Attachment>>([]);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [useSearch, setUseSearch] = useState(false);
   const [autoDocumentGeneration, setAutoDocumentGeneration] = useState(true);
   const [customSystemPrompt, setCustomSystemPrompt] = useState<
@@ -92,6 +132,12 @@ export function Chat({
   >(null);
 
   const lastHandledAssistantIdRef = useRef<string | null>(null);
+  const openDocumentBuilder = useCallback(() => {
+    setIsDocumentSheetOpen(true);
+  }, []);
+  const handleSuggestionClick = useCallback((text: string) => {
+    setInput(text);
+  }, []);
 
   useEffect(() => {
     const persistedState = getChatInputState(id);
@@ -99,8 +145,7 @@ export function Chat({
     setAttachments(persistedState.attachments);
     setUseSearch(persistedState.useSearch);
     setAutoDocumentGeneration(persistedState.autoDocumentGeneration);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [getChatInputState, id]);
 
   const { messages, sendMessage, status, setMessages, stop } =
     useChat<ChatMessage>({
@@ -129,20 +174,26 @@ export function Chat({
         });
       },
     });
+  const { latestAssistantMessage, latestUserMessage } =
+    getLatestConversationMessages(messages);
 
   useEffect(() => {
-    setChatInputState(id, {
-      input,
-      attachments,
-      useSearch,
-      autoDocumentGeneration,
-    });
+    const timeoutId = window.setTimeout(() => {
+      setChatInputState(id, {
+        input,
+        attachments,
+        useSearch,
+        autoDocumentGeneration,
+      });
+    }, DRAFT_SAVE_DELAY_MS);
+
+    return () => window.clearTimeout(timeoutId);
   }, [
-    id,
-    input,
     attachments,
     useSearch,
     autoDocumentGeneration,
+    id,
+    input,
     setChatInputState,
   ]);
 
@@ -165,42 +216,16 @@ export function Chat({
         prevStatusRef.current === "streaming") &&
       status === "ready"
     ) {
-      fetch(`/api/chats/${id}`)
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.messages && Array.isArray(data.messages)) {
-            setMessages(data.messages);
-            toast.success("Image generated!", {
-              description: "Your image has been created successfully.",
-            });
-          }
-        })
-        .catch((err) => {
-          console.error(
-            "Failed to fetch messages after image generation:",
-            err
-          );
-          toast.error("Failed to load image", {
-            description: "Please refresh the page to see your generated image.",
-          });
-        });
+      toast.success("Image generated!", {
+        description: "Your image has been created successfully.",
+      });
     }
 
     prevStatusRef.current = status;
-  }, [
-    status,
-    id,
-    setChatLoading,
-    refreshChats,
-    isNewChat,
-    isImageModel,
-    setMessages,
-  ]);
+  }, [status, id, setChatLoading, refreshChats, isNewChat, isImageModel]);
 
   useEffect(() => {
-    const latestAssistant = [...messages]
-      .reverse()
-      .find((message) => message.role === "assistant");
+    const latestAssistant = latestAssistantMessage;
 
     if (!latestAssistant) {
       return;
@@ -210,10 +235,7 @@ export function Chat({
       typeof latestAssistant.metadata === "object" && latestAssistant.metadata
         ? (latestAssistant.metadata as Record<string, unknown>)
         : null;
-    const latestUser = [...messages]
-      .reverse()
-      .find((message) => message.role === "user");
-    const userText = extractMessageText(latestUser);
+    const userText = extractMessageText(latestUserMessage);
     const assistantText = extractMessageText(latestAssistant);
 
     if (!assistantText) {
@@ -254,7 +276,12 @@ export function Chat({
     ) {
       setDocumentMarkdown(assistantText);
     }
-  }, [messages, autoDocumentGeneration, documentSourceMessageId]);
+  }, [
+    autoDocumentGeneration,
+    documentSourceMessageId,
+    latestAssistantMessage,
+    latestUserMessage,
+  ]);
 
   return (
     <SidebarProvider>
@@ -280,10 +307,9 @@ export function Chat({
               documentSourceMessageId={documentSourceMessageId}
               isDocumentSheetOpen={isDocumentSheetOpen}
               messages={messages}
-              onOpenDocumentBuilder={() => setIsDocumentSheetOpen(true)}
-              onSuggestionClick={(text) => setInput(text)}
+              onOpenDocumentBuilder={openDocumentBuilder}
+              onSuggestionClick={handleSuggestionClick}
               selectedChatModel={initialChatModel}
-              setMessages={setMessages}
               status={status}
             />
 
@@ -318,13 +344,15 @@ export function Chat({
             </div>
           </div>
         </div>
-        <DocumentSheet
-          initialMarkdown={documentMarkdown}
-          initialTitle={documentTitle}
-          onOpenChange={setIsDocumentSheetOpen}
-          open={isDocumentSheetOpen}
-          suggestedFormat={documentFormat}
-        />
+        {isDocumentSheetOpen ? (
+          <LazyDocumentSheet
+            initialMarkdown={documentMarkdown}
+            initialTitle={documentTitle}
+            onOpenChange={setIsDocumentSheetOpen}
+            open={isDocumentSheetOpen}
+            suggestedFormat={documentFormat}
+          />
+        ) : null}
       </div>
     </SidebarProvider>
   );

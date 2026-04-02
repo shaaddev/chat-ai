@@ -1,14 +1,6 @@
-import type { UseChatHelpers } from "@ai-sdk/react";
 import { useCallback, useEffect, useRef } from "react";
-import type { ChatMessage } from "@/lib/types";
 
-export function useMessages({
-  chatId,
-  status,
-}: {
-  chatId: string;
-  status: UseChatHelpers<ChatMessage>["status"];
-}) {
+export function useMessages() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
@@ -21,16 +13,8 @@ export function useMessages({
     scrollToBottom("instant");
   }, [scrollToBottom]);
 
-  useEffect(() => {
-    if (status === "ready") {
-      scrollToBottom("smooth");
-    }
-  }, [status, scrollToBottom]);
-
   return {
     scrollToBottom,
     messagesEndRef,
-    chatId,
-    status,
   };
 }

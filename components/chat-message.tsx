@@ -1,10 +1,9 @@
 "use client";
 
-import equal from "fast-deep-equal";
 import { Check, Copy, Globe } from "lucide-react";
 import { memo, useState } from "react";
 import { image_models, stable_models } from "@/lib/ai/models";
-import type { ChatMessage } from "@/lib/types";
+import type { Attachment, ChatMessage } from "@/lib/types";
 import { cn, sanitizeText } from "@/lib/utils";
 import { Markdown } from "./markdown";
 import { MessageContent } from "./message-content";
@@ -26,16 +25,44 @@ function getModelName(modelId: string | null | undefined) {
   return model?.name || modelId;
 }
 
+function getAttachmentName(part: Record<string, unknown>) {
+  if (typeof part.filename === "string" && part.filename.length > 0) {
+    return part.filename;
+  }
+
+  if (typeof part.name === "string" && part.name.length > 0) {
+    return part.name;
+  }
+
+  return "file";
+}
+
+function getAttachmentsFromMessage(message: ChatMessage): Attachment[] {
+  const attachments: Attachment[] = [];
+
+  for (const part of message.parts) {
+    if (part.type !== "file") {
+      continue;
+    }
+
+    const filePart = part as Record<string, unknown>;
+    attachments.push({
+      name: getAttachmentName(filePart),
+      contentType: typeof part.mediaType === "string" ? part.mediaType : "",
+      url: part.url,
+    });
+  }
+
+  return attachments;
+}
+
 const PureChatMessage = ({
   message,
   isDocumentSheetOpen = false,
   isStreaming = false,
 }: messageProps) => {
   const [copied, setCopied] = useState(false);
-
-  const attachmentsFromMessage = message.parts.filter(
-    (part) => part.type === "file"
-  );
+  const attachmentsFromMessage = getAttachmentsFromMessage(message);
 
   const handleCopyMessage = async () => {
     const textContent = message.parts
@@ -71,16 +98,7 @@ const PureChatMessage = ({
             >
               {attachmentsFromMessage.map((attachment) => (
                 <PreviewAttachment
-                  attachment={{
-                    name:
-                      ("filename" in attachment && attachment.filename) ||
-                      (("name" in attachment &&
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        (attachment as any).name) as string) ||
-                      "file",
-                    contentType: attachment.mediaType,
-                    url: attachment.url,
-                  }}
+                  attachment={attachment}
                   className="size-80"
                   key={attachment.url}
                 />
@@ -121,6 +139,8 @@ const PureChatMessage = ({
                 </div>
               );
             }
+
+            return null;
           })}
           {message.role === "assistant" && (
             <div
@@ -143,6 +163,7 @@ const PureChatMessage = ({
                         className="flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                         onClick={handleCopyMessage}
                         title="Copy message"
+                        type="button"
                       >
                         {copied ? (
                           <Check className="size-3 text-green-500" />
@@ -179,7 +200,16 @@ export const PreviewMessage = memo(PureChatMessage, (prevProps, nextProps) => {
   if (prevProps.isDocumentSheetOpen !== nextProps.isDocumentSheetOpen) {
     return false;
   }
-  if (!equal(prevProps.message.parts, nextProps.message.parts)) {
+  if (prevProps.message.id !== nextProps.message.id) {
+    return false;
+  }
+  if (prevProps.message.role !== nextProps.message.role) {
+    return false;
+  }
+  if (prevProps.message.parts !== nextProps.message.parts) {
+    return false;
+  }
+  if (prevProps.message.metadata !== nextProps.message.metadata) {
     return false;
   }
   return true;

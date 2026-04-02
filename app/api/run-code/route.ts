@@ -1,4 +1,4 @@
-import { spawn } from "child_process";
+import { spawn } from "node:child_process";
 import { auth } from "@/app/auth";
 
 const TIMEOUT_MS = 5000;
@@ -6,7 +6,7 @@ const MAX_OUTPUT = 10_000;
 
 function truncate(str: string) {
   return str.length > MAX_OUTPUT
-    ? str.slice(0, MAX_OUTPUT) + "\n...(truncated)"
+    ? `${str.slice(0, MAX_OUTPUT)}\n...(truncated)`
     : str;
 }
 
@@ -110,11 +110,13 @@ export async function POST(req: Request) {
       resolved = true;
       try {
         proc.kill("SIGKILL");
-      } catch {}
+      } catch {
+        // Ignore kill failures after the process has already exited.
+      }
       resolve(
         Response.json({
           stdout: truncate(stdout),
-          stderr: truncate(stderr + "\nExecution timed out (5s limit)"),
+          stderr: truncate(`${stderr}\nExecution timed out (5s limit)`),
           exitCode: 124,
         })
       );

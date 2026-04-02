@@ -41,7 +41,6 @@ function SidebarHistoryComponent({ session }: SidebarHistoryProps) {
 
     if (pathname === `/chat/${chatId}`) {
       router.push("/");
-      router.refresh();
     }
   };
 

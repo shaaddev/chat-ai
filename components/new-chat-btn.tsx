@@ -17,10 +17,7 @@ export function NewChat() {
         <TooltipTrigger asChild>
           <Button
             className="cursor-pointer rounded-lg opacity-70 transition-opacity hover:bg-sidebar-accent hover:opacity-100"
-            onClick={() => {
-              router.push("/");
-              router.refresh();
-            }}
+            onClick={() => router.push("/")}
             variant="ghost"
           >
             <SquarePen className="size-4" />

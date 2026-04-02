@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import type { LanguageModelUsage } from "ai";
 import {
   convertToModelMessages,
@@ -7,7 +8,6 @@ import {
   stepCountIs,
   streamText,
 } from "ai";
-import fs from "fs";
 import { after } from "next/server";
 import {
   createResumableStreamContext,
@@ -33,6 +33,7 @@ import { convertToUIMessages, generateUUID } from "@/lib/utils";
 import { type PostRequestBody, postRequestBodySchema } from "./schema";
 
 export const maxDuration = 60;
+const DATA_URL_REGEX = /^data:(image\/[^;]+);base64,(.+)$/;
 
 // Note: For App Router, body size limits are handled at the platform level
 // (e.g., Vercel.json or reverse proxy configuration)
@@ -44,23 +45,23 @@ function getUploadThingUrlFromResult(result: unknown): string | undefined {
       return undefined;
     }
     const rec = obj as Record<string, unknown>;
-    const data = rec["data"];
+    const data = rec.data;
     if (data && typeof data === "object") {
       const drec = data as Record<string, unknown>;
-      const ufs = drec["ufsUrl"];
+      const ufs = drec.ufsUrl;
       if (typeof ufs === "string") {
         return ufs;
       }
-      const url = drec["url"];
+      const url = drec.url;
       if (typeof url === "string") {
         return url;
       }
     }
-    const ufs = rec["ufsUrl"];
+    const ufs = rec.ufsUrl;
     if (typeof ufs === "string") {
       return ufs;
     }
-    const url = rec["url"];
+    const url = rec.url;
     if (typeof url === "string") {
       return url;
     }
@@ -113,24 +114,28 @@ function detectDocumentIntent(
   return { documentCandidate, suggestedFormat };
 }
 
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+async function cleanupTempFile(fileName: string) {
+  try {
+    await fs.promises.unlink(fileName);
+  } catch {
+    // Ignore temp file cleanup failures.
+  }
+}
+
 let globalStreamContext: ResumableStreamContext | null = null;
 
 export function getStreamContext() {
-  // Only try to initialize once
-
   if (!globalStreamContext) {
     try {
       globalStreamContext = createResumableStreamContext({
         waitUntil: after,
       });
-      console.log(" > Resumable streams enabled");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
-      if (error.message.includes("REDIS_URL")) {
-        console.log(
-          " > Resumable streams are disabled due to missing REDIS_URL"
-        );
-      } else {
+    } catch (error) {
+      if (!getErrorMessage(error).includes("REDIS_URL")) {
         console.error("Resumable stream context error:", error);
       }
     }
@@ -145,8 +150,7 @@ export async function POST(req: Request) {
   try {
     const json = await req.json();
     requestBody = postRequestBodySchema.parse(json);
-  } catch (error) {
-    console.log("ERROR", error);
+  } catch {
     return new ChatSDKError("bad_request:api").toResponse();
   }
 
@@ -255,16 +259,14 @@ export async function POST(req: Request) {
           );
 
           if (isImageModel) {
-            // Generate an image using the selected image model
             const latestUserText = message.parts
               .filter((p) => p.type === "text")
               .map((p) => p.text)
               .join("\n")
               .trim()
-              .slice(0, 10_000); // Allow longer prompts for image generation
+              .slice(0, 10_000);
 
             try {
-              // Use OpenRouter API for image generation
               const response = await fetch(
                 "https://openrouter.ai/api/v1/chat/completions",
                 {
@@ -308,20 +310,13 @@ export async function POST(req: Request) {
 
               const result = await response.json();
               const resultMessage = result.choices?.[0]?.message;
-
-              // Try to extract the image from different response formats
               let imageDataUrl: string | null = null;
 
-              // Format 1: Gemini via OpenRouter - message.images array with image_url
               if (resultMessage?.images?.[0]?.image_url?.url) {
                 imageDataUrl = resultMessage.images[0].image_url.url;
-              }
-              // Format 2: OpenAI images/generations style (data[0].b64_json)
-              else if (result.data?.[0]?.b64_json) {
+              } else if (result.data?.[0]?.b64_json) {
                 imageDataUrl = `data:image/png;base64,${result.data[0].b64_json}`;
-              }
-              // Format 3: Chat completions with images array at choice level
-              else if (result.choices?.[0]?.images?.[0]) {
+              } else if (result.choices?.[0]?.images?.[0]) {
                 const imageData = result.choices[0].images[0];
                 if (typeof imageData === "string") {
                   imageDataUrl = imageData.startsWith("data:")
@@ -338,9 +333,7 @@ export async function POST(req: Request) {
                     imageData.b64_json || imageData.base64 || imageData.data;
                   imageDataUrl = `data:image/png;base64,${base64}`;
                 }
-              }
-              // Format 4: Message content array with inline_data
-              else if (Array.isArray(resultMessage?.content)) {
+              } else if (Array.isArray(resultMessage?.content)) {
                 for (const part of resultMessage.content) {
                   if (part.inline_data?.data) {
                     const mimeType = part.inline_data.mime_type || "image/png";
@@ -351,15 +344,12 @@ export async function POST(req: Request) {
                     imageDataUrl = part.image_url.url;
                     break;
                   }
-                  // Format 5: type "image_url" with nested url
                   if (part?.type === "image_url" && part?.image_url?.url) {
                     imageDataUrl = part.image_url.url;
                     break;
                   }
                 }
-              }
-              // Format 6: Direct string content that is a data URL
-              else if (
+              } else if (
                 typeof resultMessage?.content === "string" &&
                 resultMessage.content.startsWith("data:image")
               ) {
@@ -377,12 +367,8 @@ export async function POST(req: Request) {
               const assistantMessageId = generateUUID();
               let uploadedUrl: string | undefined;
 
-              // Check if it's a data URL (base64) or external URL
               if (imageDataUrl.startsWith("data:")) {
-                // Extract base64 and mime type from data URL
-                const dataUrlMatch = imageDataUrl.match(
-                  /^data:(image\/[^;]+);base64,(.+)$/
-                );
+                const dataUrlMatch = imageDataUrl.match(DATA_URL_REGEX);
                 if (!dataUrlMatch) {
                   throw new Error("Invalid image data URL format");
                 }
@@ -392,7 +378,6 @@ export async function POST(req: Request) {
                 const extension = mimeType.split("/")[1] || "png";
                 const fileName = `image-${Date.now()}.${extension}`;
 
-                // Decode base64 and upload to UploadThing
                 try {
                   fs.writeFileSync(
                     fileName,
@@ -406,13 +391,9 @@ export async function POST(req: Request) {
                 } catch (uploadErr) {
                   console.error("UploadThing upload failed:", uploadErr);
                 } finally {
-                  // Best-effort cleanup of the temp file
-                  try {
-                    await fs.promises.unlink(fileName);
-                  } catch {}
+                  await cleanupTempFile(fileName);
                 }
               } else {
-                // External URL - download and re-upload to UploadThing for persistence
                 try {
                   const imageResponse = await fetch(imageDataUrl);
                   if (!imageResponse.ok) {
@@ -435,17 +416,12 @@ export async function POST(req: Request) {
                   });
                   const uploadRes = await utapi.uploadFiles(file);
                   uploadedUrl = getUploadThingUrlFromResult(uploadRes);
-
-                  // Cleanup temp file
-                  try {
-                    await fs.promises.unlink(fileName);
-                  } catch {}
+                  await cleanupTempFile(fileName);
                 } catch (downloadErr) {
                   console.error(
                     "Failed to download/upload external image:",
                     downloadErr
                   );
-                  // Fallback to using the external URL directly
                   uploadedUrl = imageDataUrl;
                 }
               }
@@ -456,7 +432,6 @@ export async function POST(req: Request) {
 
               const mediaType = "image/png";
 
-              // Append assistant message with the generated image as a file part
               const messageData = {
                 id: assistantMessageId,
                 role: "assistant",
@@ -475,7 +450,6 @@ export async function POST(req: Request) {
                 data: JSON.stringify(messageData),
               });
 
-              // Store fallback in case onFinish messages don't include it
               fallbackImageAssistantMessage = {
                 id: assistantMessageId,
                 parts: [
@@ -488,7 +462,6 @@ export async function POST(req: Request) {
                 ],
               };
 
-              // Attach model metadata (no usage tokens for image gen)
               dataStream.write({
                 type: "data-setMessageMetadata",
                 data: JSON.stringify({
@@ -529,10 +502,8 @@ export async function POST(req: Request) {
               maxOutputTokens: 5000,
             });
 
-            // Forward chunks, while capturing assistant message id for later metadata
             let assistantMessageId: string | null = null;
             for await (const chunk of res.toUIMessageStream()) {
-              // Capture the assistant message id from the first append of assistant message
               if (
                 assistantMessageId === null &&
                 chunk?.type === "data-appendMessage"
@@ -546,14 +517,13 @@ export async function POST(req: Request) {
                     assistantMessageId = appended.id;
                   }
                 } catch {
-                  // ignore parse failures
+                  // Ignore malformed chunk metadata.
                 }
               }
 
               dataStream.write(chunk);
             }
 
-            // After streaming completes, attempt to read token usage and attach to assistant metadata
             try {
               const usage: LanguageModelUsage = await res.usage;
               const outputTokens = usage.outputTokens;
@@ -600,18 +570,18 @@ export async function POST(req: Request) {
             model: message.role === "assistant" ? selectedChatModel : null,
           }));
 
-          // If the image assistant message wasn't captured, persist it explicitly
           if (fallbackImageAssistantMessage) {
+            const persistedImageMessage = fallbackImageAssistantMessage;
             const alreadyIncluded = toSave.some(
-              (m) => m.id === fallbackImageAssistantMessage!.id
+              (savedMessage) => savedMessage.id === persistedImageMessage.id
             );
 
             if (!alreadyIncluded) {
               toSave.push({
-                id: fallbackImageAssistantMessage.id,
+                id: persistedImageMessage.id,
                 role: "assistant",
                 parts:
-                  fallbackImageAssistantMessage.parts as unknown as (typeof toSave)[number]["parts"],
+                  persistedImageMessage.parts as unknown as (typeof toSave)[number]["parts"],
                 attachments: [],
                 createdAt: new Date(),
                 chatId: id,
@@ -629,12 +599,6 @@ export async function POST(req: Request) {
         return "Oops, an error occurred";
       },
     });
-
-    // const streamContext = getStreamContext();
-
-    // Use resumable streams if available, otherwise fall back to regular streaming
-    // by default, we are using regular streaming
-    console.log("Using regular streaming for chat:", id);
     return new Response(stream.pipeThrough(new JsonToSseTransformStream()));
   } catch (error) {
     console.error("Chat API error:", error);

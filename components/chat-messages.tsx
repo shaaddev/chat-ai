@@ -1,5 +1,4 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
-import equal from "fast-deep-equal";
 import { FileText, ImageIcon, LoaderIcon } from "lucide-react";
 import { motion } from "motion/react";
 import { Fragment, memo, useEffect, useRef } from "react";
@@ -32,9 +31,10 @@ interface MessagesProps {
   onOpenDocumentBuilder?: () => void;
   onSuggestionClick?: (text: string) => void;
   selectedChatModel: string;
-  setMessages: UseChatHelpers<ChatMessage>["setMessages"];
   status: UseChatHelpers<ChatMessage>["status"];
 }
+
+const CODE_BLOCK_REGEX = /```[\s\S]*?```/;
 
 function DocumentCard({
   isDocumentSheetOpen,
@@ -49,7 +49,7 @@ function DocumentCard({
   documentDraftFormat: ExportFormat;
   onOpenDocumentBuilder?: () => void;
 }) {
-  const hasCodeBlock = /```[\s\S]*?```/.test(documentDraftMarkdown);
+  const hasCodeBlock = CODE_BLOCK_REGEX.test(documentDraftMarkdown);
 
   return (
     <div
@@ -92,7 +92,7 @@ function DocumentCard({
 }
 
 function PureMessages({
-  chatId,
+  chatId: _chatId,
   messages,
   status,
   selectedChatModel,
@@ -104,55 +104,62 @@ function PureMessages({
   onOpenDocumentBuilder,
   onSuggestionClick,
 }: MessagesProps) {
-  const { messagesEndRef, scrollToBottom } = useMessages({ chatId, status });
+  const { messagesEndRef, scrollToBottom } = useMessages();
   const lastScrollRef = useRef(0);
+  let hasAssistantVisibleText = false;
+  let hasAssistantImageAttachment = false;
+  let lastAssistantMessageId: string | null = null;
+  const lastMessage = messages.at(-1);
+
+  for (let index = messages.length - 1; index >= 0; index--) {
+    const message = messages[index];
+
+    if (message.role !== "assistant") {
+      continue;
+    }
+
+    lastAssistantMessageId = message.id;
+
+    for (const part of message.parts) {
+      if (
+        !hasAssistantVisibleText &&
+        part.type === "text" &&
+        part.text.trim().length > 0
+      ) {
+        hasAssistantVisibleText = true;
+      }
+
+      if (!hasAssistantImageAttachment && part.type === "file") {
+        hasAssistantImageAttachment = true;
+      }
+    }
+
+    break;
+  }
+
+  const isImageModelSelected = image_models.some(
+    (im) => im.id === selectedChatModel
+  );
+  const lastMessageId = lastMessage?.id ?? null;
 
   useEffect(() => {
+    if (!lastMessageId && messages.length === 0 && status !== "ready") {
+      return;
+    }
+
     if (status === "streaming") {
-      // Throttle scroll during streaming to avoid jank
       const now = Date.now();
       if (now - lastScrollRef.current > 150) {
         lastScrollRef.current = now;
         scrollToBottom("instant");
       }
-    } else if (status === "ready") {
+      return;
+    }
+
+    if (status === "ready") {
       scrollToBottom("smooth");
     }
-  }, [messages, status, scrollToBottom]);
-
-  const hasAssistantVisibleText = (() => {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const m = messages[i];
-      if (m.role === "assistant") {
-        return (m.parts || []).some((p: unknown) => {
-          const part = p as { type?: string; text?: string };
-          return (
-            part?.type === "text" &&
-            typeof part.text === "string" &&
-            part.text.trim().length > 0
-          );
-        });
-      }
-    }
-    return false;
-  })();
-
-  const isImageModelSelected = image_models.some(
-    (im) => im.id === selectedChatModel
-  );
-
-  const hasAssistantImageAttachment = (() => {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const m = messages[i];
-      if (m.role === "assistant") {
-        return (m.parts || []).some((p: unknown) => {
-          const part = p as { type?: string };
-          return part?.type === "file";
-        });
-      }
-    }
-    return false;
-  })();
+  }, [lastMessageId, messages, scrollToBottom, status]);
 
   const showThinking =
     (status === "submitted" || status === "streaming") &&
@@ -170,33 +177,31 @@ function PureMessages({
         {messages.length === 0 && !showThinking && !isGeneratingImage ? (
           <EmptyChatState onSuggestionClick={onSuggestionClick} />
         ) : (
-          <>
-            {messages.map((message, index) => (
-              <Fragment key={message.id}>
-                <div className={index > 0 ? "mt-6" : ""}>
-                  <PreviewMessage
-                    isDocumentSheetOpen={isDocumentSheetOpen}
-                    isStreaming={
-                      status === "streaming" &&
-                      message.role === "assistant" &&
-                      message.id === messages[messages.length - 1]?.id
-                    }
-                    message={message}
-                  />
-                </div>
-                {documentDraftMarkdown &&
-                  documentSourceMessageId === message.id && (
-                    <DocumentCard
-                      documentDraftFormat={documentDraftFormat}
-                      documentDraftMarkdown={documentDraftMarkdown}
-                      documentDraftTitle={documentDraftTitle}
-                      isDocumentSheetOpen={isDocumentSheetOpen}
-                      onOpenDocumentBuilder={onOpenDocumentBuilder}
-                    />
-                  )}
-              </Fragment>
-            ))}
-          </>
+          messages.map((message, index) => (
+            <Fragment key={message.id}>
+              <div className={index > 0 ? "mt-6" : ""}>
+                <PreviewMessage
+                  isDocumentSheetOpen={isDocumentSheetOpen}
+                  isStreaming={
+                    status === "streaming" &&
+                    message.role === "assistant" &&
+                    message.id === lastAssistantMessageId
+                  }
+                  message={message}
+                />
+              </div>
+              {documentDraftMarkdown &&
+              documentSourceMessageId === message.id ? (
+                <DocumentCard
+                  documentDraftFormat={documentDraftFormat}
+                  documentDraftMarkdown={documentDraftMarkdown}
+                  documentDraftTitle={documentDraftTitle}
+                  isDocumentSheetOpen={isDocumentSheetOpen}
+                  onOpenDocumentBuilder={onOpenDocumentBuilder}
+                />
+              ) : null}
+            </Fragment>
+          ))
         )}
         {showThinking && (
           <div
@@ -237,6 +242,9 @@ export const Messages = memo(PureMessages, (prevProps, nextProps) => {
   if (nextProps.status === "streaming" || prevProps.status === "streaming") {
     return false;
   }
+  if (prevProps.chatId !== nextProps.chatId) {
+    return false;
+  }
   if (prevProps.status !== nextProps.status) {
     return false;
   }
@@ -267,7 +275,20 @@ export const Messages = memo(PureMessages, (prevProps, nextProps) => {
   if (prevProps.messages.length !== nextProps.messages.length) {
     return false;
   }
-  if (!equal(prevProps.messages, nextProps.messages)) {
+  const prevFirstMessage = prevProps.messages[0];
+  const nextFirstMessage = nextProps.messages[0];
+  if (prevFirstMessage?.id !== nextFirstMessage?.id) {
+    return false;
+  }
+  const prevLastMessage = prevProps.messages.at(-1);
+  const nextLastMessage = nextProps.messages.at(-1);
+  if (prevLastMessage?.id !== nextLastMessage?.id) {
+    return false;
+  }
+  if (prevLastMessage?.parts !== nextLastMessage?.parts) {
+    return false;
+  }
+  if (prevLastMessage?.metadata !== nextLastMessage?.metadata) {
     return false;
   }
   return true;

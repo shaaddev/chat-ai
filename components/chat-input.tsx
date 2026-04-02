@@ -35,7 +35,7 @@ import { ModelsPopover } from "./models-popover";
 import { PreviewAttachment } from "./preview-attachment";
 
 interface ChatInputProps {
-  attachments: Array<Attachment>;
+  attachments: Attachment[];
   autoDocumentGeneration: boolean;
   chatId: string | undefined;
   clearChatInputState: (chatId: string) => void;
@@ -44,7 +44,7 @@ interface ChatInputProps {
   input: string;
   isAuthenticated?: boolean;
   sendMessage: UseChatHelpers<ChatMessage>["sendMessage"];
-  setAttachments: Dispatch<SetStateAction<Array<Attachment>>>;
+  setAttachments: Dispatch<SetStateAction<Attachment[]>>;
   setAutoDocumentGeneration: Dispatch<SetStateAction<boolean>>;
   setCustomSystemPrompt: Dispatch<SetStateAction<string | undefined>>;
   setInput: Dispatch<SetStateAction<string>>;
@@ -83,9 +83,13 @@ export function ChatInput({
     customSystemPrompt ?? ""
   );
   const { addOptimisticChat, setChatLoading } = useChat();
-  const [uploadQueue, setUploadQueue] = useState<Array<string>>([]);
+  const [uploadQueue, setUploadQueue] = useState<string[]>([]);
 
   const submitForm = useCallback(() => {
+    if (!chatId) {
+      return;
+    }
+
     window.history.replaceState({}, "", `/chat/${chatId}`);
 
     if (!isAuthenticated) {
@@ -93,10 +97,10 @@ export function ChatInput({
       return;
     }
 
-    setChatLoading(chatId!, true);
+    setChatLoading(chatId, true);
 
     addOptimisticChat({
-      id: chatId!,
+      id: chatId,
       title: input.trim().slice(0, 80) || "New chat",
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -122,11 +126,11 @@ export function ChatInput({
         { body: { useSearch, customSystemPrompt, autoDocumentGeneration } }
       );
     } catch (error) {
-      setChatLoading(chatId!, false);
+      setChatLoading(chatId, false);
       throw error;
     }
 
-    clearChatInputState(chatId!);
+    clearChatInputState(chatId);
     setAttachments([]);
     setInput("");
     setUseSearch(false);
@@ -147,25 +151,27 @@ export function ChatInput({
     customSystemPrompt,
   ]);
 
-  const adjustTextareaHeight = useCallback(() => {
+  useEffect(() => {
+    const currentInput = input;
     const textarea = textareaRef.current;
     if (!textarea) {
       return;
     }
 
     textarea.style.height = "56px";
-    const newHeight = Math.min(200, Math.max(56, textarea.scrollHeight));
-    textarea.style.height = `${newHeight}px`;
-    setTextareaHeight(`${newHeight}px`);
-  }, []);
+    const nextHeight = Math.min(200, Math.max(56, textarea.scrollHeight));
+    if (currentInput.length === 0 && nextHeight === 56) {
+      textarea.style.height = "56px";
+      setTextareaHeight("56px");
+      return;
+    }
 
-  useEffect(() => {
-    adjustTextareaHeight();
-  }, [input, adjustTextareaHeight]);
+    textarea.style.height = `${nextHeight}px`;
+    setTextareaHeight(`${nextHeight}px`);
+  }, [input]);
 
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
-    adjustTextareaHeight();
   };
 
   const hasActiveSettings =
@@ -299,7 +305,9 @@ export function ChatInput({
                                   "Content-Type": "application/json",
                                 },
                                 body: JSON.stringify({ systemPrompt: null }),
-                              }).catch(() => {});
+                              }).catch(() => {
+                                // Ignore prompt sync failures.
+                              });
                             }
                             toast.success("System prompt reset to default");
                           }
@@ -380,7 +388,9 @@ export function ChatInput({
                     method: "PATCH",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ systemPrompt: newPrompt ?? null }),
-                  }).catch(() => {});
+                  }).catch(() => {
+                    // Ignore prompt sync failures.
+                  });
                 }
                 toast.success(
                   newPrompt
@@ -417,6 +427,7 @@ function PureStopButton({
         stop();
         setMessages((messages) => messages);
       }}
+      type="button"
     >
       <CircleStop className="size-4 text-background" />
     </button>

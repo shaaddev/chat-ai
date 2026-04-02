@@ -7,6 +7,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { toast } from "sonner";
@@ -20,7 +21,7 @@ interface Chat {
 }
 
 interface ChatInputState {
-  attachments: Array<Attachment>;
+  attachments: Attachment[];
   autoDocumentGeneration: boolean;
   input: string;
   useSearch: boolean;
@@ -29,27 +30,37 @@ interface ChatInputState {
 interface ChatContextType {
   addOptimisticChat: (chat: Chat) => void;
   chats: Chat[];
-  clearChatInputState: (chatId: string) => void;
   deleteChat: (chatId: string) => Promise<void>;
-  getChatInputState: (chatId: string) => ChatInputState;
   loading: boolean;
   loadingChats: Set<string>;
   refreshChats: () => Promise<void>;
   refreshSpecificChat: (chatId: string) => Promise<void>;
-  setChatInputState: (chatId: string, state: Partial<ChatInputState>) => void;
   setChatLoading: (chatId: string, loading: boolean) => void;
   updateChatTitle: (chatId: string, title: string) => void;
 }
 
+interface ChatDraftContextType {
+  clearChatInputState: (chatId: string) => void;
+  getChatInputState: (chatId: string) => ChatInputState;
+  setChatInputState: (chatId: string, state: Partial<ChatInputState>) => void;
+}
+
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
+const ChatDraftContext = createContext<ChatDraftContextType | undefined>(
+  undefined
+);
+const DEFAULT_CHAT_INPUT_STATE: ChatInputState = {
+  input: "",
+  attachments: [],
+  useSearch: false,
+  autoDocumentGeneration: true,
+};
 
 export function ChatProvider({ children }: { children: ReactNode }) {
   const [chats, setChats] = useState<Chat[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingChats, setLoadingChats] = useState<Set<string>>(new Set());
-  const [chatInputStates, setChatInputStates] = useState<
-    Map<string, ChatInputState>
-  >(new Map());
+  const chatInputStatesRef = useRef<Map<string, ChatInputState>>(new Map());
 
   const fetchChats = useCallback(async () => {
     try {
@@ -154,60 +165,27 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       });
 
       setChats((prevChats) => prevChats.filter((chat) => chat.id !== chatId));
-
-      // Clear input state for deleted chat
-      setChatInputStates((prev) => {
-        const newMap = new Map(prev);
-        newMap.delete(chatId);
-        return newMap;
-      });
+      chatInputStatesRef.current.delete(chatId);
     } catch (error) {
       console.error("Error deleting chat: ", error);
     }
   }, []);
 
-  const getChatInputState = useCallback(
-    (chatId: string): ChatInputState => {
-      return (
-        chatInputStates.get(chatId) || {
-          input: "",
-          attachments: [],
-          useSearch: false,
-          autoDocumentGeneration: true,
-        }
-      );
-    },
-    [chatInputStates]
-  );
+  const getChatInputState = useCallback((chatId: string): ChatInputState => {
+    return chatInputStatesRef.current.get(chatId) ?? DEFAULT_CHAT_INPUT_STATE;
+  }, []);
 
   const setChatInputState = useCallback(
     (chatId: string, state: Partial<ChatInputState>) => {
-      setChatInputStates((prev) => {
-        const newMap = new Map(prev);
-        const currentState = prev.get(chatId) || {
-          input: "",
-          attachments: [],
-          useSearch: false,
-          autoDocumentGeneration: true,
-        };
-        newMap.set(chatId, { ...currentState, ...state });
-        return newMap;
-      });
+      const currentState =
+        chatInputStatesRef.current.get(chatId) ?? DEFAULT_CHAT_INPUT_STATE;
+      chatInputStatesRef.current.set(chatId, { ...currentState, ...state });
     },
     []
   );
 
   const clearChatInputState = useCallback((chatId: string) => {
-    setChatInputStates((prev) => {
-      const newMap = new Map(prev);
-      newMap.set(chatId, {
-        input: "",
-        attachments: [],
-        useSearch: false,
-        autoDocumentGeneration: true,
-      });
-      return newMap;
-    });
+    chatInputStatesRef.current.set(chatId, DEFAULT_CHAT_INPUT_STATE);
   }, []);
 
   const contextValue = useMemo(
@@ -221,9 +199,6 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       setChatLoading,
       updateChatTitle,
       refreshSpecificChat,
-      getChatInputState,
-      setChatInputState,
-      clearChatInputState,
     }),
     [
       chats,
@@ -235,21 +210,39 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       setChatLoading,
       updateChatTitle,
       refreshSpecificChat,
-      getChatInputState,
-      setChatInputState,
-      clearChatInputState,
     ]
   );
 
+  const draftContextValue = useMemo(
+    () => ({
+      getChatInputState,
+      setChatInputState,
+      clearChatInputState,
+    }),
+    [clearChatInputState, getChatInputState, setChatInputState]
+  );
+
   return (
-    <ChatContext.Provider value={contextValue}>{children}</ChatContext.Provider>
+    <ChatContext.Provider value={contextValue}>
+      <ChatDraftContext.Provider value={draftContextValue}>
+        {children}
+      </ChatDraftContext.Provider>
+    </ChatContext.Provider>
   );
 }
 
 export function useChat() {
   const context = useContext(ChatContext);
   if (context === undefined) {
-    throw new Error("useChat mush be used within a ChatProvider");
+    throw new Error("useChat must be used within a ChatProvider");
+  }
+  return context;
+}
+
+export function useChatDraft() {
+  const context = useContext(ChatDraftContext);
+  if (context === undefined) {
+    throw new Error("useChatDraft must be used within a ChatProvider");
   }
   return context;
 }

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Script from "next/script";
 import { ChatProvider } from "@/components/chat-context";
 import { PerformanceMonitor } from "@/components/performance-monitor";
 import { ThemeProvider } from "@/components/providers/theme-provider";
@@ -64,16 +63,13 @@ export default async function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         {/* Anti-FOUC script for accent color */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              try {
-                var accent = localStorage.getItem('accent-color') || 'blue';
-                document.documentElement.setAttribute('data-accent', accent);
-              } catch(e) {}
-            `,
-          }}
-        />
+        <script>{`
+          try {
+            var accent = localStorage.getItem('accent-color') || 'blue';
+            document.documentElement.setAttribute('data-accent', accent);
+          } catch (_error) {
+          }
+        `}</script>
         <link href="https://fonts.googleapis.com" rel="preconnect" />
         <link
           crossOrigin="anonymous"
@@ -95,25 +91,6 @@ export default async function RootLayout({
           </ConvexClientProvider>
         </ThemeProvider>
         {process.env.NODE_ENV === "development" && <PerformanceMonitor />}
-        <Script
-          dangerouslySetInnerHTML={{
-            __html: `
-                if ('serviceWorker' in navigator) {
-                  window.addEventListener('load', function() {
-                    navigator.serviceWorker.register('/sw.js')
-                      .then(function(registration) {
-                        console.log('SW registered: ', registration);
-                      })
-                      .catch(function(registrationError) {
-                        console.log('SW registration failed: ', registrationError);
-                      });
-                  });
-                }
-              `,
-          }}
-          id="service-worker"
-          strategy="afterInteractive"
-        />
       </body>
     </html>
   );
