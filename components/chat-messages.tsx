@@ -1,7 +1,7 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
 import { ArrowDown, FileText, ImageIcon, LoaderIcon } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { Fragment, memo, useEffect, useRef } from "react";
+import { Fragment, memo, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -135,13 +135,8 @@ function PureMessages({
   onOpenDocumentBuilder,
   onSuggestionClick,
 }: MessagesProps) {
-  const {
-    containerRef,
-    isAtBottom,
-    isNearBottom,
-    scrollToBottom,
-    scrollUserMessageToTop,
-  } = useMessages();
+  const { containerRef, isAtBottom, scrollToBottom, scrollUserMessageToTop } =
+    useMessages();
   let hasAssistantVisibleText = false;
   let hasAssistantImageAttachment = false;
   let lastAssistantMessageId: string | null = null;
@@ -187,6 +182,13 @@ function PureMessages({
   // submission. Tracked by ref so we don't re-fire on every re-render.
   const lastScrolledUserMessageId = useRef<string | null>(null);
 
+  // The "active exchange anchor" — the id of the user message whose
+  // response we're currently showing. Set on submit and held all the way
+  // through `ready`, so the min-height wrapper stays in place even after
+  // streaming ends. Resets when the user starts a new exchange or
+  // navigates to a different chat.
+  const [exchangeAnchorId, setExchangeAnchorId] = useState<string | null>(null);
+
   useEffect(() => {
     if (status !== "submitted") {
       return;
@@ -198,34 +200,42 @@ function PureMessages({
       return;
     }
     lastScrolledUserMessageId.current = latestUserMessageId;
+    setExchangeAnchorId(latestUserMessageId);
     scrollUserMessageToTop(latestUserMessageId);
   }, [latestUserMessageId, status, scrollUserMessageToTop]);
 
-  // Settle to the bottom when a stream completes if the user is still
-  // tailing (keeps short follow-ups feeling natural).
+  // After streaming finishes for a short response, the natural document
+  // height could shrink below the viewport — which would cause the
+  // browser to clamp scrollTop and kick the user message off the top.
+  // Re-pin the user message at the top once layout has settled.
   useEffect(() => {
     if (status !== "ready") {
       return;
     }
-    if (!lastAssistantMessageId) {
+    if (!exchangeAnchorId) {
       return;
     }
-    if (isNearBottom()) {
-      scrollToBottom("smooth");
-    }
-  }, [status, lastAssistantMessageId, isNearBottom, scrollToBottom]);
+    // Two-phase pin: once now, once after the next paint, to catch the
+    // moment the assistant text finishes its smooth-reveal animation.
+    scrollUserMessageToTop(exchangeAnchorId);
+  }, [status, exchangeAnchorId, scrollUserMessageToTop]);
 
   // On chat load (or chat-id change), jump straight to the bottom so the
-  // user sees the latest exchange first. Fires once per chatId.
+  // user sees the latest exchange first. Fires once per chatId, and also
+  // resets the active-exchange anchor.
   const initialScrollAppliedFor = useRef<string | null>(null);
   useEffect(() => {
     if (initialScrollAppliedFor.current === chatId) {
       return;
     }
     if (messages.length === 0) {
+      initialScrollAppliedFor.current = chatId;
+      setExchangeAnchorId(null);
       return;
     }
     initialScrollAppliedFor.current = chatId;
+    setExchangeAnchorId(null);
+    lastScrolledUserMessageId.current = null;
     // Two passes: the first kicks off before layout fully settles, the
     // second nails it once Radix has painted scroll content.
     scrollToBottom("instant");
@@ -245,11 +255,12 @@ function PureMessages({
   const isNarrow = isDocumentSheetOpen || isSourcesPanelOpen;
   const widthClass = getNarrowMaxWidth(isNarrow);
 
-  // Reserve viewport room beneath the latest message during submit/stream
-  // so the just-sent user message can actually reach the top of the
-  // viewport — even when the assistant reply is short or hasn't started.
-  const isAwaitingOrStreaming =
-    status === "streaming" || status === "submitted";
+  // Reserve viewport room beneath the latest message for the duration of
+  // the active exchange. This keeps the just-sent user message pinned
+  // near the top of the viewport even when the assistant response is
+  // short — without the room, the document collapses below viewport
+  // height and the browser snaps the user message off the top.
+  const hasActiveExchange = exchangeAnchorId !== null;
 
   const showScrollButton =
     !isAtBottom && messages.length > 0 && status !== "submitted";
@@ -263,7 +274,7 @@ function PureMessages({
           ) : (
             messages.map((message, index) => {
               const isLast = index === messages.length - 1;
-              const wrapForScroll = isLast && isAwaitingOrStreaming;
+              const wrapForScroll = isLast && hasActiveExchange;
 
               return (
                 <Fragment key={message.id}>
