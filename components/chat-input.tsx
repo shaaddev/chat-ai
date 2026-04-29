@@ -1,5 +1,5 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
-import { ArrowUp, CircleStop, Settings2 } from "lucide-react";
+import { ArrowUp, CircleStop, Globe, Settings2 } from "lucide-react";
 import {
   type Dispatch,
   memo,
@@ -133,7 +133,8 @@ export function ChatInput({
     clearChatInputState(chatId);
     setAttachments([]);
     setInput("");
-    setUseSearch(false);
+    // Note: we intentionally do NOT reset useSearch — it persists across
+    // submissions and is the user's global preference.
   }, [
     sendMessage,
     setInput,
@@ -147,7 +148,6 @@ export function ChatInput({
     useSearch,
     autoDocumentGeneration,
     clearChatInputState,
-    setUseSearch,
     customSystemPrompt,
   ]);
 
@@ -174,12 +174,11 @@ export function ChatInput({
     setInput(e.target.value);
   };
 
-  const hasActiveSettings =
-    useSearch || !!customSystemPrompt || autoDocumentGeneration;
+  const hasActiveSettings = !!customSystemPrompt || autoDocumentGeneration;
 
   return (
     <div className="relative">
-      <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-shadow focus-within:border-ring/30 focus-within:shadow-md">
+      <div className="flex flex-col overflow-hidden rounded-2xl border border-foreground/10 bg-card shadow-sm transition-shadow focus-within:border-foreground/15 focus-within:shadow-md">
         {(attachments.length > 0 || uploadQueue.length > 0) && (
           <div
             className="flex flex-row gap-2 overflow-x-auto p-3 pb-0"
@@ -229,17 +228,33 @@ export function ChatInput({
         />
 
         <div className="flex items-center justify-between px-3 py-2">
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
             <ModelsPopover selectedModelId={initialChatModel} />
+            <button
+              aria-pressed={useSearch}
+              className={cn(
+                "inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-full border px-2.5 text-[12px] transition-colors",
+                useSearch
+                  ? "border-accent/40 bg-accent/15 text-foreground"
+                  : "border-foreground/10 text-muted-foreground hover:border-foreground/20 hover:text-foreground"
+              )}
+              onClick={() => setUseSearch((prev) => !prev)}
+              title={useSearch ? "Web search on" : "Web search off"}
+              type="button"
+            >
+              <Globe className="size-3.5" />
+              <span className="font-medium">Search</span>
+            </button>
             <Popover>
               <PopoverTrigger asChild>
                 <button
                   className={cn(
-                    "inline-flex cursor-pointer items-center gap-1 rounded-lg px-2 py-1 text-xs transition-colors",
+                    "inline-flex size-7 cursor-pointer items-center justify-center rounded-full transition-colors",
                     hasActiveSettings
                       ? "bg-muted text-foreground"
-                      : "text-muted-foreground hover:text-foreground"
+                      : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                   )}
+                  title="Chat settings"
                   type="button"
                 >
                   <Settings2 className="size-3.5" />
@@ -252,19 +267,6 @@ export function ChatInput({
                 sideOffset={8}
               >
                 <div className="flex flex-col divide-y divide-border">
-                  <div className="flex items-center justify-between px-3.5 py-2.5">
-                    <Label
-                      className="cursor-pointer text-sm"
-                      htmlFor="search-toggle"
-                    >
-                      Web Search
-                    </Label>
-                    <Switch
-                      checked={useSearch}
-                      id="search-toggle"
-                      onCheckedChange={(checked) => setUseSearch(checked)}
-                    />
-                  </div>
                   <div className="flex items-center justify-between px-3.5 py-2.5">
                     <Label
                       className="cursor-pointer text-sm"
@@ -420,7 +422,7 @@ function PureStopButton({
 }) {
   return (
     <button
-      className="flex size-8 cursor-pointer items-center justify-center rounded-lg bg-foreground transition-colors hover:bg-foreground/80"
+      className="flex size-8 cursor-pointer items-center justify-center rounded-full bg-foreground transition-colors hover:bg-foreground/80"
       data-testid="stop-button"
       onClick={(e) => {
         e.preventDefault();
@@ -449,7 +451,7 @@ function PureSendButton({
   return (
     <button
       className={cn(
-        "flex size-8 cursor-pointer items-center justify-center rounded-lg transition-colors",
+        "flex size-8 cursor-pointer items-center justify-center rounded-full transition-colors",
         enabled
           ? "bg-foreground hover:bg-foreground/80"
           : "cursor-default bg-muted"

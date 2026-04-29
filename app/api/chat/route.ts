@@ -527,6 +527,59 @@ export async function POST(req: Request) {
               dataStream.write(chunk);
             }
 
+            // Forward web-search sources as a custom data part. OpenRouter's
+            // `web` plugin returns citations as annotations; the AI SDK
+            // surfaces them as `source-url` parts inside the stream above,
+            // but we also write a consolidated `data-sources` payload so the
+            // client can render the sources panel without scanning all parts.
+            if (useSearch) {
+              try {
+                const resolvedSources = await res.sources;
+                if (resolvedSources && resolvedSources.length > 0) {
+                  const normalized = resolvedSources
+                    .map((source) => {
+                      const sourceRecord = source as unknown as Record<
+                        string,
+                        unknown
+                      >;
+                      const url =
+                        typeof sourceRecord.url === "string"
+                          ? sourceRecord.url
+                          : "";
+                      if (!url) {
+                        return null;
+                      }
+                      return {
+                        id:
+                          typeof sourceRecord.id === "string"
+                            ? sourceRecord.id
+                            : url,
+                        url,
+                        title:
+                          typeof sourceRecord.title === "string"
+                            ? sourceRecord.title
+                            : undefined,
+                      };
+                    })
+                    .filter(
+                      (
+                        entry
+                      ): entry is { id: string; url: string; title?: string } =>
+                        entry !== null
+                    );
+
+                  if (normalized.length > 0) {
+                    dataStream.write({
+                      type: "data-sources",
+                      data: JSON.stringify({ sources: normalized }),
+                    });
+                  }
+                }
+              } catch (err) {
+                console.error("Failed to extract sources:", err);
+              }
+            }
+
             try {
               const usage: LanguageModelUsage = await res.usage;
               const outputTokens = usage.outputTokens;

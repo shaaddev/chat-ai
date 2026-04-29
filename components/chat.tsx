@@ -3,7 +3,7 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { PanelLeft } from "lucide-react";
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   useChat as useChatContext,
@@ -14,6 +14,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { image_models } from "@/lib/ai/models";
 import type { Session } from "@/lib/auth";
 import type { ExportFormat } from "@/lib/document-export";
+import { extractSources } from "@/lib/sources";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { fetchWithErrorHandlers, generateUUID } from "@/lib/utils";
 import { ChatHistory } from "./chat-history";
@@ -35,6 +36,13 @@ const LazyDocumentSheet = dynamic(
         </div>
       </div>
     ),
+  }
+);
+
+const LazySourcesPanel = dynamic(
+  () => import("./sources-panel").then((module) => module.SourcesPanel),
+  {
+    ssr: false,
   }
 );
 
@@ -118,7 +126,9 @@ export function Chat({
 
   const [input, setInput] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
-  const [useSearch, setUseSearch] = useState(false);
+  // Web search defaults ON. The actual user-preferred default is hydrated
+  // from localStorage on mount via `getChatInputState` below.
+  const [useSearch, setUseSearch] = useState(true);
   const [autoDocumentGeneration, setAutoDocumentGeneration] = useState(false);
   const [customSystemPrompt, setCustomSystemPrompt] = useState<
     string | undefined
@@ -131,9 +141,19 @@ export function Chat({
     string | null
   >(null);
 
+  // Sources panel state — auto-opens when sources arrive for the latest
+  // assistant response, but stays closed if the user dismissed it for that
+  // specific response.
+  const [isSourcesPanelOpen, setIsSourcesPanelOpen] = useState(false);
+  const [sourcesPanelDismissedFor, setSourcesPanelDismissedFor] = useState<
+    Set<string>
+  >(() => new Set());
+
   const lastHandledAssistantIdRef = useRef<string | null>(null);
   const openDocumentBuilder = useCallback(() => {
     setIsDocumentSheetOpen(true);
+    // Document and sources panels share the right slot — close sources.
+    setIsSourcesPanelOpen(false);
   }, []);
   const handleSuggestionClick = useCallback((text: string) => {
     setInput(text);
@@ -176,6 +196,52 @@ export function Chat({
     });
   const { latestAssistantMessage, latestUserMessage } =
     getLatestConversationMessages(messages);
+
+  const latestSources = useMemo(
+    () => extractSources(latestAssistantMessage),
+    [latestAssistantMessage]
+  );
+
+  // Auto-open the sources panel when fresh sources arrive for the latest
+  // assistant message and the user hasn't dismissed it. Don't fight an
+  // already-open document sheet: sources only opens if doc sheet is closed.
+  useEffect(() => {
+    if (!latestAssistantMessage) {
+      return;
+    }
+    if (latestSources.length === 0) {
+      return;
+    }
+    if (sourcesPanelDismissedFor.has(latestAssistantMessage.id)) {
+      return;
+    }
+    if (isDocumentSheetOpen) {
+      return;
+    }
+    setIsSourcesPanelOpen(true);
+  }, [
+    isDocumentSheetOpen,
+    latestAssistantMessage,
+    latestSources.length,
+    sourcesPanelDismissedFor,
+  ]);
+
+  const handleSourcesPanelOpenChange = useCallback(
+    (open: boolean) => {
+      setIsSourcesPanelOpen(open);
+      if (!(open || latestAssistantMessage)) {
+        return;
+      }
+      if (!open && latestAssistantMessage) {
+        setSourcesPanelDismissedFor((prev) => {
+          const next = new Set(prev);
+          next.add(latestAssistantMessage.id);
+          return next;
+        });
+      }
+    },
+    [latestAssistantMessage]
+  );
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -254,7 +320,7 @@ export function Chat({
         autoDocumentGeneration &&
         hasDocumentIntent(userText) &&
         !!assistantText;
-      if (!metadataCandidate && !fallbackCandidate) {
+      if (!(metadataCandidate || fallbackCandidate)) {
         return;
       }
 
@@ -283,6 +349,9 @@ export function Chat({
     latestUserMessage,
   ]);
 
+  const isRightPanelOpen = isDocumentSheetOpen || isSourcesPanelOpen;
+  const messageWidthClass = isRightPanelOpen ? "max-w-2xl" : "max-w-3xl";
+
   return (
     <SidebarProvider>
       <div className="flex h-screen w-full bg-background text-foreground">
@@ -296,6 +365,9 @@ export function Chat({
                 <span className="sr-only">Toggle sidebar</span>
               </Button>
             </SidebarTrigger>
+            <span className="select-none font-serif text-[15px] text-foreground/75 italic tracking-tight">
+              chat<span className="text-accent">.</span>
+            </span>
           </header>
 
           <div className="flex w-full flex-1 flex-col overflow-hidden">
@@ -306,6 +378,7 @@ export function Chat({
               documentDraftTitle={documentTitle}
               documentSourceMessageId={documentSourceMessageId}
               isDocumentSheetOpen={isDocumentSheetOpen}
+              isSourcesPanelOpen={isSourcesPanelOpen}
               messages={messages}
               onOpenDocumentBuilder={openDocumentBuilder}
               onSuggestionClick={handleSuggestionClick}
@@ -314,9 +387,7 @@ export function Chat({
             />
 
             <div
-              className={`mx-auto w-full px-4 pt-2 pb-5 ${
-                isDocumentSheetOpen ? "max-w-2xl" : "max-w-3xl"
-              }`}
+              className={`mx-auto w-full px-4 pt-2 pb-5 ${messageWidthClass}`}
             >
               <ChatInput
                 attachments={attachments}
@@ -338,8 +409,8 @@ export function Chat({
                 stop={stop}
                 useSearch={useSearch}
               />
-              <p className="mt-2 select-none text-center text-[11px] text-muted-foreground/50">
-                AI can make mistakes. Verify important information.
+              <p className="mt-2 select-none text-center font-mono text-[10px] text-muted-foreground/40 uppercase tracking-[0.18em]">
+                AI can be wrong &middot; verify important info
               </p>
             </div>
           </div>
@@ -351,6 +422,13 @@ export function Chat({
             onOpenChange={setIsDocumentSheetOpen}
             open={isDocumentSheetOpen}
             suggestedFormat={documentFormat}
+          />
+        ) : null}
+        {!isDocumentSheetOpen && isSourcesPanelOpen ? (
+          <LazySourcesPanel
+            onOpenChange={handleSourcesPanelOpenChange}
+            open={isSourcesPanelOpen}
+            sources={latestSources}
           />
         ) : null}
       </div>

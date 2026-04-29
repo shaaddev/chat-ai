@@ -2,6 +2,7 @@
 
 import { Check, Copy, Globe } from "lucide-react";
 import { memo, useState } from "react";
+import { useSmoothText } from "@/hooks/use-smooth-text";
 import { image_models, stable_models } from "@/lib/ai/models";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { cn, sanitizeText } from "@/lib/utils";
@@ -11,6 +12,7 @@ import { PreviewAttachment } from "./preview-attachment";
 
 export interface messageProps {
   isDocumentSheetOpen?: boolean;
+  isSourcesPanelOpen?: boolean;
   isStreaming?: boolean;
   message: ChatMessage;
 }
@@ -56,13 +58,46 @@ function getAttachmentsFromMessage(message: ChatMessage): Attachment[] {
   return attachments;
 }
 
+function getMessageMaxWidthClass(
+  isDocumentSheetOpen: boolean,
+  isSourcesPanelOpen: boolean
+) {
+  if (isDocumentSheetOpen || isSourcesPanelOpen) {
+    return "max-w-2xl";
+  }
+  return "max-w-3xl";
+}
+
+/**
+ * Renders the actively streaming assistant text via `useSmoothText` so the
+ * reveal cadence stays steady instead of flickering with network bursts.
+ * Historical / non-streaming messages skip the hook entirely.
+ */
+function AssistantText({
+  isStreaming,
+  text,
+}: {
+  isStreaming: boolean;
+  text: string;
+}) {
+  const sanitized = sanitizeText(text);
+  const smoothed = useSmoothText(sanitized, isStreaming);
+  return <Markdown>{smoothed}</Markdown>;
+}
+
 const PureChatMessage = ({
   message,
   isDocumentSheetOpen = false,
+  isSourcesPanelOpen = false,
   isStreaming = false,
 }: messageProps) => {
   const [copied, setCopied] = useState(false);
   const attachmentsFromMessage = getAttachmentsFromMessage(message);
+  const isAssistant = message.role === "assistant";
+  const widthClass = getMessageMaxWidthClass(
+    isDocumentSheetOpen,
+    isSourcesPanelOpen
+  );
 
   const handleCopyMessage = async () => {
     const textContent = message.parts
@@ -77,13 +112,15 @@ const PureChatMessage = ({
 
   return (
     <div
-      className={`mx-auto ${isDocumentSheetOpen ? "max-w-2xl" : "max-w-3xl"}`}
+      className={`mx-auto ${widthClass}`}
+      data-message-id={message.id}
+      data-role={message.role}
     >
       <div
         className={cn(
           "flex",
           message.role === "user" ? "justify-end" : "justify-start",
-          message.role === "assistant" && "group/message"
+          isAssistant && "group/message"
         )}
         key={message.id}
       >
@@ -122,19 +159,25 @@ const PureChatMessage = ({
                     className={cn(
                       message.role === "user" &&
                         "w-fit max-w-[92%] break-words rounded-2xl bg-muted px-4 py-2.5 sm:max-w-[80%]",
-                      message.role === "assistant" && "px-0 py-0 text-left"
+                      isAssistant &&
+                        "w-full max-w-[68ch] border-foreground/8 border-l py-0 pr-0 pl-5 text-left"
                     )}
                     data-testid="message-content"
                   >
-                    <div
-                      className={cn(
-                        isStreaming &&
-                          message.role === "assistant" &&
-                          "streaming-cursor"
-                      )}
-                    >
+                    {isAssistant ? (
+                      <div
+                        className={cn(
+                          isStreaming && "streaming-cursor streaming-text"
+                        )}
+                      >
+                        <AssistantText
+                          isStreaming={isStreaming}
+                          text={part.text}
+                        />
+                      </div>
+                    ) : (
                       <Markdown>{sanitizeText(part.text)}</Markdown>
-                    </div>
+                    )}
                   </MessageContent>
                 </div>
               );
@@ -142,7 +185,7 @@ const PureChatMessage = ({
 
             return null;
           })}
-          {message.role === "assistant" && (
+          {isAssistant && (
             <div
               className={cn(
                 "flex w-full items-center gap-2 text-xs transition-opacity duration-200",
@@ -158,7 +201,7 @@ const PureChatMessage = ({
                   const usedSearch = Boolean(m.useSearch);
 
                   return (
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 pl-5">
                       <button
                         className="flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                         onClick={handleCopyMessage}
@@ -198,6 +241,9 @@ export const PreviewMessage = memo(PureChatMessage, (prevProps, nextProps) => {
     return false;
   }
   if (prevProps.isDocumentSheetOpen !== nextProps.isDocumentSheetOpen) {
+    return false;
+  }
+  if (prevProps.isSourcesPanelOpen !== nextProps.isSourcesPanelOpen) {
     return false;
   }
   if (prevProps.message.id !== nextProps.message.id) {

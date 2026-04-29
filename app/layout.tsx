@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, JetBrains_Mono, Source_Serif_4 } from "next/font/google";
 import "./globals.css";
 import { ChatProvider } from "@/components/chat-context";
 import { PerformanceMonitor } from "@/components/performance-monitor";
@@ -37,8 +37,17 @@ const geistSans = Geist({
   preload: true,
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const sourceSerif = Source_Serif_4({
+  variable: "--font-source-serif",
+  subsets: ["latin"],
+  display: "swap",
+  preload: true,
+  weight: ["400", "500", "600", "700"],
+  style: ["normal", "italic"],
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
   subsets: ["latin"],
   display: "swap",
   preload: true,
@@ -62,11 +71,30 @@ export default async function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* Anti-FOUC script for accent color */}
+        {/* Anti-FOUC: hydrate the active theme variant + density before paint.
+            Migrates legacy `accent-color` localStorage values to the new
+            `chat-ai:theme` key. */}
         <script>{`
           try {
-            var accent = localStorage.getItem('accent-color') || 'blue';
-            document.documentElement.setAttribute('data-accent', accent);
+            var theme = localStorage.getItem('chat-ai:theme');
+            if (!theme) {
+              var legacy = localStorage.getItem('accent-color');
+              if (legacy === 'blue' || legacy === 'teal' || legacy === 'purple') {
+                theme = 'ink';
+              } else if (legacy === 'green') {
+                theme = 'terminal';
+              } else {
+                theme = 'paper';
+              }
+              localStorage.setItem('chat-ai:theme', theme);
+            }
+            document.documentElement.setAttribute('data-theme', theme);
+
+            var density = localStorage.getItem('chat-ai:density') || 'comfortable';
+            document.documentElement.setAttribute('data-density', density);
+
+            var prose = localStorage.getItem('chat-ai:prose') || 'serif';
+            document.documentElement.setAttribute('data-prose', prose);
           } catch (_error) {
           }
         `}</script>
@@ -80,7 +108,7 @@ export default async function RootLayout({
         <link href="/manifest.json" rel="manifest" />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} bg-background text-foreground antialiased`}
+        className={`${geistSans.variable} ${sourceSerif.variable} ${jetbrainsMono.variable} bg-background text-foreground antialiased`}
       >
         <ThemeProvider>
           <ConvexClientProvider initialToken={initialToken}>

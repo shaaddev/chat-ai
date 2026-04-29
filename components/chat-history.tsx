@@ -12,14 +12,14 @@ import { SidebarUser } from "./sidebar-user";
 
 export function ChatHistory({ session }: { session: Session | null }) {
   return (
-    <Sidebar className="w-64 border-none bg-sidebar">
+    <Sidebar className="w-64 border-none bg-sidebar/95 backdrop-blur-md">
       <SidebarHeader className="mb-4 flex flex-row items-center justify-start p-2">
         <NewChat />
       </SidebarHeader>
       <SidebarContent>
         <SidebarHistory session={session} />
       </SidebarContent>
-      <SidebarFooter className="border-sidebar-border border-t p-3">
+      <SidebarFooter className="border-sidebar-border/50 border-t p-3">
         {session ? (
           <SidebarUser email={session?.user.email} name={session?.user.name} />
         ) : (

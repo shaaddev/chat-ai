@@ -49,10 +49,31 @@ const ChatContext = createContext<ChatContextType | undefined>(undefined);
 const ChatDraftContext = createContext<ChatDraftContextType | undefined>(
   undefined
 );
+
+const USE_SEARCH_STORAGE_KEY = "chat-ai:use-search";
+
+function getDefaultUseSearch(): boolean {
+  if (typeof window === "undefined") {
+    return true;
+  }
+  const stored = localStorage.getItem(USE_SEARCH_STORAGE_KEY);
+  if (stored === null) {
+    return true;
+  }
+  return stored === "true";
+}
+
+function persistUseSearch(value: boolean) {
+  if (typeof window === "undefined") {
+    return;
+  }
+  localStorage.setItem(USE_SEARCH_STORAGE_KEY, String(value));
+}
+
 const DEFAULT_CHAT_INPUT_STATE: ChatInputState = {
   input: "",
   attachments: [],
-  useSearch: false,
+  useSearch: true,
   autoDocumentGeneration: false,
 };
 
@@ -172,20 +193,38 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const getChatInputState = useCallback((chatId: string): ChatInputState => {
-    return chatInputStatesRef.current.get(chatId) ?? DEFAULT_CHAT_INPUT_STATE;
+    const existing = chatInputStatesRef.current.get(chatId);
+    if (existing) {
+      return existing;
+    }
+    // Hydrate fresh state with the user's persisted web-search preference.
+    return { ...DEFAULT_CHAT_INPUT_STATE, useSearch: getDefaultUseSearch() };
   }, []);
 
   const setChatInputState = useCallback(
     (chatId: string, state: Partial<ChatInputState>) => {
-      const currentState =
-        chatInputStatesRef.current.get(chatId) ?? DEFAULT_CHAT_INPUT_STATE;
-      chatInputStatesRef.current.set(chatId, { ...currentState, ...state });
+      const currentState = chatInputStatesRef.current.get(chatId) ?? {
+        ...DEFAULT_CHAT_INPUT_STATE,
+        useSearch: getDefaultUseSearch(),
+      };
+      const next = { ...currentState, ...state };
+      chatInputStatesRef.current.set(chatId, next);
+      // Persist the search preference globally so it survives reloads.
+      if (
+        typeof state.useSearch === "boolean" &&
+        state.useSearch !== currentState.useSearch
+      ) {
+        persistUseSearch(state.useSearch);
+      }
     },
     []
   );
 
   const clearChatInputState = useCallback((chatId: string) => {
-    chatInputStatesRef.current.set(chatId, DEFAULT_CHAT_INPUT_STATE);
+    chatInputStatesRef.current.set(chatId, {
+      ...DEFAULT_CHAT_INPUT_STATE,
+      useSearch: getDefaultUseSearch(),
+    });
   }, []);
 
   const contextValue = useMemo(

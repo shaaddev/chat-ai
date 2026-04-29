@@ -2,12 +2,19 @@
 
 import { ThemeProvider as NextThemesProvider } from "next-themes";
 import { useEffect } from "react";
-import { getAccentColor } from "@/lib/theme";
+import { getDensity, getProseFont, getTheme } from "@/lib/theme";
 
-function AccentColorInitializer() {
+/**
+ * Hydrates the theme variant + density + prose font from localStorage on
+ * mount. The anti-FOUC inline script in `app/layout.tsx` already sets the
+ * data-attributes before paint, so this is a defensive re-sync (covers
+ * tabs that were opened before the script ran, etc.).
+ */
+function ThemePreferencesInitializer() {
   useEffect(() => {
-    const accent = getAccentColor();
-    document.documentElement.setAttribute("data-accent", accent);
+    document.documentElement.setAttribute("data-theme", getTheme());
+    document.documentElement.setAttribute("data-density", getDensity());
+    document.documentElement.setAttribute("data-prose", getProseFont());
   }, []);
   return null;
 }
@@ -21,7 +28,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       enableSystem
       storageKey="theme"
     >
-      <AccentColorInitializer />
+      <ThemePreferencesInitializer />
       {children}
     </NextThemesProvider>
   );

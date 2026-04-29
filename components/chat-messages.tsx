@@ -27,6 +27,7 @@ interface MessagesProps {
   documentDraftTitle?: string;
   documentSourceMessageId?: string | null;
   isDocumentSheetOpen?: boolean;
+  isSourcesPanelOpen?: boolean;
   messages: ChatMessage[];
   onOpenDocumentBuilder?: () => void;
   onSuggestionClick?: (text: string) => void;
@@ -36,14 +37,18 @@ interface MessagesProps {
 
 const CODE_BLOCK_REGEX = /```[\s\S]*?```/;
 
+function getNarrowMaxWidth(narrow: boolean) {
+  return narrow ? "max-w-2xl" : "max-w-3xl";
+}
+
 function DocumentCard({
-  isDocumentSheetOpen,
+  isNarrow,
   documentDraftMarkdown,
   documentDraftTitle,
   documentDraftFormat,
   onOpenDocumentBuilder,
 }: {
-  isDocumentSheetOpen: boolean;
+  isNarrow: boolean;
   documentDraftMarkdown: string;
   documentDraftTitle?: string;
   documentDraftFormat: ExportFormat;
@@ -52,9 +57,7 @@ function DocumentCard({
   const hasCodeBlock = CODE_BLOCK_REGEX.test(documentDraftMarkdown);
 
   return (
-    <div
-      className={`mx-auto mt-2 mb-2 ${isDocumentSheetOpen ? "max-w-2xl" : "max-w-3xl"}`}
-    >
+    <div className={`mx-auto mt-2 mb-2 ${getNarrowMaxWidth(isNarrow)}`}>
       <Card className="border-border bg-card">
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-foreground text-sm">
@@ -97,6 +100,7 @@ function PureMessages({
   status,
   selectedChatModel,
   isDocumentSheetOpen = false,
+  isSourcesPanelOpen = false,
   documentDraftMarkdown,
   documentDraftTitle,
   documentDraftFormat = "docx",
@@ -104,62 +108,80 @@ function PureMessages({
   onOpenDocumentBuilder,
   onSuggestionClick,
 }: MessagesProps) {
-  const { messagesEndRef, scrollToBottom } = useMessages();
-  const lastScrollRef = useRef(0);
+  const { containerRef, scrollUserMessageToTop, isNearBottom, scrollToBottom } =
+    useMessages();
   let hasAssistantVisibleText = false;
   let hasAssistantImageAttachment = false;
   let lastAssistantMessageId: string | null = null;
-  const lastMessage = messages.at(-1);
+  let latestUserMessageId: string | null = null;
 
   for (let index = messages.length - 1; index >= 0; index--) {
     const message = messages[index];
+
+    if (message.role === "user" && latestUserMessageId === null) {
+      latestUserMessageId = message.id;
+    }
 
     if (message.role !== "assistant") {
       continue;
     }
 
-    lastAssistantMessageId = message.id;
-
-    for (const part of message.parts) {
-      if (
-        !hasAssistantVisibleText &&
-        part.type === "text" &&
-        part.text.trim().length > 0
-      ) {
-        hasAssistantVisibleText = true;
-      }
-
-      if (!hasAssistantImageAttachment && part.type === "file") {
-        hasAssistantImageAttachment = true;
+    if (lastAssistantMessageId === null) {
+      lastAssistantMessageId = message.id;
+      for (const part of message.parts) {
+        if (
+          !hasAssistantVisibleText &&
+          part.type === "text" &&
+          part.text.trim().length > 0
+        ) {
+          hasAssistantVisibleText = true;
+        }
+        if (!hasAssistantImageAttachment && part.type === "file") {
+          hasAssistantImageAttachment = true;
+        }
       }
     }
 
-    break;
+    if (latestUserMessageId !== null && lastAssistantMessageId !== null) {
+      break;
+    }
   }
 
   const isImageModelSelected = image_models.some(
     (im) => im.id === selectedChatModel
   );
-  const lastMessageId = lastMessage?.id ?? null;
+
+  // Track which user message we already scrolled-to-top so we only fire
+  // the snap once per submit, not on every status flip during a stream.
+  const lastScrolledUserMessageId = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!lastMessageId && messages.length === 0 && status !== "ready") {
+    if (status !== "submitted") {
       return;
     }
-
-    if (status === "streaming") {
-      const now = Date.now();
-      if (now - lastScrollRef.current > 150) {
-        lastScrollRef.current = now;
-        scrollToBottom("instant");
-      }
+    if (!latestUserMessageId) {
       return;
     }
+    if (lastScrolledUserMessageId.current === latestUserMessageId) {
+      return;
+    }
+    lastScrolledUserMessageId.current = latestUserMessageId;
+    scrollUserMessageToTop(latestUserMessageId);
+  }, [latestUserMessageId, status, scrollUserMessageToTop]);
 
-    if (status === "ready") {
+  // When a stream completes and the user is still tailing the conversation,
+  // softly settle to the bottom — keeps short follow-ups feeling natural.
+  useEffect(() => {
+    if (status !== "ready") {
+      return;
+    }
+    if (!lastAssistantMessageId) {
+      return;
+    }
+    if (isNearBottom()) {
       scrollToBottom("smooth");
     }
-  }, [lastMessageId, messages, scrollToBottom, status]);
+  }, [status, lastAssistantMessageId, isNearBottom, scrollToBottom]);
 
   const showThinking =
     (status === "submitted" || status === "streaming") &&
@@ -171,49 +193,74 @@ function PureMessages({
     isImageModelSelected &&
     !hasAssistantImageAttachment;
 
+  const isNarrow = isDocumentSheetOpen || isSourcesPanelOpen;
+  const widthClass = getNarrowMaxWidth(isNarrow);
+
+  // Reserve viewport room beneath the streaming response so the just-sent
+  // user message can actually reach the top of the viewport even when the
+  // assistant reply is short. Roughly: viewport height minus header + input.
+  const isActivelyStreamingLast =
+    (status === "streaming" || status === "submitted") &&
+    !!lastAssistantMessageId;
+
   return (
-    <ScrollArea className="w-full flex-1 overflow-auto">
+    <ScrollArea className="w-full flex-1 overflow-auto" ref={containerRef}>
       <div className="p-4">
         {messages.length === 0 && !showThinking && !isGeneratingImage ? (
           <EmptyChatState onSuggestionClick={onSuggestionClick} />
         ) : (
-          messages.map((message, index) => (
-            <Fragment key={message.id}>
-              <div className={index > 0 ? "mt-6" : ""}>
-                <PreviewMessage
-                  isDocumentSheetOpen={isDocumentSheetOpen}
-                  isStreaming={
-                    status === "streaming" &&
-                    message.role === "assistant" &&
-                    message.id === lastAssistantMessageId
+          messages.map((message, index) => {
+            const isLast = index === messages.length - 1;
+            const wrapStreaming =
+              isLast &&
+              isActivelyStreamingLast &&
+              message.id === lastAssistantMessageId;
+
+            return (
+              <Fragment key={message.id}>
+                <div
+                  className={index > 0 ? "mt-6" : ""}
+                  style={
+                    wrapStreaming
+                      ? { minHeight: "calc(100vh - 18rem)" }
+                      : undefined
                   }
-                  message={message}
-                />
-              </div>
-              {documentDraftMarkdown &&
-              documentSourceMessageId === message.id ? (
-                <DocumentCard
-                  documentDraftFormat={documentDraftFormat}
-                  documentDraftMarkdown={documentDraftMarkdown}
-                  documentDraftTitle={documentDraftTitle}
-                  isDocumentSheetOpen={isDocumentSheetOpen}
-                  onOpenDocumentBuilder={onOpenDocumentBuilder}
-                />
-              ) : null}
-            </Fragment>
-          ))
+                >
+                  <PreviewMessage
+                    isDocumentSheetOpen={isDocumentSheetOpen}
+                    isSourcesPanelOpen={isSourcesPanelOpen}
+                    isStreaming={
+                      status === "streaming" &&
+                      message.role === "assistant" &&
+                      message.id === lastAssistantMessageId
+                    }
+                    message={message}
+                  />
+                </div>
+                {documentDraftMarkdown &&
+                documentSourceMessageId === message.id ? (
+                  <DocumentCard
+                    documentDraftFormat={documentDraftFormat}
+                    documentDraftMarkdown={documentDraftMarkdown}
+                    documentDraftTitle={documentDraftTitle}
+                    isNarrow={isNarrow}
+                    onOpenDocumentBuilder={onOpenDocumentBuilder}
+                  />
+                ) : null}
+              </Fragment>
+            );
+          })
         )}
         {showThinking && (
           <div
-            className={`mx-auto mt-4 ${isDocumentSheetOpen ? "max-w-2xl" : "max-w-3xl"}`}
+            className={`mx-auto mt-4 ${widthClass}`}
+            style={{ minHeight: "calc(100vh - 18rem)" }}
           >
             <ThinkingIndicator />
           </div>
         )}
         {isGeneratingImage && (
-          <div
-            className={`mx-auto mt-4 ${isDocumentSheetOpen ? "max-w-2xl" : "max-w-3xl"}`}
-          >
+          <div className={`mx-auto mt-4 ${widthClass}`}>
             <motion.div
               animate={{ opacity: 1 }}
               className="relative size-72 overflow-hidden rounded-xl border border-border bg-muted/30"
@@ -231,7 +278,6 @@ function PureMessages({
             </motion.div>
           </div>
         )}
-        <div ref={messagesEndRef} />
       </div>
     </ScrollArea>
   );
@@ -252,6 +298,9 @@ export const Messages = memo(PureMessages, (prevProps, nextProps) => {
     return false;
   }
   if (prevProps.isDocumentSheetOpen !== nextProps.isDocumentSheetOpen) {
+    return false;
+  }
+  if (prevProps.isSourcesPanelOpen !== nextProps.isSourcesPanelOpen) {
     return false;
   }
   if (prevProps.documentDraftMarkdown !== nextProps.documentDraftMarkdown) {
