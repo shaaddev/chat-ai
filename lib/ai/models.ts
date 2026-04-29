@@ -1,10 +1,27 @@
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
-import { customProvider } from "ai";
+import { customProvider, type LanguageModel } from "ai";
 import { FlaskConical, Image, Info, type LucideIcon } from "lucide-react";
 
 const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
 });
+
+// Maps internal model IDs to their OpenRouter slugs. Used when we need to
+// rebuild a model instance with extra options (e.g. the web-search plugin)
+// instead of the pre-configured one in `myProvider`.
+const OPENROUTER_MODEL_SLUGS: Record<string, string> = {
+  "google-model-3-flash": "google/gemini-3-flash-preview",
+  "google-model-2-5-flash-lite": "google/gemini-2.5-flash-lite",
+  "chat-5-mini": "openai/gpt-5-mini",
+  "deepseek-v3-2": "deepseek/deepseek-v3.2",
+  "alibaba-qwen-3-5-plus": "qwen/qwen3.5-plus-02-15",
+  "moonshot-kimi-k-2-5": "moonshotai/kimi-k2.5",
+  "xai-grok-4-1": "x-ai/grok-4.1-fast",
+  "xai-grok-4": "x-ai/grok-4-fast",
+  "meta-llama-4-maverick": "meta-llama/llama-4-maverick",
+};
+
+const WEB_SEARCH_MAX_RESULTS = 5;
 
 export type ModelProvider =
   | "google"
@@ -239,3 +256,33 @@ export const myProvider = customProvider({
     "chat-gemini-2-5-flash-image": "google/gemini-2.5-flash-image",
   },
 });
+
+/**
+ * Returns the language model for a given internal model ID. When `useWebSearch`
+ * is true, the model is reconstructed with OpenRouter's `web` plugin enabled so
+ * the request actually performs a live web search. Native provider tools
+ * (Google's `googleSearch`, OpenAI's `webSearchPreview`, etc.) do NOT trigger
+ * web search when routed through OpenRouter — only the `:online` suffix or the
+ * `web` plugin do.
+ *
+ * @see https://openrouter.ai/docs/features/web-search
+ */
+export function getLanguageModel(
+  modelId: string,
+  options?: { useWebSearch?: boolean }
+): LanguageModel {
+  const slug = OPENROUTER_MODEL_SLUGS[modelId];
+
+  if (options?.useWebSearch && slug) {
+    return openrouter(slug, {
+      plugins: [
+        {
+          id: "web",
+          max_results: WEB_SEARCH_MAX_RESULTS,
+        },
+      ],
+    });
+  }
+
+  return myProvider.languageModel(modelId);
+}

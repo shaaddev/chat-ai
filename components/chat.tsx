@@ -119,7 +119,7 @@ export function Chat({
   const [input, setInput] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [useSearch, setUseSearch] = useState(false);
-  const [autoDocumentGeneration, setAutoDocumentGeneration] = useState(true);
+  const [autoDocumentGeneration, setAutoDocumentGeneration] = useState(false);
   const [customSystemPrompt, setCustomSystemPrompt] = useState<
     string | undefined
   >(initialSystemPrompt);

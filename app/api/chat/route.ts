@@ -15,9 +15,13 @@ import {
 } from "resumable-stream";
 import { generateTitleFromUserMessage } from "@/app/actions";
 import { auth } from "@/app/auth";
-import { image_models, myProvider, stable_models } from "@/lib/ai/models";
+import {
+  getLanguageModel,
+  image_models,
+  myProvider,
+  stable_models,
+} from "@/lib/ai/models";
 import { systemPrompt } from "@/lib/ai/prompts";
-import { getToolsForModel } from "@/lib/ai/tools";
 import {
   createStreamId,
   getChatById,
@@ -488,14 +492,13 @@ export async function POST(req: Request) {
               customSystemPrompt ?? existingChat?.systemPrompt ?? undefined;
 
             const res = streamText({
-              model: myProvider.languageModel(selectedChatModel),
+              model: getLanguageModel(selectedChatModel, {
+                useWebSearch: useSearch,
+              }),
               system: systemPrompt({
                 selectedChatModel,
                 customSystemPrompt: effectiveSystemPrompt,
               }),
-              tools: useSearch
-                ? getToolsForModel(selectedChatModel)
-                : undefined,
               messages: await convertToModelMessages(uiMessages),
               experimental_transform: smoothStream({ chunking: "word" }),
               stopWhen: stepCountIs(5),

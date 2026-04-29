@@ -53,7 +53,7 @@ const DEFAULT_CHAT_INPUT_STATE: ChatInputState = {
   input: "",
   attachments: [],
   useSearch: false,
-  autoDocumentGeneration: true,
+  autoDocumentGeneration: false,
 };
 
 export function ChatProvider({ children }: { children: ReactNode }) {
