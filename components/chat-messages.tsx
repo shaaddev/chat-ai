@@ -1,6 +1,6 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
-import { FileText, ImageIcon, LoaderIcon } from "lucide-react";
-import { motion } from "motion/react";
+import { ArrowDown, FileText, ImageIcon, LoaderIcon } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import { Fragment, memo, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -94,8 +94,35 @@ function DocumentCard({
   );
 }
 
+function ScrollToBottomButton({
+  show,
+  onClick,
+}: {
+  show: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <AnimatePresence>
+      {show ? (
+        <motion.button
+          animate={{ opacity: 1, y: 0 }}
+          aria-label="Scroll to latest message"
+          className="absolute bottom-4 left-1/2 z-20 inline-flex size-9 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border border-foreground/10 bg-background/90 text-foreground/80 shadow-md backdrop-blur transition-colors hover:border-foreground/25 hover:text-foreground"
+          exit={{ opacity: 0, y: 8 }}
+          initial={{ opacity: 0, y: 8 }}
+          onClick={onClick}
+          transition={{ duration: 0.18, ease: "easeOut" }}
+          type="button"
+        >
+          <ArrowDown className="size-4" />
+        </motion.button>
+      ) : null}
+    </AnimatePresence>
+  );
+}
+
 function PureMessages({
-  chatId: _chatId,
+  chatId,
   messages,
   status,
   selectedChatModel,
@@ -108,8 +135,13 @@ function PureMessages({
   onOpenDocumentBuilder,
   onSuggestionClick,
 }: MessagesProps) {
-  const { containerRef, scrollUserMessageToTop, isNearBottom, scrollToBottom } =
-    useMessages();
+  const {
+    containerRef,
+    isAtBottom,
+    isNearBottom,
+    scrollToBottom,
+    scrollUserMessageToTop,
+  } = useMessages();
   let hasAssistantVisibleText = false;
   let hasAssistantImageAttachment = false;
   let lastAssistantMessageId: string | null = null;
@@ -151,8 +183,8 @@ function PureMessages({
     (im) => im.id === selectedChatModel
   );
 
-  // Track which user message we already scrolled-to-top so we only fire
-  // the snap once per submit, not on every status flip during a stream.
+  // Scroll the just-sent user message to the top of the viewport once per
+  // submission. Tracked by ref so we don't re-fire on every re-render.
   const lastScrolledUserMessageId = useRef<string | null>(null);
 
   useEffect(() => {
@@ -169,8 +201,8 @@ function PureMessages({
     scrollUserMessageToTop(latestUserMessageId);
   }, [latestUserMessageId, status, scrollUserMessageToTop]);
 
-  // When a stream completes and the user is still tailing the conversation,
-  // softly settle to the bottom — keeps short follow-ups feeling natural.
+  // Settle to the bottom when a stream completes if the user is still
+  // tailing (keeps short follow-ups feeling natural).
   useEffect(() => {
     if (status !== "ready") {
       return;
@@ -182,6 +214,23 @@ function PureMessages({
       scrollToBottom("smooth");
     }
   }, [status, lastAssistantMessageId, isNearBottom, scrollToBottom]);
+
+  // On chat load (or chat-id change), jump straight to the bottom so the
+  // user sees the latest exchange first. Fires once per chatId.
+  const initialScrollAppliedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (initialScrollAppliedFor.current === chatId) {
+      return;
+    }
+    if (messages.length === 0) {
+      return;
+    }
+    initialScrollAppliedFor.current = chatId;
+    // Two passes: the first kicks off before layout fully settles, the
+    // second nails it once Radix has painted scroll content.
+    scrollToBottom("instant");
+    requestAnimationFrame(() => scrollToBottom("instant"));
+  }, [chatId, messages.length, scrollToBottom]);
 
   const showThinking =
     (status === "submitted" || status === "streaming") &&
@@ -196,90 +245,92 @@ function PureMessages({
   const isNarrow = isDocumentSheetOpen || isSourcesPanelOpen;
   const widthClass = getNarrowMaxWidth(isNarrow);
 
-  // Reserve viewport room beneath the streaming response so the just-sent
-  // user message can actually reach the top of the viewport even when the
-  // assistant reply is short. Roughly: viewport height minus header + input.
-  const isActivelyStreamingLast =
-    (status === "streaming" || status === "submitted") &&
-    !!lastAssistantMessageId;
+  // Reserve viewport room beneath the latest message during submit/stream
+  // so the just-sent user message can actually reach the top of the
+  // viewport — even when the assistant reply is short or hasn't started.
+  const isAwaitingOrStreaming =
+    status === "streaming" || status === "submitted";
+
+  const showScrollButton =
+    !isAtBottom && messages.length > 0 && status !== "submitted";
 
   return (
-    <ScrollArea className="w-full flex-1 overflow-auto" ref={containerRef}>
-      <div className="p-4">
-        {messages.length === 0 && !showThinking && !isGeneratingImage ? (
-          <EmptyChatState onSuggestionClick={onSuggestionClick} />
-        ) : (
-          messages.map((message, index) => {
-            const isLast = index === messages.length - 1;
-            const wrapStreaming =
-              isLast &&
-              isActivelyStreamingLast &&
-              message.id === lastAssistantMessageId;
+    <div className="relative w-full flex-1 overflow-hidden">
+      <ScrollArea className="h-full w-full" ref={containerRef}>
+        <div className="p-4">
+          {messages.length === 0 && !showThinking && !isGeneratingImage ? (
+            <EmptyChatState onSuggestionClick={onSuggestionClick} />
+          ) : (
+            messages.map((message, index) => {
+              const isLast = index === messages.length - 1;
+              const wrapForScroll = isLast && isAwaitingOrStreaming;
 
-            return (
-              <Fragment key={message.id}>
-                <div
-                  className={index > 0 ? "mt-6" : ""}
-                  style={
-                    wrapStreaming
-                      ? { minHeight: "calc(100vh - 18rem)" }
-                      : undefined
-                  }
-                >
-                  <PreviewMessage
-                    isDocumentSheetOpen={isDocumentSheetOpen}
-                    isSourcesPanelOpen={isSourcesPanelOpen}
-                    isStreaming={
-                      status === "streaming" &&
-                      message.role === "assistant" &&
-                      message.id === lastAssistantMessageId
+              return (
+                <Fragment key={message.id}>
+                  <div
+                    className={index > 0 ? "mt-6" : ""}
+                    style={
+                      wrapForScroll
+                        ? { minHeight: "calc(100vh - 14rem)" }
+                        : undefined
                     }
-                    message={message}
-                  />
+                  >
+                    <PreviewMessage
+                      isDocumentSheetOpen={isDocumentSheetOpen}
+                      isSourcesPanelOpen={isSourcesPanelOpen}
+                      isStreaming={
+                        status === "streaming" &&
+                        message.role === "assistant" &&
+                        message.id === lastAssistantMessageId
+                      }
+                      message={message}
+                    />
+                    {showThinking && isLast && message.role === "user" ? (
+                      <div className={`mx-auto mt-6 ${widthClass}`}>
+                        <ThinkingIndicator />
+                      </div>
+                    ) : null}
+                  </div>
+                  {documentDraftMarkdown &&
+                  documentSourceMessageId === message.id ? (
+                    <DocumentCard
+                      documentDraftFormat={documentDraftFormat}
+                      documentDraftMarkdown={documentDraftMarkdown}
+                      documentDraftTitle={documentDraftTitle}
+                      isNarrow={isNarrow}
+                      onOpenDocumentBuilder={onOpenDocumentBuilder}
+                    />
+                  ) : null}
+                </Fragment>
+              );
+            })
+          )}
+          {isGeneratingImage && (
+            <div className={`mx-auto mt-4 ${widthClass}`}>
+              <motion.div
+                animate={{ opacity: 1 }}
+                className="relative size-72 overflow-hidden rounded-xl border border-border bg-muted/30"
+                initial={{ opacity: 0 }}
+              >
+                <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-muted/40 via-transparent to-muted/40" />
+                <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-foreground/[0.02] to-transparent" />
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                  <ImageIcon className="size-6 text-muted-foreground/40" />
+                  <div className="flex items-center gap-2 text-muted-foreground/60">
+                    <LoaderIcon className="size-3.5 animate-spin" />
+                    <span className="text-sm">Generating...</span>
+                  </div>
                 </div>
-                {documentDraftMarkdown &&
-                documentSourceMessageId === message.id ? (
-                  <DocumentCard
-                    documentDraftFormat={documentDraftFormat}
-                    documentDraftMarkdown={documentDraftMarkdown}
-                    documentDraftTitle={documentDraftTitle}
-                    isNarrow={isNarrow}
-                    onOpenDocumentBuilder={onOpenDocumentBuilder}
-                  />
-                ) : null}
-              </Fragment>
-            );
-          })
-        )}
-        {showThinking && (
-          <div
-            className={`mx-auto mt-4 ${widthClass}`}
-            style={{ minHeight: "calc(100vh - 18rem)" }}
-          >
-            <ThinkingIndicator />
-          </div>
-        )}
-        {isGeneratingImage && (
-          <div className={`mx-auto mt-4 ${widthClass}`}>
-            <motion.div
-              animate={{ opacity: 1 }}
-              className="relative size-72 overflow-hidden rounded-xl border border-border bg-muted/30"
-              initial={{ opacity: 0 }}
-            >
-              <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-muted/40 via-transparent to-muted/40" />
-              <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-foreground/[0.02] to-transparent" />
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-                <ImageIcon className="size-6 text-muted-foreground/40" />
-                <div className="flex items-center gap-2 text-muted-foreground/60">
-                  <LoaderIcon className="size-3.5 animate-spin" />
-                  <span className="text-sm">Generating...</span>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </div>
-    </ScrollArea>
+              </motion.div>
+            </div>
+          )}
+        </div>
+      </ScrollArea>
+      <ScrollToBottomButton
+        onClick={() => scrollToBottom("smooth")}
+        show={showScrollButton}
+      />
+    </div>
   );
 }
 

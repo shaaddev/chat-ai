@@ -51,7 +51,7 @@ function ModelItem({
           <DropdownMenuItem
             className={cn(
               "flex cursor-pointer flex-col items-start gap-1.5 rounded-lg px-3 py-2.5 transition-colors",
-              isSelected ? "bg-accent" : "hover:bg-accent/50"
+              isSelected ? "bg-muted text-foreground" : "hover:bg-muted/60"
             )}
             data-testid={`model-item-${model.id}`}
             onSelect={onSelect}

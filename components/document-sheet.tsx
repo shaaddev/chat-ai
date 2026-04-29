@@ -237,7 +237,7 @@ export function DocumentSheet({
 
         <div className="flex items-center gap-2 px-4">
           <Button
-            className="border-border bg-transparent hover:bg-accent"
+            className="border-border bg-transparent"
             onClick={() => wrapSelection("**", "**")}
             size="icon"
             title="Bold"
@@ -247,7 +247,7 @@ export function DocumentSheet({
             <Bold className="size-4" />
           </Button>
           <Button
-            className="border-border bg-transparent hover:bg-accent"
+            className="border-border bg-transparent"
             onClick={() => wrapSelection("*", "*")}
             size="icon"
             title="Italic"
@@ -257,7 +257,7 @@ export function DocumentSheet({
             <Italic className="size-4" />
           </Button>
           <Button
-            className="border-border bg-transparent hover:bg-accent"
+            className="border-border bg-transparent"
             onClick={() => wrapSelection("`", "`")}
             size="icon"
             title="Inline code"
@@ -267,7 +267,7 @@ export function DocumentSheet({
             <Code className="size-4" />
           </Button>
           <Button
-            className="border-border bg-transparent hover:bg-accent"
+            className="border-border bg-transparent"
             onClick={insertListItem}
             size="icon"
             title="Bullet list"
@@ -360,7 +360,7 @@ export function DocumentSheet({
 
         <SheetFooter className="border-border border-t">
           <Button
-            className="border-border bg-transparent hover:bg-accent"
+            className="border-border bg-transparent"
             onClick={handleDownload}
             type="button"
             variant="outline"

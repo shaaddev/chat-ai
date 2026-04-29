@@ -76,7 +76,7 @@ function ThemeCard({
         "group flex flex-col gap-2 overflow-hidden rounded-xl border p-3 text-left transition-all",
         isActive
           ? "border-foreground/25 ring-2 ring-accent/40 ring-offset-2 ring-offset-background"
-          : "border-border/60 hover:border-foreground/15"
+          : "border-border/60 hover:border-foreground/15 hover:bg-muted/40"
       )}
       onClick={onSelect}
       type="button"
@@ -137,8 +137,8 @@ export function ThemeChanger() {
                 className={cn(
                   "flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border px-3 py-3 text-sm transition-all",
                   mode === modeOption.value
-                    ? "border-foreground/20 bg-accent/15 text-foreground"
-                    : "border-transparent text-muted-foreground hover:bg-accent/40 hover:text-foreground"
+                    ? "border-foreground/20 bg-muted text-foreground"
+                    : "border-transparent text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                 )}
                 key={modeOption.value}
                 onClick={() => setMode(modeOption.value)}
@@ -181,8 +181,8 @@ export function ThemeChanger() {
                 className={cn(
                   "flex cursor-pointer flex-col gap-0.5 rounded-xl border px-3 py-2.5 text-left transition-all",
                   density === densityOption.value
-                    ? "border-foreground/25 bg-accent/10 text-foreground"
-                    : "border-border/60 text-muted-foreground hover:border-foreground/15 hover:text-foreground"
+                    ? "border-foreground/25 bg-muted text-foreground"
+                    : "border-border/60 text-muted-foreground hover:border-foreground/15 hover:bg-muted/40 hover:text-foreground"
                 )}
                 key={densityOption.value}
                 onClick={() => setDensity(densityOption.value)}
