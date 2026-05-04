@@ -9,6 +9,7 @@ import { cn, sanitizeText } from "@/lib/utils";
 import { Markdown } from "./markdown";
 import { MessageContent } from "./message-content";
 import { PreviewAttachment } from "./preview-attachment";
+import { ThinkingIndicator } from "./thinking-indicator";
 
 export interface messageProps {
   isDocumentSheetOpen?: boolean;
@@ -164,20 +165,31 @@ const PureChatMessage = ({
                     )}
                     data-testid="message-content"
                   >
-                    {isAssistant ? (
-                      <div
-                        className={cn(
-                          isStreaming && "streaming-cursor streaming-text"
-                        )}
-                      >
-                        <AssistantText
-                          isStreaming={isStreaming}
-                          text={part.text}
-                        />
-                      </div>
-                    ) : (
-                      <Markdown>{sanitizeText(part.text)}</Markdown>
-                    )}
+                    {(() => {
+                      if (!isAssistant) {
+                        return <Markdown>{sanitizeText(part.text)}</Markdown>;
+                      }
+                      // Empty assistant message that's still streaming →
+                      // show animated dots in the assistant slot. Once
+                      // any visible text arrives the dots are replaced
+                      // by the smoothly-revealed text.
+                      const hasVisibleText = part.text.trim().length > 0;
+                      if (isStreaming && !hasVisibleText) {
+                        return <ThinkingIndicator />;
+                      }
+                      return (
+                        <div
+                          className={cn(
+                            isStreaming && "streaming-cursor streaming-text"
+                          )}
+                        >
+                          <AssistantText
+                            isStreaming={isStreaming}
+                            text={part.text}
+                          />
+                        </div>
+                      );
+                    })()}
                   </MessageContent>
                 </div>
               );

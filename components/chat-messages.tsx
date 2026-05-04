@@ -298,7 +298,9 @@ function PureMessages({
                     />
                     {showThinking && isLast && message.role === "user" ? (
                       <div className={`mx-auto mt-6 ${widthClass}`}>
-                        <ThinkingIndicator />
+                        <div className="flex w-full max-w-[68ch] border-foreground/8 border-l pl-5">
+                          <ThinkingIndicator />
+                        </div>
                       </div>
                     ) : null}
                   </div>
