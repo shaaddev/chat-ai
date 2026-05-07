@@ -1,4 +1,4 @@
-import { File, Loader } from "lucide-react";
+import { File, Loader, X } from "lucide-react";
 import Image, { type ImageLoaderProps } from "next/image";
 import type { Attachment } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -10,15 +10,20 @@ export const PreviewAttachment = ({
   attachment,
   isUploading = false,
   className,
+  onRemove,
 }: {
   attachment: Attachment;
   isUploading?: boolean;
   className?: string;
+  onRemove?: () => void;
 }) => {
   const { name, url, contentType } = attachment;
 
   return (
-    <div className="flex flex-col gap-2" data-testid="input-attachment-preview">
+    <div
+      className="relative flex flex-col gap-2"
+      data-testid="input-attachment-preview"
+    >
       <div
         className={cn(
           className,
@@ -61,6 +66,22 @@ export const PreviewAttachment = ({
           </div>
         )}
       </div>
+
+      {onRemove && !isUploading && (
+        <button
+          aria-label="Remove attachment"
+          className="absolute -top-1.5 -right-1.5 z-10 flex size-5 cursor-pointer items-center justify-center rounded-full border border-border bg-background text-foreground shadow-sm transition-colors hover:bg-muted"
+          data-testid="remove-attachment-button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onRemove();
+          }}
+          type="button"
+        >
+          <X className="size-3" />
+        </button>
+      )}
     </div>
   );
 };

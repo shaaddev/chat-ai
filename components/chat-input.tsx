@@ -174,6 +174,27 @@ export function ChatInput({
     setInput(e.target.value);
   };
 
+  const handleRemoveAttachment = useCallback(
+    (attachment: Attachment) => {
+      setAttachments((current) =>
+        current.filter((item) => item.url !== attachment.url)
+      );
+
+      if (!attachment.url) {
+        return;
+      }
+
+      fetch("/api/files/delete", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: attachment.url }),
+      }).catch(() => {
+        // Best-effort storage cleanup; the local state is already updated.
+      });
+    },
+    [setAttachments]
+  );
+
   const hasActiveSettings = !!customSystemPrompt || autoDocumentGeneration;
 
   return (
@@ -189,6 +210,7 @@ export function ChatInput({
                 attachment={attachment}
                 className="size-20"
                 key={attachment.url}
+                onRemove={() => handleRemoveAttachment(attachment)}
               />
             ))}
             {uploadQueue.map((filename) => (
