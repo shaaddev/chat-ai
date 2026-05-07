@@ -140,13 +140,16 @@ function PureMessages({
   let hasAssistantVisibleText = false;
   let hasAssistantImageAttachment = false;
   let lastAssistantMessageId: string | null = null;
+  let lastAssistantMessageIndex = -1;
   let latestUserMessageId: string | null = null;
+  let latestUserMessageIndex = -1;
 
   for (let index = messages.length - 1; index >= 0; index--) {
     const message = messages[index];
 
     if (message.role === "user" && latestUserMessageId === null) {
       latestUserMessageId = message.id;
+      latestUserMessageIndex = index;
     }
 
     if (message.role !== "assistant") {
@@ -155,6 +158,7 @@ function PureMessages({
 
     if (lastAssistantMessageId === null) {
       lastAssistantMessageId = message.id;
+      lastAssistantMessageIndex = index;
       for (const part of message.parts) {
         if (
           !hasAssistantVisibleText &&
@@ -172,6 +176,19 @@ function PureMessages({
     if (latestUserMessageId !== null && lastAssistantMessageId !== null) {
       break;
     }
+  }
+
+  // If the most recent user message comes AFTER the most recent assistant
+  // message in the array, the assistant text we found belongs to the
+  // *previous* exchange (the one we already finished). For the current
+  // in-flight exchange the assistant hasn't said anything yet — so the
+  // thinking dots should still show. Without this guard the dots would
+  // never appear on follow-up messages because the prior assistant's
+  // text would mask them.
+  if (latestUserMessageIndex > lastAssistantMessageIndex) {
+    hasAssistantVisibleText = false;
+    hasAssistantImageAttachment = false;
+    lastAssistantMessageId = null;
   }
 
   const isImageModelSelected = image_models.some(
