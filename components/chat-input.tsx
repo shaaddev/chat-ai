@@ -226,7 +226,7 @@ export function ChatInput({
 
         <textarea
           autoFocus
-          className="w-full resize-none border-0 bg-transparent px-4 pt-3.5 pb-0 text-[15px] text-foreground outline-hidden placeholder:text-muted-foreground/50 focus:ring-0 disabled:opacity-50"
+          className="w-full resize-none border-0 bg-transparent px-4 pt-3.5 pb-0 text-base text-foreground outline-hidden placeholder:text-muted-foreground/50 focus:ring-0 disabled:opacity-50"
           onChange={handleInput}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
@@ -249,8 +249,8 @@ export function ChatInput({
           value={input}
         />
 
-        <div className="flex items-center justify-between px-3 py-2">
-          <div className="flex items-center gap-1.5">
+        <div className="flex items-center justify-between gap-2 px-3 py-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
             <ModelsPopover selectedModelId={initialChatModel} />
             <button
               aria-pressed={useSearch}
@@ -265,7 +265,7 @@ export function ChatInput({
               type="button"
             >
               <Globe className="size-3.5" />
-              <span className="font-medium">Search</span>
+              <span className="sr-only font-medium sm:not-sr-only">Search</span>
             </button>
             <Popover>
               <PopoverTrigger asChild>
@@ -387,7 +387,7 @@ export function ChatInput({
             </DialogDescription>
           </DialogHeader>
           <textarea
-            className="min-h-[120px] w-full resize-y rounded-lg border border-border bg-muted p-3 text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            className="min-h-[120px] w-full resize-y rounded-lg border border-border bg-muted p-3 text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring md:text-sm"
             onChange={(e) => setSystemPromptDraft(e.target.value)}
             placeholder="You are a helpful assistant..."
             rows={5}

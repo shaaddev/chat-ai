@@ -13,7 +13,7 @@ export default async function Page() {
 
   if (!modelIdFromCookie) {
     return (
-      <div className="flex min-h-screen w-full flex-col">
+      <div className="flex min-h-dvh w-full flex-col">
         <Chat
           id={id}
           initialChatModel={DEFAULT_CHAT_MODEL}

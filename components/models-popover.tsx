@@ -224,14 +224,14 @@ export function ModelsPopover({ selectedModelId }: ModelSelectorProps) {
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
-        className="w-[380px] rounded-xl border-border bg-popover p-0 shadow-xl"
+        className="w-[min(380px,calc(100vw-1rem))] rounded-xl border-border bg-popover p-0 shadow-xl"
         onCloseAutoFocus={(e) => e.preventDefault()}
       >
         <div className="border-border border-b p-2">
           <div className="relative">
             <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground/50" />
             <input
-              className="w-full rounded-lg border border-border bg-background py-1.5 pr-3 pl-8 text-foreground text-sm outline-none placeholder:text-muted-foreground/40 focus:border-ring/40"
+              className="w-full rounded-lg border border-border bg-background py-1.5 pr-3 pl-8 text-base text-foreground outline-none placeholder:text-muted-foreground/40 focus:border-ring/40 md:text-sm"
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.stopPropagation()}
               placeholder="Search models..."

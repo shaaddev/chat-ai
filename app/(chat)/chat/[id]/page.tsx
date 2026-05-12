@@ -33,7 +33,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
 
   if (!modelIdFromCookie) {
     return (
-      <div className="flex min-h-screen w-full flex-col">
+      <div className="flex min-h-dvh w-full flex-col">
         <Chat
           id={chat.id}
           initialChatModel={DEFAULT_CHAT_MODEL}

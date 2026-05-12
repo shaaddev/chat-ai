@@ -299,7 +299,7 @@ function PureMessages({
                     className={index > 0 ? "mt-6" : ""}
                     style={
                       wrapForScroll
-                        ? { minHeight: "calc(100vh - 14rem)" }
+                        ? { minHeight: "calc(100dvh - 14rem)" }
                         : undefined
                     }
                   >

@@ -39,7 +39,7 @@ export function Account({ user, initialTab }: AccountProps) {
   };
 
   return (
-    <div className="container mx-auto min-h-[calc(100vh-4rem)] py-10">
+    <div className="container mx-auto min-h-[calc(100dvh-4rem)] py-10">
       <div className="grid gap-8 md:grid-cols-[200px_1fr]">
         <AccountSidebar setActiveSection={setActiveSection} />
         <div className="w-full max-w-2xl">{renderContent()}</div>
