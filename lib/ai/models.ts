@@ -93,17 +93,17 @@ export interface model_selection {
 
 export const stable_models: model_selection[] = [
   {
-    id: "google-model-3-flash",
-    name: "Gemini 3 Flash",
+    id: "google-model-3-1-flash-lite",
+    name: "Gemini 3.1 Flash Lite",
     icon: Info,
     image: Image,
     unstable: FlaskConical,
     provider: "google",
     description:
-      "High-speed thinking model for agentic workflows, coding, and multi-turn chat with near-Pro reasoning.",
+      "High-efficiency multimodal model optimized for low-latency, high-volume workloads",
     contextWindow: "1M",
-    inputPrice: "$0.50",
-    outputPrice: "$3.00",
+    inputPrice: "$0.25",
+    outputPrice: "$1.50",
     capabilities: ["reasoning", "vision", "audio", "video", "tool-use", "code"],
   },
   {
@@ -234,11 +234,11 @@ export const image_models: model_selection[] = [
   },
 ];
 
-export const DEFAULT_CHAT_MODEL: string = "google-model-3-flash";
+export const DEFAULT_CHAT_MODEL: string = "google-model-3-1-flash";
 
 export const myProvider = customProvider({
   languageModels: {
-    "google-model-3-flash": openrouter("google/gemini-3-flash-preview"),
+    "google-model-3-1-flash-lite": openrouter("google/gemini-3.1-flash-lite"),
     "google-model-2-5-flash-lite": openrouter("google/gemini-2.5-flash-lite"),
     "chat-5-mini": openrouter("openai/gpt-5-mini"),
     "deepseek-v3-2": openrouter("deepseek/deepseek-v3.2"),

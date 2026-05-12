@@ -27,7 +27,7 @@ export const postRequestBodySchema = z.object({
     parts: z.array(partSchema),
   }),
   selectedChatModel: z.enum([
-    "google-model-3-flash",
+    "google-model-3-1-flash-lite",
     "google-model-2-5-flash-lite",
     "chat-5-mini",
     // image models
