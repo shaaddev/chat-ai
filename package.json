@@ -62,7 +62,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "concurrently": "^9.1.2",
-    "convex": "^1.31.5",
+    "convex": "^1.38.0",
     "cookies-next": "^5.1.0",
     "date-fns": "^4.1.0",
     "docx": "^9.5.3",
