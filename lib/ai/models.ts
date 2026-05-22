@@ -234,7 +234,7 @@ export const image_models: model_selection[] = [
   },
 ];
 
-export const DEFAULT_CHAT_MODEL: string = "google-model-3-1-flash-lite";
+export const DEFAULT_CHAT_MODEL: string = "google-model-2-5-flash-lite";
 
 export const myProvider = customProvider({
   languageModels: {
