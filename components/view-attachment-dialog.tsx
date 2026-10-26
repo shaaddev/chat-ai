@@ -16,7 +16,7 @@ export function ViewAttachmentDialog({
   return (
     <Dialog>
       <DialogTrigger className="cursor-pointer">{children}</DialogTrigger>
-      <DialogContent className="max-w-[90vw] border border-opacity-5 md:max-w-[80vw] lg:max-w-[70vw]">
+      <DialogContent className="max-w-[90vw] md:max-w-[80vw] lg:max-w-[70vw]">
         {contentType?.startsWith("image") ? (
           <div className="mx-auto flex max-h-[80vh] max-w-full items-center justify-center">
             <Image

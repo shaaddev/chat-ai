@@ -177,11 +177,11 @@ export function SignupForm({
       )}
 
       {successMessage && (
-        <div className="fade-in slide-in-from-bottom-2 mt-4 animate-in rounded-xl border border-green-500/20 bg-green-500/10 p-4 duration-500">
+        <div className="fade-in slide-in-from-bottom-2 mt-4 animate-in rounded-xl bg-secondary p-4 duration-500">
           <div className="flex">
             <div className="shrink-0">
               <svg
-                className="h-5 w-5 text-green-500"
+                className="h-5 w-5 text-primary"
                 fill="currentColor"
                 viewBox="0 0 20 20"
               >
@@ -193,7 +193,7 @@ export function SignupForm({
               </svg>
             </div>
             <div className="ml-3">
-              <p className="font-medium text-green-500 text-sm">
+              <p className="font-medium text-foreground text-sm">
                 {successMessage}
               </p>
             </div>

@@ -147,11 +147,11 @@ export function DocumentSheet({
   return (
     <Sheet onOpenChange={onOpenChange} open={open}>
       <SheetContent
-        className="flex w-full flex-col border-border bg-background text-foreground sm:max-w-xl"
+        className="flex w-full flex-col text-foreground sm:max-w-xl"
         side="right"
       >
         <SheetHeader>
-          <SheetTitle className="text-foreground">Document Builder</SheetTitle>
+          <SheetTitle className="text-foreground">Document builder</SheetTitle>
           <SheetDescription className="text-muted-foreground">
             Edit the markdown source, preview updates live below.
           </SheetDescription>
@@ -201,7 +201,7 @@ export function DocumentSheet({
 
           <select
             aria-label="Document format"
-            className="ml-auto h-9 rounded-md border border-border bg-muted px-3 text-foreground text-sm"
+            className="ml-auto h-9 rounded-lg border border-border bg-card px-3 text-foreground text-sm"
             onChange={(e) => setFormat(e.target.value as ExportFormat)}
             value={format}
           >
@@ -212,19 +212,19 @@ export function DocumentSheet({
 
         <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden px-4 py-2">
           <textarea
-            className="max-h-[40%] min-h-[120px] shrink-0 resize-y rounded-lg border border-border bg-muted p-3 font-mono text-foreground text-sm leading-6 placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            className="max-h-[40%] min-h-[120px] shrink-0 resize-y rounded-xl border border-border bg-code p-3 font-mono text-foreground text-sm leading-6 placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             onChange={(e) => setMarkdown(e.target.value)}
             placeholder="Write or edit markdown here..."
             ref={textareaRef}
             value={markdown}
           />
 
-          <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-border bg-muted p-4 text-sm leading-6">
+          <div className="min-h-0 flex-1 overflow-auto rounded-xl bg-secondary p-4 text-sm leading-6">
             <Markdown>{markdown}</Markdown>
           </div>
         </div>
 
-        <SheetFooter className="border-border border-t">
+        <SheetFooter>
           <Button
             className="border-border bg-transparent"
             onClick={handleDownload}

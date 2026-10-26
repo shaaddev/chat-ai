@@ -103,7 +103,7 @@ export function OTPForm({
             name="pin"
             render={({ field }) => (
               <FormItem className="flex flex-col items-center justify-center">
-                <FormLabel>One-Time Password</FormLabel>
+                <FormLabel>One-time password</FormLabel>
                 <FormControl>
                   <InputOTP
                     maxLength={6}
