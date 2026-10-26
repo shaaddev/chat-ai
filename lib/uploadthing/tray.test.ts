@@ -276,6 +276,26 @@ describe("attachment tray", () => {
     expect(discarded).toEqual(["u1"]);
   });
 
+  test("removing a restored file that a saved message may use keeps its stored file", () => {
+    const { tray, discarded } = setup();
+    tray.restore(
+      [
+        {
+          filename: "notes.pdf",
+          mediaType: "application/pdf",
+          size: 512,
+          url: "u1",
+        },
+      ],
+      { mayBeSaved: true }
+    );
+
+    tray.remove(tray.getItems()[0].id);
+
+    expect(tray.getItems()).toEqual([]);
+    expect(discarded).toEqual([]);
+  });
+
   test("restored files come back past the per-message limit, and none is deleted", () => {
     const { tray, discarded, rejected } = setup();
     tray.add(

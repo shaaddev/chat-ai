@@ -537,6 +537,39 @@ describe.skipIf(!hasTestDatabase)("POST /api/chat against Postgres", () => {
     ]);
   });
 
+  test("a settle that expects a reply keeps one that saves after a new chat's title wait", async () => {
+    const { chatId, userId, userMessageId } = await seedRepliedChat([
+      { type: "text", text: "Plan a weekend in Lisbon" },
+    ]);
+    const turnId = crypto.randomUUID();
+    await saveUserTurn({
+      chatId,
+      userId,
+      streamId: turnId,
+      turn: { type: "regenerate", userMessageId },
+    });
+    const lateReplyId = crypto.randomUUID();
+
+    const response = settle(chatId, { turnId, expectReply: true });
+    await new Promise((resolve) => setTimeout(resolve, 3500));
+    await saveReplyIfLatestTurn({
+      chatId,
+      streamId: turnId,
+      reply: {
+        id: lateReplyId,
+        parts: [{ type: "text", text: "Day one: Alfama" }],
+        model: "test-model",
+      },
+      replacesRepliesAfter: userMessageId,
+    });
+    const body = await (await response).json();
+
+    expect(body.messages.map(({ id }: ChatMessage) => id)).toEqual([
+      userMessageId,
+      lateReplyId,
+    ]);
+  }, 15_000);
+
   test("a settle that expects a reply that never comes ends the turn after a wait", async () => {
     const { chatId, replyId, userId, userMessageId } = await seedRepliedChat([
       { type: "text", text: "Plan a weekend in Lisbon" },

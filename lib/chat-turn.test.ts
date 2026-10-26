@@ -112,8 +112,10 @@ function recordingEffects(overrides: Partial<TurnEffects> = {}) {
     showError: () => calls.push("error shown"),
     turnFinished: (_, keptPrevious) =>
       calls.push(keptPrevious ? "finished, kept the old reply" : "finished"),
-    turnNotSaved: (request, { notify }) => {
-      calls.push(`handed back ${request.kind}${notify ? ", told" : ""}`);
+    turnNotSaved: (request, { maybeSaved, notify }) => {
+      calls.push(
+        `handed back ${request.kind}${notify ? ", told" : ""}${maybeSaved ? ", maybe saved" : ""}`
+      );
     },
     ...overrides,
   };
@@ -253,6 +255,20 @@ describe("a turn", () => {
       "assistant: Earlier answer",
     ]);
     expect(calls).toEqual(["handed back append, told"]);
+  });
+
+  test("lost in a new chat the server can't find goes back as possibly saved", async () => {
+    const { calls, gate, server } = openChat([]);
+
+    await ask(gate, "Hello");
+    await until(() => server.chat.length === 1);
+    server.chat[0].fail(new TypeError("Failed to fetch"));
+    await until(() => server.settle.length === 1);
+    server.settle[0].respond(errorResponse(404, "not_found:chat"));
+    await until(() => gate.getStatus().phase === "idle");
+
+    expect(shown(gate)).toEqual([]);
+    expect(calls).toEqual(["handed back append, told, maybe saved"]);
   });
 
   test("that regenerates into an empty reply keeps the reply it would replace", async () => {
