@@ -7,7 +7,7 @@
       "!components/ui",
       "!lib/utils.ts",
       "!hooks/use-mobile.ts",
-      "!convex/**/*"
+      "!lib/db/migrations"
     ]
   },
   "linter": {
