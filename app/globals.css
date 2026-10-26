@@ -98,6 +98,9 @@
   --input: color-mix(in oklch, var(--foreground) 8%, transparent);
   --ring: #5546d8;
   --code: #f4f6fc;
+  --code-keyword: #7448b8;
+  --code-string: #9a5524;
+  --code-function: #2d5d9a;
 
   --sidebar: #f4f6fc;
   --sidebar-foreground: #121630;
@@ -128,6 +131,9 @@
   --destructive: oklch(0.704 0.191 22.216);
   --ring: #8ea2ff;
   --code: #0e1326;
+  --code-keyword: #b6a6e8;
+  --code-string: #d9b48c;
+  --code-function: #9dc0de;
 
   --sidebar: #0c1020;
   --sidebar-foreground: #e6e9f5;
@@ -144,6 +150,7 @@
 [data-streamdown="code-block"] {
   gap: 0;
   padding: 0;
+  margin: 0 0 14px;
   background: var(--code);
   border: 0;
   border-radius: 12px;

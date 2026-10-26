@@ -21,7 +21,7 @@ import {
   PROVIDER_META,
 } from "@/lib/ai/models";
 import { cn } from "@/lib/utils";
-import { CapabilityBadge, ProviderLogo } from "./model-helpful-tooltips";
+import { CapabilityBadge, ProviderDot } from "./model-helpful-tooltips";
 
 interface ModelSelectorProps {
   onSelectModel: (modelId: ChatModelId) => void;
@@ -48,33 +48,32 @@ function ModelItem({
           <DropdownMenuItem
             className={cn(
               "flex cursor-pointer flex-col items-start gap-1.5 rounded-lg px-3 py-2.5 transition-colors",
-              isSelected ? "bg-muted text-foreground" : "hover:bg-muted/60"
+              isSelected && "bg-card"
             )}
             data-testid={`model-item-${model.id}`}
             onSelect={onSelect}
           >
             <div className="flex w-full items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <div className="flex size-6 shrink-0 items-center justify-center rounded border border-border bg-muted">
-                  <ProviderLogo
-                    className="size-3.5"
-                    provider={model.provider}
-                  />
-                </div>
+                <span className="flex size-6 shrink-0 items-center justify-center">
+                  <ProviderDot provider={model.provider} />
+                </span>
                 <div className="flex flex-col">
                   <span className="font-medium text-[13px] text-foreground leading-tight">
                     {model.name}
                   </span>
-                  <span className="text-[11px] text-muted-foreground/60 leading-tight">
+                  <span className="text-[11px] text-muted-foreground leading-tight">
                     {model.contextWindow}
                   </span>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] text-muted-foreground/50 tabular-nums">
+                <span className="text-[11px] text-muted-foreground tabular-nums">
                   {model.inputPrice}/M
                 </span>
-                {isSelected && <Check className="size-3.5 text-foreground" />}
+                {isSelected && (
+                  <Check aria-hidden className="size-3.5 text-primary" />
+                )}
               </div>
             </div>
             {model.capabilities.length > 0 && (
@@ -86,14 +85,10 @@ function ModelItem({
             )}
           </DropdownMenuItem>
         </TooltipTrigger>
-        <TooltipContent
-          className="max-w-64 rounded-lg border border-border bg-popover p-3 shadow-lg"
-          side="right"
-          sideOffset={12}
-        >
+        <TooltipContent className="max-w-64 p-3" side="right" sideOffset={12}>
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center gap-1.5">
-              <ProviderLogo className="size-3.5" provider={model.provider} />
+              <ProviderDot provider={model.provider} />
               <span className="font-medium text-foreground text-sm">
                 {model.name}
               </span>
@@ -101,13 +96,13 @@ function ModelItem({
             <p className="text-muted-foreground text-xs leading-relaxed">
               {model.description}
             </p>
-            <div className="mt-0.5 flex items-center gap-3 border-border border-t pt-1.5">
-              <div className="flex items-center gap-1 text-muted-foreground/60">
-                <Layers className="size-3" />
+            <div className="mt-0.5 flex items-center gap-3 pt-1">
+              <div className="flex items-center gap-1 text-muted-foreground">
+                <Layers aria-hidden className="size-3" />
                 <span className="text-[11px]">{model.contextWindow}</span>
               </div>
-              <div className="flex items-center gap-1 text-muted-foreground/60">
-                <Coins className="size-3" />
+              <div className="flex items-center gap-1 text-muted-foreground">
+                <Coins aria-hidden className="size-3" />
                 <span className="text-[11px]">
                   {model.inputPrice} / {model.outputPrice}
                 </span>
@@ -194,29 +189,31 @@ export function ModelsPopover({
         className="outline-hidden focus:outline-hidden"
       >
         <button
-          className="group inline-flex cursor-pointer items-center gap-1 rounded-lg px-2 py-1 text-xs transition-colors hover:bg-muted"
+          className="group inline-flex h-[34px] min-w-0 cursor-pointer items-center gap-[7px] rounded-[10px] px-2.5 font-medium text-[13.5px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-accent data-[state=open]:text-foreground"
           data-testid="model-selector"
           type="button"
         >
-          <ProviderLogo
-            className="size-3.5"
-            provider={selectedChatModel.provider}
+          <ProviderDot provider={selectedChatModel.provider} />
+          <span className="truncate">{selectedChatModel.name}</span>
+          <ChevronDown
+            aria-hidden
+            className="size-3.5 shrink-0 transition-transform group-data-[state=open]:rotate-180"
           />
-          <span className="font-medium text-muted-foreground group-hover:text-foreground">
-            {selectedChatModel.name}
-          </span>
-          <ChevronDown className="size-3 text-muted-foreground/50 transition-transform group-data-[state=open]:rotate-180" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
-        className="w-[min(380px,calc(100vw-1rem))] rounded-xl border-border bg-popover p-0 shadow-xl"
+        className="w-[min(380px,calc(100vw-1rem))] p-0"
         onCloseAutoFocus={(e) => e.preventDefault()}
       >
-        <div className="border-border border-b p-2">
+        <div className="p-2 pb-1">
           <div className="relative">
-            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground/50" />
+            <Search
+              aria-hidden
+              className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground"
+            />
             <input
-              className="w-full rounded-lg border border-border bg-background py-1.5 pr-3 pl-8 text-base text-foreground outline-none placeholder:text-muted-foreground/40 focus:border-ring/40 md:text-sm"
+              aria-label="Search models"
+              className="w-full rounded-lg border border-border bg-card py-1.5 pr-3 pl-8 text-base text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring md:text-sm"
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.stopPropagation()}
               placeholder="Search models..."
@@ -228,9 +225,9 @@ export function ModelsPopover({
           <div className="no-scrollbar mt-1.5 flex items-center gap-1 overflow-x-auto">
             <button
               className={cn(
-                "shrink-0 cursor-pointer rounded-md px-2 py-0.5 font-medium text-[11px] transition-colors",
+                "shrink-0 cursor-pointer rounded-full px-2.5 py-0.5 font-medium text-xs transition-colors",
                 providerFilter === null
-                  ? "bg-muted text-foreground"
+                  ? "bg-card text-foreground"
                   : "text-muted-foreground hover:text-foreground"
               )}
               onClick={() => setProviderFilter(null)}
@@ -243,17 +240,18 @@ export function ModelsPopover({
               const isActive = providerFilter === p;
               return (
                 <button
+                  aria-pressed={isActive}
                   className={cn(
-                    "inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-md px-2 py-0.5 font-medium text-[11px] transition-colors",
+                    "inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-0.5 font-medium text-xs transition-colors",
                     isActive
-                      ? `${meta.color}`
+                      ? "bg-card text-foreground"
                       : "text-muted-foreground hover:text-foreground"
                   )}
                   key={p}
                   onClick={() => setProviderFilter(isActive ? null : p)}
                   type="button"
                 >
-                  <ProviderLogo className="size-3" provider={p} />
+                  <ProviderDot provider={p} />
                   {meta.label}
                 </button>
               );
@@ -263,8 +261,8 @@ export function ModelsPopover({
 
         <div className="h-[380px] overflow-y-auto p-1">
           {!hasResults && (
-            <div className="flex flex-col items-center justify-center py-8 text-muted-foreground/50">
-              <Search className="mb-2 size-4" />
+            <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+              <Search aria-hidden className="mb-2 size-4" />
               <span className="text-sm">No models found</span>
             </div>
           )}
