@@ -1,5 +1,13 @@
 /// <reference types="bun-types/test" />
-import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  mock,
+  test,
+} from "bun:test";
 import { simulateReadableStream } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
 import { eq } from "drizzle-orm";
@@ -56,9 +64,9 @@ mock.module("@/lib/ai/providers", () => ({
 }));
 
 const { POST } = await import("./route");
-const { getChatById, getChatsByUserId, updateChat } = await import(
-  "@/lib/db/queries"
-);
+const { PATCH } = await import("../chats/[id]/route");
+const { getChatById, getChatsByUserId, replaceProvisionalTitle, updateChat } =
+  await import("@/lib/db/queries");
 
 const signInAs = (userId: string | null) => {
   session = userId
@@ -84,6 +92,15 @@ const post = (body: unknown) =>
     })
   );
 
+const patch = (chatId: string, body: unknown) =>
+  PATCH(
+    new Request(`http://localhost/api/chats/${chatId}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+    { params: Promise.resolve({ id: chatId }) }
+  );
+
 test("a request without a session gets the sign-in error the client parses", async () => {
   signInAs(null);
   const response = await post(firstTurn(crypto.randomUUID()));
@@ -96,6 +113,10 @@ describe.skipIf(!hasTestDatabase)("POST /api/chat against Postgres", () => {
 
   beforeAll(async () => {
     testDatabase = await openTestDatabase();
+  });
+
+  afterEach(() => {
+    pendingTitle.resolve("");
   });
 
   afterAll(async () => {
@@ -207,6 +228,73 @@ describe.skipIf(!hasTestDatabase)("POST /api/chat against Postgres", () => {
     await response.text();
 
     expect((await getChatById(chatId))?.title).toBe("Lisbon trip");
+  });
+
+  const startChatWhileTitleGenerates = async () => {
+    const userId = await testDatabase.createUser();
+    const chatId = crypto.randomUUID();
+    signInAs(userId);
+    const title = Promise.withResolvers<string>();
+    pendingTitle = title;
+    const response = await post(firstTurn(chatId));
+    const finishTitle = async (generated: string) => {
+      title.resolve(generated);
+      await Promise.all(backgroundTasks);
+      await response.text();
+    };
+    return { chatId, finishTitle };
+  };
+
+  const expectSaved = async (response: Promise<Response>) => {
+    expect((await response).status).toBe(200);
+  };
+
+  test("a generated title doesn't replace a rename back to the provisional text", async () => {
+    const { chatId, finishTitle } = await startChatWhileTitleGenerates();
+
+    await expectSaved(patch(chatId, { title: "Lisbon trip" }));
+    await expectSaved(patch(chatId, { title: "Plan a weekend in Lisbon" }));
+    await finishTitle("Weekend in Lisbon");
+
+    expect((await getChatById(chatId))?.title).toBe("Plan a weekend in Lisbon");
+  });
+
+  test("a pin or system-prompt change doesn't stop the generated title", async () => {
+    const { chatId, finishTitle } = await startChatWhileTitleGenerates();
+
+    await expectSaved(patch(chatId, { pinnedKey: "a0" }));
+    await expectSaved(patch(chatId, { systemPrompt: "Answer in French." }));
+    await finishTitle("Weekend in Lisbon");
+
+    expect((await getChatById(chatId))?.title).toBe("Weekend in Lisbon");
+  });
+
+  test("a pin or system-prompt change after a rename doesn't let the generated title through", async () => {
+    const { chatId, finishTitle } = await startChatWhileTitleGenerates();
+
+    await expectSaved(patch(chatId, { title: "Lisbon trip" }));
+    await expectSaved(patch(chatId, { title: "Plan a weekend in Lisbon" }));
+    await expectSaved(patch(chatId, { pinnedKey: "a0" }));
+    await expectSaved(patch(chatId, { systemPrompt: null }));
+    await finishTitle("Weekend in Lisbon");
+
+    expect((await getChatById(chatId))?.title).toBe("Plan a weekend in Lisbon");
+  });
+
+  test("a generated title doesn't replace the title of a chat saved without a source", async () => {
+    const userId = await testDatabase.createUser();
+    const chatId = crypto.randomUUID();
+    await testDatabase.db
+      .insert(chat)
+      .values({ id: chatId, userId, title: "Plan a weekend in Lisbon" });
+
+    await replaceProvisionalTitle({
+      id: chatId,
+      userId,
+      title: "Weekend in Lisbon",
+    });
+
+    expect((await getChatById(chatId))?.title).toBe("Plan a weekend in Lisbon");
   });
 
   const STALE_TURN_CAUSE =

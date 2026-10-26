@@ -205,6 +205,45 @@ function pinFailure(from: string | null, to: string | null) {
   return from === null ? "Chat wasn't pinned" : "Chat wasn't moved";
 }
 
+type EditFailure =
+  | "offline"
+  | "signed-out"
+  | "rejected"
+  | "not-saved-yet"
+  | "deleted"
+  | "server";
+
+const EDIT_FAILURE_REASONS: Record<EditFailure, string> = {
+  offline: "Check your connection and try again.",
+  "signed-out": "You're signed out. Sign in and try again.",
+  rejected: "The server didn't accept the change.",
+  "not-saved-yet": "It isn't saved yet. Try again in a moment.",
+  deleted: "You deleted it in another tab or on another device.",
+  server: "The server couldn't save the change. Try again in a moment.",
+};
+
+// A chat loads from submit until its reply streams, and the server saves a
+// new chat before it streams. A 404 for an edit sent while the chat was
+// loading means the chat wasn't saved yet.
+function editFailure(
+  res: Response | null,
+  sentWhileLoading: boolean
+): EditFailure {
+  if (!res) {
+    return "offline";
+  }
+  switch (res.status) {
+    case 400:
+      return "rejected";
+    case 401:
+      return "signed-out";
+    case 404:
+      return sentWhileLoading ? "not-saved-yet" : "deleted";
+    default:
+      return "server";
+  }
+}
+
 // Repeats until nothing is left, so a delete started while logout waits
 // still goes out before the session ends.
 async function settleDeletes(
@@ -235,6 +274,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const lastPinRequestRef = useRef<Map<string, Promise<Response | null>>>(
     new Map()
   );
+  const loadingChatsRef = useRef(loadingChats);
+
+  useEffect(() => {
+    loadingChatsRef.current = loadingChats;
+  }, [loadingChats]);
 
   // A delete waits behind its Undo toast. If the page unloads first, send it
   // with keepalive so the chat the user saw disappear stays deleted.
@@ -259,6 +303,16 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         revalidate: false,
       }),
     [mutate]
+  );
+
+  const forgetChat = useCallback(
+    (chatId: string) => {
+      chatInputStatesRef.current.delete(chatId);
+      return updateCachedChats((chats) =>
+        chats.filter((chat) => chat.id !== chatId)
+      );
+    },
+    [updateCachedChats]
   );
 
   const refreshChats = useCallback(async () => {
@@ -288,6 +342,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       const edit: PendingEdit = { kind: "rename", title };
       setPendingEdits((edits) => withEdit(edits, chatId, edit));
 
+      const sentWhileLoading = loadingChatsRef.current.has(chatId);
       const res = await sendChatRequest(chatId, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -298,13 +353,20 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           chats.map((chat) => (chat.id === chatId ? { ...chat, title } : chat))
         );
       } else {
+        const failure = editFailure(res, sentWhileLoading);
+        if (failure === "deleted") {
+          await forgetChat(chatId);
+        }
         toast.error("Chat wasn't renamed", {
-          description: "Check your connection and try again.",
+          description:
+            failure === "rejected"
+              ? "The server didn't accept that title. Try a different one."
+              : EDIT_FAILURE_REASONS[failure],
         });
       }
       setPendingEdits((edits) => withoutEdit(edits, chatId, edit));
     },
-    [updateCachedChats]
+    [forgetChat, updateCachedChats]
   );
 
   const deleteChat = useCallback(
@@ -322,12 +384,6 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         pendingDeletesRef.current.delete(chatId);
         return true;
       };
-      const forget = () => {
-        chatInputStatesRef.current.delete(chatId);
-        return updateCachedChats((chats) =>
-          chats.filter((chat) => chat.id !== chatId)
-        );
-      };
       const undo = () => {
         if (settle()) {
           setPendingEdits((edits) => withoutEdit(edits, chatId, edit));
@@ -336,7 +392,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       const send = async () => {
         const res = await sendChatRequest(chatId, { method: "DELETE" });
         if (res && (res.ok || res.status === 404)) {
-          await forget();
+          await forgetChat(chatId);
         } else {
           toast.error("Chat wasn't deleted", {
             description: "It's back in your list. Try deleting it again.",
@@ -367,7 +423,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         }
         fetch(`/api/chats/${chatId}`, { method: "DELETE", keepalive: true });
         toast.dismiss(toastId);
-        forget();
+        forgetChat(chatId);
         setPendingEdits((edits) => withoutEdit(edits, chatId, edit));
       };
 
@@ -379,7 +435,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         onDismiss: commit,
       });
     },
-    [updateCachedChats]
+    [forgetChat]
   );
 
   const setPinnedKey = useCallback(
@@ -393,6 +449,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       const edit: PendingEdit = { kind: "pin", pinnedKey };
       setPendingEdits((edits) => withEdit(edits, chat.id, edit));
 
+      const sentWhileLoading = loadingChatsRef.current.has(chat.id);
       const previous = lastPinRequestRef.current.get(chat.id);
       const request = (previous ?? Promise.resolve(null)).then(() =>
         sendChatRequest(chat.id, {
@@ -414,14 +471,21 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           )
         );
       } else {
+        const failure = editFailure(res, sentWhileLoading);
+        if (failure === "deleted") {
+          await forgetChat(chat.id);
+        }
+        const reason = EDIT_FAILURE_REASONS[failure];
         toast.error(pinFailure(chat.pinnedKey, pinnedKey), {
           description:
-            "It's back where it was. Check your connection and try again.",
+            failure === "deleted"
+              ? reason
+              : `It's back where it was. ${reason}`,
         });
       }
       setPendingEdits((edits) => withoutEdit(edits, chat.id, edit));
     },
-    [updateCachedChats]
+    [forgetChat, updateCachedChats]
   );
 
   const setChatLoading = useCallback((chatId: string, isLoading: boolean) => {

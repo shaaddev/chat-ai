@@ -97,6 +97,11 @@ export const chat = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
+    titleSource: text("title_source", {
+      enum: ["provisional", "generated", "user"],
+    })
+      .notNull()
+      .default("user"),
     visibility: text("visibility", { enum: ["public", "private"] })
       .notNull()
       .default("private"),
