@@ -1,3 +1,4 @@
+import { code } from "@streamdown/code";
 import Link from "next/link";
 import React, { memo } from "react";
 import { Streamdown, type StreamdownProps } from "streamdown";
@@ -50,17 +51,16 @@ const PROSE_CLASSES = [
   "[&_img]:my-4 [&_img]:rounded-lg",
 ].join(" ");
 
-const NonMemoizedMarkdown = ({ children }: { children: string }) => {
-  return (
-    <Streamdown
-      className={PROSE_CLASSES}
-      components={components}
-      shikiTheme={["houston", "houston"]}
-    >
-      {children}
-    </Streamdown>
-  );
-};
+const NonMemoizedMarkdown = ({ children }: { children: string }) => (
+  <Streamdown
+    className={PROSE_CLASSES}
+    components={components}
+    plugins={{ code }}
+    shikiTheme={["houston", "houston"]}
+  >
+    {children}
+  </Streamdown>
+);
 
 export const Markdown = memo(
   NonMemoizedMarkdown,
