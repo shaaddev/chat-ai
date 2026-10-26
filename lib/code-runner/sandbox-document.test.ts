@@ -14,9 +14,6 @@ import {
   WORKER_SCRIPT,
 } from "./sandbox-document";
 
-const WHITESPACE = /\s+/;
-const PINNED_PYODIDE =
-  /^https:\/\/cdn\.jsdelivr\.net\/pyodide\/v\d+\.\d+\.\d+\/full\/$/;
 const SCRIPT_TAG = /<script\b[^>]*>/g;
 const SCRIPT_END = /<\/script>/g;
 const PARENT_ORIGIN = "https://chat.example";
@@ -26,49 +23,17 @@ const FRAME_SCRIPT = HTML.slice(
   HTML.indexOf("</script>")
 );
 
-const directives = (policy: string) =>
-  new Map(
-    policy.split(";").map((directive) => {
-      const [name, ...sources] = directive.trim().split(WHITESPACE);
-      return [name, sources] as const;
-    })
-  );
-
 describe("sandbox policy", () => {
-  const policy = directives(sandboxPolicy("abc123"));
-
-  test("denies everything it does not name", () => {
-    expect(policy.get("default-src")).toEqual(["'none'"]);
-    expect(policy.get("base-uri")).toEqual(["'none'"]);
-    expect(policy.get("form-action")).toEqual(["'none'"]);
+  test("allows only the nonced bootstrap, blob workers, and the pinned Pyodide release", () => {
+    expect(sandboxPolicy("abc123")).toBe(
+      "default-src 'none'; script-src 'nonce-abc123' 'unsafe-eval' 'wasm-unsafe-eval' blob:; worker-src blob:; connect-src https://cdn.jsdelivr.net/pyodide/v314.0.7/full/; base-uri 'none'; form-action 'none'"
+    );
   });
 
-  test("allows network access only to the pinned Pyodide release", () => {
-    expect(PYODIDE_URL).toMatch(PINNED_PYODIDE);
-    expect(policy.get("connect-src")).toEqual([PYODIDE_URL]);
-  });
-
-  test("runs only the nonced bootstrap and code the frame holds in memory", () => {
-    const scripts = policy.get("script-src") ?? [];
-    expect(scripts).toContain("'nonce-abc123'");
-    expect(scripts).toContain("blob:");
-    for (const source of [
-      "'self'",
-      "'unsafe-inline'",
-      "*",
-      "https:",
-      "data:",
-    ]) {
-      expect(scripts).not.toContain(source);
-    }
-    expect(scripts.some((source) => source.startsWith("http"))).toBe(false);
-    expect(policy.get("worker-src")).toEqual(["blob:"]);
-  });
-
-  test("applies the policy before its only script runs", () => {
-    const policyAt = HTML.indexOf('http-equiv="Content-Security-Policy"');
-    expect(policyAt).toBeGreaterThan(-1);
-    expect(policyAt).toBeLessThan(HTML.indexOf("<script"));
+  test("sets the policy and drops the referrer before its only script runs", () => {
+    expect(HTML.slice(0, HTML.indexOf("<script"))).toBe(
+      `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${sandboxPolicy("abc123")}"><meta name="referrer" content="no-referrer"></head><body>`
+    );
     expect(HTML.match(SCRIPT_TAG)).toEqual(['<script nonce="abc123">']);
     expect(HTML.match(SCRIPT_END)).toHaveLength(1);
   });
@@ -238,6 +203,21 @@ describe("sandbox frame", () => {
       { type: "exit", runId: "a", exit: "done", detail: null },
     ]);
     expect(worker.terminated).toBe(true);
+  });
+
+  test("sends what a program printed before it exits within one batch", () => {
+    const frame = loadFrame();
+    frame.run("a", "javascript");
+    frame.workers[0].emit({ type: "output", stream: "stdout", text: "fast\n" });
+    frame.workers[0].emit({ type: "exit", exit: "done", detail: null });
+    expect(frame.of("a").slice(1)).toEqual([
+      {
+        type: "output",
+        runId: "a",
+        chunks: [{ stream: "stdout", text: "fast\n" }],
+      },
+      { type: "exit", runId: "a", exit: "done", detail: null },
+    ]);
   });
 
   test("sends what a hung program printed before it times out", () => {
