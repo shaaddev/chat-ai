@@ -1,6 +1,7 @@
 "use client";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, isFileUIPart } from "ai";
+import { Search } from "lucide-react";
 import dynamic from "next/dynamic";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -9,6 +10,7 @@ import {
   useChatDraft,
   useChatTitle,
 } from "@/components/chat-context";
+import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import {
   type ChatModelId,
@@ -17,6 +19,7 @@ import {
   getChatModel,
 } from "@/lib/ai/models";
 import type { Session } from "@/lib/auth";
+import { openCommandPalette } from "@/lib/command-palette";
 import { ChatSDKError } from "@/lib/errors";
 import { extractSources, type Source } from "@/lib/sources";
 import type { ChatMessage, DocumentDraft } from "@/lib/types";
@@ -181,6 +184,16 @@ function ChatHeaderComponent({
     <header className="flex h-[50px] shrink-0 items-center gap-1.5 px-2 md:h-12 md:px-3.5">
       <SidebarTrigger className="size-9 rounded-[10px] text-muted-foreground" />
       <h1 className="min-w-0 truncate font-medium text-sm">{title}</h1>
+      <Button
+        aria-keyshortcuts="Meta+K Control+K"
+        aria-label="Search chats and actions"
+        className="ml-auto size-9 rounded-[10px] text-muted-foreground"
+        onClick={openCommandPalette}
+        size="icon"
+        variant="ghost"
+      >
+        <Search aria-hidden className="size-4" />
+      </Button>
     </header>
   );
 }

@@ -25,6 +25,7 @@ import { useTheme } from "next-themes";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useCachedChats } from "@/components/chat-context";
 import { useSidebar } from "@/components/ui/sidebar";
+import { onOpenCommandPalette } from "@/lib/command-palette";
 import { focusComposer } from "@/lib/composer";
 
 const RECENT_CHAT_COUNT = 8;
@@ -245,6 +246,8 @@ export function CommandPalette() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [startNewChat]);
+
+  useEffect(() => onOpenCommandPalette(() => setOpen(true)), []);
 
   const runAction = useCallback<RunAction>(({ focusesComposer, run }) => {
     focusComposerOnCloseRef.current = focusesComposer;
