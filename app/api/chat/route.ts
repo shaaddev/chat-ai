@@ -438,8 +438,14 @@ export async function POST(req: Request) {
             stream: result.stream,
             sendSources: true,
             onError: getStreamErrorText,
-            messageMetadata: ({ part }) =>
-              part.type === "start" ? metadata : undefined,
+            messageMetadata: ({ part }) => {
+              if (part.type === "start") {
+                return metadata;
+              }
+              if (part.type === "finish") {
+                return { finishReason: part.finishReason };
+              }
+            },
           })
         );
         await waitForTitle(titleSaved);

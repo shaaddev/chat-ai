@@ -1,4 +1,4 @@
-import type { UIMessage } from "ai";
+import type { FinishReason, UIMessage } from "ai";
 import type { ExportFormat } from "@/lib/document-export";
 
 export interface Attachment {
@@ -10,6 +10,7 @@ export interface Attachment {
 export interface ChatMessageMetadata {
   createdAt?: string;
   documentCandidate?: boolean;
+  finishReason?: FinishReason;
   model?: string | null;
   suggestedFormat?: ExportFormat;
   useSearch?: boolean;
