@@ -64,24 +64,42 @@ function statusText(status: RunStatus): string {
   return `${label} ${preposition} ${formatDuration(ms)}`;
 }
 
+const SUMMARY_LENGTH = 40;
+
+function blockName(runner: Runner, code: string): string {
+  const firstLine =
+    code
+      .split("\n")
+      .map((line) => line.trim())
+      .find((line) => line !== "") ?? "";
+  if (firstLine === "") {
+    return runner.label;
+  }
+  const summary =
+    firstLine.length > SUMMARY_LENGTH
+      ? `${firstLine.slice(0, SUMMARY_LENGTH - 1)}…`
+      : firstLine;
+  return `${runner.label}: ${summary}`;
+}
+
 const announcement = (status: RunStatus) =>
   status.kind === "running" ? "" : statusText(status);
 
 function RunButton({
   active,
-  label,
+  name,
   onClick,
   ref,
 }: {
   active: boolean;
-  label: string;
+  name: string;
   onClick: () => void;
   ref: Ref<HTMLButtonElement>;
 }) {
   const action = active ? "Stop" : "Run";
   return (
     <button
-      aria-label={`${action} ${label}`}
+      aria-label={`${action} ${name}`}
       className="flex cursor-pointer items-center gap-1 rounded-md p-1 font-medium text-muted-foreground text-xs outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60"
       onClick={onClick}
       ref={ref}
@@ -98,11 +116,11 @@ function RunButton({
 }
 
 function RunOutput({
-  label,
+  name,
   state: { status, output },
   onClear,
 }: {
-  label: string;
+  name: string;
   state: RunState;
   onClear: () => void;
 }) {
@@ -155,7 +173,7 @@ function RunOutput({
       </div>
       {shown > 0 ? (
         <section
-          aria-label={`${label} output`}
+          aria-label={`Output of ${name}`}
           className="max-h-72 overflow-auto rounded-b-xl outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-inset"
           onScroll={onScroll}
           ref={scrollRef}
@@ -215,6 +233,7 @@ function RunnableCodeBlock({
   const stopRef = useRef<(() => void) | null>(null);
   const runButtonRef = useRef<HTMLButtonElement>(null);
   const active = isActive(state.status);
+  const name = blockName(runner, code);
 
   useEffect(() => () => stopRef.current?.(), []);
 
@@ -255,16 +274,14 @@ function RunnableCodeBlock({
         {canRun ? (
           <RunButton
             active={active}
-            label={runner.label}
+            name={name}
             onClick={toggleRun}
             ref={runButtonRef}
           />
         ) : null}
         <CodeBlockCopyButton />
       </CodeBlock>
-      {open ? (
-        <RunOutput label={runner.label} onClear={clear} state={state} />
-      ) : null}
+      {open ? <RunOutput name={name} onClear={clear} state={state} /> : null}
       <output aria-live="polite" className="sr-only">
         {announcement(state.status)}
       </output>

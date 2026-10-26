@@ -10,6 +10,7 @@ const TAG = /<(\/?)([a-z0-9]+)((?:[^>"]|"[^"]*")*)>/g;
 const LANGUAGE = /data-language="([^"]*)"/;
 const CODE_BLOCK = 'data-streamdown="code-block"';
 const RUN_BUTTON = 'aria-label="Run ';
+const RUN_NAME = /aria-label="(Run [^"]*)"/g;
 
 type Mark = "[b]" | "[i]" | "";
 
@@ -149,6 +150,24 @@ describe("Run in code blocks", () => {
         </Markdown>
       )
     ).toEqual([]);
+  });
+
+  test("names each Run button after its language and first line of code", () => {
+    const markdown = [
+      fence(
+        "js",
+        "// Sum the list\nconsole.log([1, 2].reduce((a, b) => a + b));"
+      ),
+      fence(
+        "py",
+        "\nprint('a fairly long line of Python that goes on and on')"
+      ),
+    ].join("\n\n");
+    const html = renderToStaticMarkup(<Markdown runnable>{markdown}</Markdown>);
+    expect([...html.matchAll(RUN_NAME)].map((match) => match[1])).toEqual([
+      "Run JavaScript: // Sum the list",
+      "Run Python: print(&#x27;a fairly long line of Python tha…",
+    ]);
   });
 
   test("leaves Run off a fence that is still streaming", () => {
