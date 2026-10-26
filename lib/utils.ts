@@ -2,7 +2,7 @@ import type { UIMessage, UIMessagePart } from "ai";
 import { type ClassValue, clsx } from "clsx";
 import { formatISO } from "date-fns";
 import { twMerge } from "tailwind-merge";
-import type { Message as DbMessage } from "@/lib/convex/queries";
+import type { Message as DbMessage } from "@/lib/db/schema";
 import { ChatSDKError, type ErrorCode } from "./errors";
 import type { ChatMessage } from "./types";
 
@@ -48,7 +48,7 @@ export function getMostRecentUserMessage(messages: Array<UIMessage>) {
 export function convertToUIMessages(messages: DbMessage[]): ChatMessage[] {
   return messages.map((message) => ({
     id: message.id,
-    role: message.role as "user" | "assistant" | "system",
+    role: message.role,
     parts: message.parts as UIMessagePart<any, any>[], // eslint-disable-line @typescript-eslint/no-explicit-any
     metadata: {
       createdAt: formatISO(message.createdAt),

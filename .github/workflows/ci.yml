@@ -27,9 +27,6 @@ jobs:
 
       - name: build
         run: bun run build
-        env:
-          NEXT_PUBLIC_CONVEX_URL: https://ci-placeholder.convex.cloud
-          NEXT_PUBLIC_CONVEX_SITE_URL: https://ci-placeholder.convex.site
 
   deploy:
     if: github.event_name == 'push'

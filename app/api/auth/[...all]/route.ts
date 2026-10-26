@@ -1,3 +1,9 @@
-import { handler } from "@/lib/auth-server";
+import { getAuth } from "@/lib/auth";
 
-export const { GET, POST } = handler;
+export function GET(request: Request) {
+  return getAuth().handler(request);
+}
+
+export function POST(request: Request) {
+  return getAuth().handler(request);
+}

@@ -1,100 +1,75 @@
 import { NextResponse } from "next/server";
+import { auth } from "@/app/auth";
 import {
-  deleteChatById,
+  canReadChat,
+  deleteChat,
   getChatById,
   getMessagesByChatId,
-  updateChatSystemPrompt,
-} from "@/lib/convex/queries";
+  updateChat,
+} from "@/lib/db/queries";
 import {
   deleteFilesFromUploadThing,
   extractFileKeysFromMessages,
 } from "@/lib/uploadthing/utils";
 import { convertToUIMessages } from "@/lib/utils";
 
-export async function GET(
-  _req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id } = await params;
-    const chat = await getChatById({ id });
-
-    if (!chat) {
-      return NextResponse.json({ error: "Chat not found" }, { status: 404 });
-    }
-
-    // Also fetch messages and convert to UI format
-    const messagesFromDb = await getMessagesByChatId({ id });
-    const messages = convertToUIMessages(messagesFromDb);
-
-    return NextResponse.json({ ...chat, messages });
-  } catch (error) {
-    console.error("Failed to fetch chat:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch chat" },
-      { status: 500 }
-    );
-  }
+interface Params {
+  params: Promise<{ id: string }>;
 }
 
-export async function PATCH(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id } = await params;
-    const body = await req.json();
-    const { systemPrompt } = body as { systemPrompt?: string };
+const unauthorized = () =>
+  NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+const notFound = () =>
+  NextResponse.json({ error: "Chat not found" }, { status: 404 });
 
-    await updateChatSystemPrompt({
-      id,
-      systemPrompt: systemPrompt || undefined,
-    });
+export async function GET(_req: Request, { params }: Params) {
+  const { id } = await params;
+  const session = await auth();
+  const chat = await getChatById(id);
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Failed to update chat:", error);
-    return NextResponse.json(
-      { error: "Failed to update chat" },
-      { status: 500 }
-    );
+  if (!(chat && canReadChat(chat, session?.user.id))) {
+    return notFound();
   }
+
+  const messages = convertToUIMessages(await getMessagesByChatId(id));
+  return NextResponse.json({ ...chat, messages });
 }
 
-export async function DELETE(
-  _req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id } = await params;
-
-    // Delete chat and get messages to extract file attachments
-    const { messages } = await deleteChatById({ id });
-
-    // Extract file keys from all messages
-    const fileKeys = extractFileKeysFromMessages(messages);
-
-    // Delete files from UploadThing asynchronously (don't block the response)
-    if (fileKeys.length > 0) {
-      // Fire and forget - delete files in the background
-      deleteFilesFromUploadThing(fileKeys).catch((error) => {
-        console.error("Background file deletion failed:", error);
-      });
-
-      console.log(
-        `Queued ${fileKeys.length} files for deletion from UploadThing`
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      deletedFiles: fileKeys.length,
-    });
-  } catch (error) {
-    console.error("Failed to delete chat:", error);
-    return NextResponse.json(
-      { error: "Failed to delete chat" },
-      { status: 500 }
-    );
+export async function PATCH(req: Request, { params }: Params) {
+  const { id } = await params;
+  const session = await auth();
+  if (!session) {
+    return unauthorized();
   }
+
+  const { systemPrompt } = (await req.json()) as { systemPrompt?: string };
+  const updated = await updateChat({
+    id,
+    userId: session.user.id,
+    changes: { systemPrompt: systemPrompt || null },
+  });
+
+  return updated ? NextResponse.json({ success: true }) : notFound();
+}
+
+export async function DELETE(_req: Request, { params }: Params) {
+  const { id } = await params;
+  const session = await auth();
+  if (!session) {
+    return unauthorized();
+  }
+
+  const messages = await deleteChat({ id, userId: session.user.id });
+  if (!messages) {
+    return notFound();
+  }
+
+  const fileKeys = extractFileKeysFromMessages(messages);
+  if (fileKeys.length > 0) {
+    deleteFilesFromUploadThing(fileKeys).catch((error) => {
+      console.error("Background file deletion failed:", error);
+    });
+  }
+
+  return NextResponse.json({ success: true, deletedFiles: fileKeys.length });
 }

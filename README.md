@@ -5,9 +5,17 @@ Techstack:
 - Next.js
 - AI SDK
 - Better Auth
-- Convex
+- Neon Postgres x Drizzle
 - Tailwind CSS x Shadcn
 - Upstash
+
+Database
+
+`NEON_DB` in `.env.local` holds the Postgres URL.
+
+- `bun run db:generate` writes a migration to `lib/db/migrations` after a schema change.
+- `bun run db:migrate` applies pending migrations to `NEON_DB`. Run it before you merge a schema change, because pushing to `main` deploys.
+- `scripts/convex-to-postgres.ts` and `scripts/verify-convex-migration.ts` copied the Convex data to Postgres. Each reads `DATABASE_URL`, not `NEON_DB`, and takes an unzipped export from `bunx convex export --prod --path snapshot.zip`. Pass `--since=<ms>` with the time of the first export to copy only later documents.
 
 TO-DO
 
@@ -51,7 +59,7 @@ Database
 
 Note:
 
-- [ ] To add other users, check out @/components/auth/action.ts
+- [ ] To add other users, set `disableSignUp: false` in `lib/auth.ts`
 
 Able to save messages, however, the UUID regenerates after every key down "Enter"
 
