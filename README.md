@@ -5,9 +5,17 @@ Techstack:
 - Next.js
 - AI SDK
 - Better Auth
-- Convex
+- Neon Postgres x Drizzle
 - Tailwind CSS x Shadcn
 - Upstash
+
+Database
+
+`NEON_DB` in `.env.local` holds the Postgres URL.
+
+- `bun run db:generate` writes a migration to `lib/db/migrations` after a schema change.
+- `bun run db:migrate` applies pending migrations to `NEON_DB`. Run it before you merge a schema change, because pushing to `main` deploys.
+- `scripts/convex-to-postgres.ts` and `scripts/verify-convex-migration.ts` copied the Convex data to Postgres. Each reads `DATABASE_URL`, not `NEON_DB`.
 
 TO-DO
 
