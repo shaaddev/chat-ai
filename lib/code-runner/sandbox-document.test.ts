@@ -387,6 +387,11 @@ describe("sandbox frame", () => {
 
 type TaskOrder = "timer first" | "rejection first";
 
+interface PythonError {
+  message: string;
+  type: string;
+}
+
 // HTML reports an unhandled rejection in a task from a different source than
 // timers, and a browser may run either source first. Chromium runs the timer.
 // Bun's Worker never fires unhandledrejection, so the worker script runs in a
@@ -395,10 +400,17 @@ type TaskOrder = "timer first" | "rejection first";
 // runs. Host work, such as a WebAssembly compile, a Blob read, or a port
 // message, resolves from a third queue that always runs last. An uncaught
 // throw reaches the error listener the way WebKit reports one from compiled
-// code: as "Script error." with no error object.
-const workerProcess = (code: string, order: TaskOrder) => `
+// code: as "Script error." with no error object. A fake Pyodide raises the
+// given Python error from a host task.
+const workerProcess = (
+  code: string,
+  order: TaskOrder,
+  pythonError: PythonError | null
+) => `
 const { writeSync } = require("node:fs");
 const TIMER_FIRST = ${order === "timer first"};
+const PYTHON_ERROR = ${JSON.stringify(pythonError)};
+const RUN = { type: "run", runtime: PYTHON_ERROR ? "python" : "javascript", code: ${JSON.stringify(code)} };
 const realSetTimeout = setTimeout;
 const listeners = new Map();
 const timers = new Map();
@@ -409,6 +421,7 @@ let scheduled = false;
 let workerClosed = false;
 globalThis.postMessage = (message) => {
   writeSync(1, JSON.stringify(message) + "\\n");
+  if (message.type === "ready") listeners.get("message")({ data: RUN });
   if (message.type === "exit") process.exit(0);
 };
 globalThis.addEventListener = (type, handler) => listeners.set(type, handler);
@@ -491,6 +504,21 @@ globalThis.MessageChannel = class {
     this.port2.other = this.port1;
   }
 };
+globalThis.importScripts = () => {
+  globalThis.loadPyodide = async () => ({
+    setStdout() {},
+    setStderr() {},
+    setStdin() {},
+    runPython() {},
+    runPythonAsync: () => {
+      const error = Object.assign(new Error(PYTHON_ERROR.message), { type: PYTHON_ERROR.type });
+      return new Promise((resolve, reject) => {
+        host.push(() => reject(error));
+        schedule();
+      });
+    },
+  });
+};
 function nextTimer() {
   let next = null;
   for (const entry of timers) if (!next || entry[1].at < next[1].at) next = entry;
@@ -521,7 +549,7 @@ function step() {
   }
 }
 ${WORKER_SCRIPT}
-listeners.get("message")({ data: { type: "run", runtime: "javascript", code: ${JSON.stringify(code)} } });
+listeners.get("message")({ data: PYTHON_ERROR ? { type: "boot", indexURL: "", loaderUrl: "", moduleUrl: "data:text/javascript,", lock: null, wasm: null, stdlib: null } : RUN });
 `;
 
 function runInWorker(
@@ -529,11 +557,16 @@ function runInWorker(
   {
     order = "timer first",
     waitMs = 2000,
-  }: { order?: TaskOrder; waitMs?: number } = {}
+    pythonError = null,
+  }: {
+    order?: TaskOrder;
+    waitMs?: number;
+    pythonError?: PythonError | null;
+  } = {}
 ) {
   const child = spawnSync(
     process.execPath,
-    ["--eval", workerProcess(code, order)],
+    ["--eval", workerProcess(code, order, pythonError)],
     { encoding: "utf8", timeout: waitMs }
   );
   const messages: Message[] = child.stdout
@@ -551,6 +584,12 @@ function runInWorker(
     exit: messages.find((m) => m.type === "exit"),
   };
 }
+
+// Pyodide raises SystemExit as an error whose message is the traceback.
+const systemExit = (lastLine: string): PythonError => ({
+  type: "SystemExit",
+  message: `Traceback (most recent call last):\n  File "/lib/python314.zip/_pyodide/_base.py", line 420, in run_async\n    coroutine = eval(self.code, globals, locals)\n  File "<snippet>", line 2, in <module>\n${lastLine}\n`,
+});
 
 describe("sandbox worker", () => {
   test("formats console output the way Node does", () => {
@@ -771,3 +810,30 @@ describe.each(["timer first", "rejection first"] as const)(
     });
   }
 );
+
+describe("sandbox worker running Python", () => {
+  test.each([
+    ["sys.exit()", "SystemExit", { exit: "done", detail: null }],
+    ["sys.exit(0)", "SystemExit: 0", { exit: "done", detail: null }],
+    ["sys.exit(False)", "SystemExit: False", { exit: "done", detail: null }],
+    [
+      "sys.exit(True)",
+      "SystemExit: True",
+      { exit: "error", detail: "Exited with code 1" },
+    ],
+    [
+      "sys.exit(3)",
+      "SystemExit: 3",
+      { exit: "error", detail: "Exited with code 3" },
+    ],
+    ["sys.exit('bye')", "SystemExit: bye", { exit: "error", detail: "bye" }],
+  ])(
+    "ends a program that calls %s with CPython's status",
+    (call, lastLine, ending) => {
+      const { exit } = runInWorker(`import sys\n${call}`, {
+        pythonError: systemExit(lastLine),
+      });
+      expect(exit).toEqual({ type: "exit", ...ending });
+    }
+  );
+});
