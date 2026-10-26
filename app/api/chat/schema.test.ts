@@ -109,6 +109,22 @@ describe("POST /api/chat file parts", () => {
     );
   });
 
+  test("accepts a part saved before inline attachments, named by `name`", () => {
+    const result = withParts([
+      {
+        type: "file",
+        mediaType: "image/png",
+        name: "old-upload.png",
+        url: "https://abc123.ufs.sh/f/old-key",
+      },
+    ]);
+    expect(result.success).toBe(true);
+    const parsed = result.data?.message;
+    expect(parsed && "parts" in parsed ? parsed.parts[0] : null).toMatchObject({
+      filename: "old-upload.png",
+    });
+  });
+
   test("rejects a file over the upload limit", () => {
     expect(
       withParts([{ ...filePart, size: ATTACHMENT_MAX_BYTES + 1 }]).success
