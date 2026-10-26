@@ -123,17 +123,20 @@ function SourceChips({
   );
 }
 
-const EMPTY_REPLY_SUMMARY: Record<EmptyReplyReason, string> = {
+type ReplyNoticeReason = EmptyReplyReason | "missing";
+
+const EMPTY_REPLY_SUMMARY: Record<ReplyNoticeReason, string> = {
   length: "The reply hit its length limit before writing any text.",
+  missing: "This message has no reply yet.",
   other: "The model ended its turn without writing a reply.",
 };
 
-function EmptyReplyNotice({
+export function EmptyReplyNotice({
   onRegenerate,
   reason,
 }: {
   onRegenerate?: () => void;
-  reason: EmptyReplyReason;
+  reason: ReplyNoticeReason;
 }) {
   return (
     <div

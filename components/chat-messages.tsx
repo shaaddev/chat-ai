@@ -14,11 +14,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useMessages } from "@/hooks/use-message";
 import { type ChatModelId, getModelLabel } from "@/lib/ai/models";
 import { focusComposer } from "@/lib/composer";
-import { isShownInThread } from "@/lib/message-display";
+import { endsWithoutReply, isShownInThread } from "@/lib/message-display";
 import type { ChatMessage, DocumentDraft } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
   type EditControls,
+  EmptyReplyNotice,
   PreviewMessage,
   type ReplyControls,
 } from "./chat-message";
@@ -167,6 +168,7 @@ function PureMessages({
     lastMessage !== undefined &&
     (lastMessage.role === "user" || !isShownInThread(lastMessage));
   const visibleMessages = messages.filter(isShownInThread);
+  const isMissingReply = !isBusy && endsWithoutReply(messages);
   const latestUserMessageId =
     messages.findLast((message) => message.role === "user")?.id ?? null;
 
@@ -319,6 +321,14 @@ function PureMessages({
                       />
                       {isLast && isAwaitingContent ? (
                         <PendingReply isImage={isImageModelSelected} />
+                      ) : null}
+                      {isLast && isMissingReply ? (
+                        <div className="mt-5">
+                          <EmptyReplyNotice
+                            onRegenerate={onRegenerate}
+                            reason="missing"
+                          />
+                        </div>
                       ) : null}
                     </div>
                     {documentDraft?.messageId === message.id &&

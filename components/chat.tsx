@@ -335,7 +335,10 @@ export function Chat({
   const replyToRegenerate = messages.at(-1);
   const handleRegenerate = useCallback(async () => {
     replacedReplyRef.current =
-      replyToRegenerate?.role === "assistant" ? replyToRegenerate : undefined;
+      replyToRegenerate?.role === "assistant" &&
+      hasVisibleContent(replyToRegenerate)
+        ? replyToRegenerate
+        : undefined;
     setChatLoading(id, true);
     await regenerate();
   }, [id, regenerate, replyToRegenerate, setChatLoading]);

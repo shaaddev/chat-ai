@@ -39,3 +39,7 @@ export function isShownInThread(message: ChatMessage) {
     (message.role === "assistant" && getReasoningText(message).length > 0)
   );
 }
+
+export function endsWithoutReply(messages: ChatMessage[]) {
+  return messages.findLast(isShownInThread)?.role === "user";
+}
