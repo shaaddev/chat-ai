@@ -32,16 +32,24 @@ export async function updateChat({
   id,
   userId,
   changes,
+  onlyIfTitle,
 }: {
   id: string;
   userId: string;
   changes: Partial<Pick<Chat, "title" | "systemPrompt" | "pinnedKey">>;
+  onlyIfTitle?: string;
 }): Promise<boolean> {
   // `updatedAt` orders the sidebar by activity. Renaming is not activity.
   const updated = await getDb()
     .update(chat)
     .set({ ...changes, updatedAt: sql`${chat.updatedAt}` })
-    .where(and(eq(chat.id, id), eq(chat.userId, userId)))
+    .where(
+      and(
+        eq(chat.id, id),
+        eq(chat.userId, userId),
+        onlyIfTitle === undefined ? undefined : eq(chat.title, onlyIfTitle)
+      )
+    )
     .returning({ id: chat.id });
   return updated.length > 0;
 }

@@ -301,14 +301,22 @@ async function saveGeneratedTitle({
   chatId,
   userId,
   message,
+  provisionalTitle,
 }: {
   chatId: string;
   userId: string;
   message: ChatMessage;
+  provisionalTitle: string;
 }) {
   const title = await generateChatTitle(message);
   if (title) {
-    await updateChat({ id: chatId, userId, changes: { title } });
+    // A rename while the model was naming the chat wins.
+    await updateChat({
+      id: chatId,
+      userId,
+      changes: { title },
+      onlyIfTitle: provisionalTitle,
+    });
   }
 }
 
@@ -378,12 +386,18 @@ export async function POST(req: Request) {
       }
     }
 
-    let firstMessage: ChatMessage | undefined;
+    let newChat: { message: ChatMessage; provisionalTitle: string } | undefined;
     if (!existingChat) {
       if (turn.type !== "append") {
         return new ChatSDKError("not_found:chat").toResponse();
       }
-      firstMessage = { ...turn.message, role: "user" };
+      const message: ChatMessage = { ...turn.message, role: "user" };
+      newChat = {
+        message,
+        provisionalTitle:
+          getUserText(message.parts).slice(0, CHAT_TITLE_MAX_LENGTH) ||
+          "New chat",
+      };
     }
 
     const streamId = generateUUID();
@@ -392,10 +406,8 @@ export async function POST(req: Request) {
       userId,
       streamId,
       turn,
-      newChat: firstMessage && {
-        title:
-          getUserText(firstMessage.parts).slice(0, CHAT_TITLE_MAX_LENGTH) ||
-          "New chat",
+      newChat: newChat && {
+        title: newChat.provisionalTitle,
         systemPrompt: customSystemPrompt,
       },
     });
@@ -407,14 +419,14 @@ export async function POST(req: Request) {
     }
 
     let titleSaved: Promise<void> | undefined;
-    if (firstMessage) {
+    if (newChat) {
       // A promise, not a callback: a callback would only start once the
       // reply has finished streaming, so the title would land after the
       // client's end-of-stream refresh.
       titleSaved = saveGeneratedTitle({
         chatId: id,
         userId,
-        message: firstMessage,
+        ...newChat,
       }).catch((error) =>
         console.error("Failed to save the chat title", error)
       );
