@@ -206,11 +206,15 @@ export interface NewChat {
   title: string;
 }
 
+// A claim row exists only so the claimed turn's request fails if it arrives
+// late. It is never a chat's latest turn, even in a chat with no other rows.
+const CLAIMED_AT = new Date(0);
+
 async function latestStreamId(db: Database | Transaction, chatId: string) {
   const [row] = await db
     .select({ id: stream.id })
     .from(stream)
-    .where(eq(stream.chatId, chatId))
+    .where(and(eq(stream.chatId, chatId), gt(stream.createdAt, CLAIMED_AT)))
     .orderBy(desc(stream.createdAt))
     .limit(1);
   return row?.id;
@@ -406,10 +410,6 @@ export async function saveReplyIfLatestTurn({
       .where(eq(chat.id, chatId));
   });
 }
-
-// A claim row exists only so the claimed turn's request fails if it arrives
-// late. Its date sorts it before every real turn, so it is never the latest.
-const CLAIMED_AT = new Date(0);
 
 export interface SettledTurn {
   messages: Message[];
