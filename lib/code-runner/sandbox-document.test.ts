@@ -438,17 +438,33 @@ const blobText = Blob.prototype.text;
 Blob.prototype.text = function () { return fromHost(() => blobText.call(this))(); };
 class Port {
   listeners = [];
-  onmessage = null;
-  postMessage(data) {
-    const target = this.other;
+  handler = null;
+  started = false;
+  closed = false;
+  queue = [];
+  get onmessage() { return this.handler; }
+  set onmessage(handler) { this.handler = handler; this.start(); }
+  start() {
+    if (this.started) return;
+    this.started = true;
+    for (const data of this.queue.splice(0)) this.deliver(data);
+  }
+  deliver(data) {
     host.push(() => {
-      for (const listener of [...target.listeners, target.onmessage]) if (listener) listener({ data });
+      if (this.closed) return;
+      for (const listener of [...this.listeners, this.handler]) if (listener) listener({ data });
     });
     schedule();
   }
+  postMessage(data) {
+    if (typeof data === "function") throw new DOMException("could not be cloned", "DataCloneError");
+    if (this.other.started) this.other.deliver(data);
+    else this.other.queue.push(data);
+  }
   addEventListener(type, listener) { if (type === "message") this.listeners.push(listener); }
-  close() {}
+  close() { this.closed = true; }
 }
+globalThis.MessagePort = Port;
 globalThis.MessageChannel = class {
   constructor() {
     this.port1 = new Port();
@@ -652,6 +668,26 @@ describe.each(["timer first", "rejection first"] as const)(
         "a MessageChannel round trip",
         "const { port1, port2 } = new MessageChannel();\nport1.onmessage = (event) => { console.log('got', event.data); port1.close(); };\nport2.postMessage('ping');",
         "got ping\n",
+      ],
+      [
+        "a message to a port started later",
+        "const { port1, port2 } = new MessageChannel();\nport1.postMessage('early');\nsetTimeout(() => { port2.onmessage = (event) => console.log(event.data); }, 20);",
+        "early\n",
+      ],
+      [
+        "a message to a port that never starts",
+        "const { port1 } = new MessageChannel();\nport1.postMessage(1);\nconsole.log('hi');",
+        "hi\n",
+      ],
+      [
+        "a message that cannot be cloned",
+        "try { new MessageChannel().port1.postMessage(() => {}); } catch { console.log('caught'); }",
+        "caught\n",
+      ],
+      [
+        "a message to a port closed before delivery",
+        "const { port1, port2 } = new MessageChannel();\nport2.onmessage = (event) => console.log(event.data);\nport1.postMessage('x');\nport2.close();\nconsole.log('closed');",
+        "closed\n",
       ],
     ])("reports %s as done", (_, code, printed) => {
       const { stdout, exit } = runInWorker(code, { order });
