@@ -1,47 +1,49 @@
-import fs from "node:fs";
-import type { LanguageModelUsage } from "ai";
 import {
   convertToModelMessages,
   createUIMessageStream,
+  createUIMessageStreamResponse,
   isStepCount,
-  JsonToSseTransformStream,
   smoothStream,
   streamText,
+  type ToolSet,
   toUIMessageStream,
+  type UIMessageStreamWriter,
 } from "ai";
 import { after } from "next/server";
 import {
   createResumableStreamContext,
   type ResumableStreamContext,
 } from "resumable-stream";
-import { generateTitleFromUserMessage } from "@/app/actions";
 import { auth } from "@/app/auth";
-import {
-  getLanguageModel,
-  IMAGE_MODEL_SLUGS,
-  image_models,
-  stable_models,
-} from "@/lib/ai/models";
+import { type ChatModel, getChatModel } from "@/lib/ai/models";
 import { systemPrompt } from "@/lib/ai/prompts";
+import {
+  CHAT_TITLE_MAX_LENGTH,
+  generateChatTitle,
+  getLanguageModel,
+} from "@/lib/ai/providers";
 import {
   createStreamId,
   getChatById,
   getMessagesByChatId,
   saveChat,
   saveMessages,
+  updateChat,
 } from "@/lib/db/queries";
 import { ChatSDKError } from "@/lib/errors";
-import type { ChatMessage } from "@/lib/types";
+import type { ChatMessage, ChatMessageMetadata } from "@/lib/types";
 import { utapi } from "@/lib/uploadthing/core";
-import { convertToUIMessages, generateUUID } from "@/lib/utils";
+import {
+  convertToUIMessages,
+  generateUUID,
+  hasVisibleContent,
+} from "@/lib/utils";
 import { type PostRequestBody, postRequestBodySchema } from "./schema";
 
 export const maxDuration = 60;
 const DATA_URL_REGEX = /^data:(image\/[^;]+);base64,(.+)$/;
-
-// Note: For App Router, body size limits are handled at the platform level
-// (e.g., Vercel.json or reverse proxy configuration)
-// Default limit is typically 4.5MB which should be sufficient for text-based chat
+const OPENROUTER_CHAT_COMPLETIONS_URL =
+  "https://openrouter.ai/api/v1/chat/completions";
 
 function getUploadThingUrlFromResult(result: unknown): string | undefined {
   const extract = (obj: unknown): string | undefined => {
@@ -122,12 +124,9 @@ function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
 }
 
-async function cleanupTempFile(fileName: string) {
-  try {
-    await fs.promises.unlink(fileName);
-  } catch {
-    // Ignore temp file cleanup failures.
-  }
+function getStreamErrorText(error: unknown) {
+  console.error("Stream execution error:", error);
+  return "An error occurred while generating the response. Please try again.";
 }
 
 let globalStreamContext: ResumableStreamContext | null = null;
@@ -148,6 +147,186 @@ export function getStreamContext() {
   return globalStreamContext;
 }
 
+async function requestImage(slug: string, prompt: string): Promise<string> {
+  const response = await fetch(OPENROUTER_CHAT_COMPLETIONS_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer":
+        process.env.NEXT_PUBLIC_APP_URL || "https://chat.shaaddev.com",
+      "X-Title": "Chat AI - Shaad",
+    },
+    body: JSON.stringify({
+      model: slug,
+      messages: [{ role: "user", content: prompt }],
+      modalities: ["image", "text"],
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    console.error("OpenRouter image generation error:", errorData);
+
+    if (response.status === 429) {
+      throw new Error("Rate limit exceeded. Please try again later.");
+    }
+
+    throw new Error(
+      (errorData as { error?: { message?: string } })?.error?.message ||
+        `OpenRouter API error: ${response.status}`
+    );
+  }
+
+  const result = await response.json();
+  const resultMessage = result.choices?.[0]?.message;
+  let imageDataUrl: string | null = null;
+
+  if (resultMessage?.images?.[0]?.image_url?.url) {
+    imageDataUrl = resultMessage.images[0].image_url.url;
+  } else if (result.data?.[0]?.b64_json) {
+    imageDataUrl = `data:image/png;base64,${result.data[0].b64_json}`;
+  } else if (result.choices?.[0]?.images?.[0]) {
+    const [imageData] = result.choices[0].images;
+    if (typeof imageData === "string") {
+      imageDataUrl = imageData.startsWith("data:")
+        ? imageData
+        : `data:image/png;base64,${imageData}`;
+    } else if (imageData?.image_url?.url) {
+      imageDataUrl = imageData.image_url.url;
+    } else if (imageData?.b64_json || imageData?.base64 || imageData?.data) {
+      const base64 = imageData.b64_json || imageData.base64 || imageData.data;
+      imageDataUrl = `data:image/png;base64,${base64}`;
+    }
+  } else if (Array.isArray(resultMessage?.content)) {
+    for (const part of resultMessage.content) {
+      if (part.inline_data?.data) {
+        const mimeType = part.inline_data.mime_type || "image/png";
+        imageDataUrl = `data:${mimeType};base64,${part.inline_data.data}`;
+        break;
+      }
+      if (part.image_url?.url) {
+        imageDataUrl = part.image_url.url;
+        break;
+      }
+      if (part?.type === "image_url" && part?.image_url?.url) {
+        imageDataUrl = part.image_url.url;
+        break;
+      }
+    }
+  } else if (
+    typeof resultMessage?.content === "string" &&
+    resultMessage.content.startsWith("data:image")
+  ) {
+    imageDataUrl = resultMessage.content;
+  }
+
+  if (!imageDataUrl) {
+    console.error(
+      "No image data found in response:",
+      JSON.stringify(result, null, 2)
+    );
+    throw new Error("No image was generated");
+  }
+
+  return imageDataUrl;
+}
+
+async function uploadImage(bytes: Uint8Array<ArrayBuffer>, mediaType: string) {
+  const extension = mediaType.split("/")[1] || "png";
+  const file = new File([bytes], `image-${Date.now()}.${extension}`, {
+    type: mediaType,
+  });
+  const url = getUploadThingUrlFromResult(await utapi.uploadFiles(file));
+  if (!url) {
+    throw new Error("Image generation produced no upload URL");
+  }
+  return { url, mediaType };
+}
+
+async function storeGeneratedImage(imageUrl: string) {
+  if (imageUrl.startsWith("data:")) {
+    const dataUrlMatch = imageUrl.match(DATA_URL_REGEX);
+    if (!dataUrlMatch) {
+      throw new Error("Invalid image data URL format");
+    }
+    const [, mediaType, base64] = dataUrlMatch;
+    return await uploadImage(
+      new Uint8Array(Buffer.from(base64, "base64")),
+      mediaType
+    );
+  }
+
+  try {
+    const imageResponse = await fetch(imageUrl);
+    if (!imageResponse.ok) {
+      throw new Error(`Failed to fetch image: ${imageResponse.status}`);
+    }
+    const mediaType = imageResponse.headers.get("content-type") || "image/png";
+    return await uploadImage(
+      new Uint8Array(await imageResponse.arrayBuffer()),
+      mediaType
+    );
+  } catch (error) {
+    console.error("Failed to download/upload external image:", error);
+    return { url: imageUrl, mediaType: "image/png" };
+  }
+}
+
+async function writeGeneratedImage(
+  writer: UIMessageStreamWriter<ChatMessage>,
+  {
+    model,
+    prompt,
+    metadata,
+  }: { model: ChatModel; prompt: string; metadata: ChatMessageMetadata }
+) {
+  try {
+    const image = await storeGeneratedImage(
+      await requestImage(model.slug, prompt)
+    );
+    writer.write({ type: "start", messageMetadata: metadata });
+    writer.write({ type: "file", url: image.url, mediaType: image.mediaType });
+    writer.write({ type: "finish" });
+  } catch (error) {
+    console.error("Image generation error:", error);
+    writer.write({
+      type: "error",
+      errorText:
+        "An error occurred while generating the image. Please try again.",
+    });
+  }
+}
+
+const TITLE_WAIT_MS = 3000;
+
+// The client refreshes the sidebar when a stream ends, so a new chat's
+// stream waits briefly for its title. A slow title still saves afterward.
+async function waitForTitle(titleSaved: Promise<void> | undefined) {
+  if (!titleSaved) {
+    return;
+  }
+  await Promise.race([
+    titleSaved,
+    new Promise((resolve) => setTimeout(resolve, TITLE_WAIT_MS)),
+  ]);
+}
+
+async function saveGeneratedTitle({
+  chatId,
+  userId,
+  message,
+}: {
+  chatId: string;
+  userId: string;
+  message: ChatMessage;
+}) {
+  const title = await generateChatTitle(message);
+  if (title) {
+    await updateChat({ id: chatId, userId, changes: { title } });
+  }
+}
+
 export async function POST(req: Request) {
   let requestBody: PostRequestBody;
 
@@ -161,19 +340,13 @@ export async function POST(req: Request) {
   try {
     const {
       id,
-      message,
       selectedChatModel,
       useSearch,
       autoDocumentGeneration,
       customSystemPrompt,
-    }: {
-      id: string;
-      message: ChatMessage;
-      selectedChatModel: string;
-      useSearch: boolean;
-      autoDocumentGeneration: boolean;
-      customSystemPrompt?: string;
     } = requestBody;
+    const message: ChatMessage = requestBody.message;
+    const model = getChatModel(selectedChatModel);
 
     const latestUserText = message.parts
       .filter((part) => part.type === "text")
@@ -182,447 +355,114 @@ export async function POST(req: Request) {
       .trim()
       .slice(0, 10_000);
 
+    const session = await auth();
+    if (!session) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+    const userId = session.user.id;
+
+    const existingChat = await getChatById(id);
+    if (existingChat && existingChat.userId !== userId) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+
+    let titleSaved: Promise<void> | undefined;
+    if (!existingChat) {
+      await saveChat({
+        id,
+        userId,
+        title: latestUserText.slice(0, CHAT_TITLE_MAX_LENGTH) || "New chat",
+        systemPrompt: customSystemPrompt,
+      });
+      // A promise, not a callback: a callback would only start once the
+      // reply has finished streaming, so the title would land after the
+      // client's end-of-stream refresh.
+      titleSaved = saveGeneratedTitle({ chatId: id, userId, message }).catch(
+        (error) => console.error("Failed to save the chat title", error)
+      );
+      after(titleSaved);
+    }
+
+    const history = existingChat
+      ? convertToUIMessages(await getMessagesByChatId(id))
+      : [];
+
+    await Promise.all([
+      saveMessages(id, [
+        { id: message.id, role: "user", parts: message.parts, model: null },
+      ]),
+      createStreamId({ streamId: generateUUID(), chatId: id }),
+    ]);
+
     const documentIntent = detectDocumentIntent(
       latestUserText,
       autoDocumentGeneration
     );
+    const metadata: ChatMessageMetadata = {
+      model: model.id,
+      useSearch,
+      documentCandidate: documentIntent.documentCandidate,
+      suggestedFormat: documentIntent.suggestedFormat,
+    };
 
-    const session = await auth();
-
-    const existingChat = await getChatById(id);
-
-    if (!existingChat && session) {
-      const title = await generateTitleFromUserMessage({ message });
-      await saveChat({
-        id,
-        userId: session.user.id,
-        title,
-        systemPrompt: customSystemPrompt,
-      });
-    } else if (existingChat) {
-      if (existingChat.userId !== session?.user.id) {
-        return new Response("Unauthorized", { status: 401 });
-      }
-    } else if (!session) {
-      return new Response("Unauthorized", { status: 401 });
-    }
-
-    const messagesFromDb = await getMessagesByChatId(id);
-    const uiMessages = [...convertToUIMessages(messagesFromDb), message];
-
-    await saveMessages(id, [
-      {
-        id: message.id,
-        role: "user",
-        parts: message.parts,
-        model: null,
-      },
-    ]);
-
-    const selectedModel =
-      stable_models.find((model) => model.id === selectedChatModel) ||
-      image_models.find((model) => model.id === selectedChatModel);
-
-    if (!selectedModel) {
-      return new Response("Invalid model selected", { status: 400 });
-    }
-
-    const streamId = generateUUID();
-    await createStreamId({ streamId, chatId: id });
-
-    // Fallback holder when using image models: if the streaming collector
-    // doesn't capture our appended assistant message, persist this manually.
-    let fallbackImageAssistantMessage: {
-      id: string;
-      parts: Array<{
-        type: "file";
-        mediaType: string;
-        name: string;
-        url: string;
-      }>;
-    } | null = null;
-
-    const stream = createUIMessageStream({
-      execute: async ({ writer: dataStream }) => {
-        try {
-          const isImageModel = image_models.some(
-            (m) => m.id === selectedChatModel
-          );
-
-          if (isImageModel) {
-            try {
-              const response = await fetch(
-                "https://openrouter.ai/api/v1/chat/completions",
-                {
-                  method: "POST",
-                  headers: {
-                    Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-                    "Content-Type": "application/json",
-                    "HTTP-Referer":
-                      process.env.NEXT_PUBLIC_APP_URL ||
-                      "https://chat.shaaddev.com",
-                    "X-Title": "Chat AI - Shaad",
-                  },
-                  body: JSON.stringify({
-                    model: IMAGE_MODEL_SLUGS[selectedChatModel],
-                    messages: [
-                      {
-                        role: "user",
-                        content: latestUserText,
-                      },
-                    ],
-                    modalities: ["image", "text"],
-                  }),
-                }
-              );
-
-              if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                console.error("OpenRouter image generation error:", errorData);
-
-                if (response.status === 429) {
-                  throw new Error(
-                    "Rate limit exceeded. Please try again later."
-                  );
-                }
-
-                throw new Error(
-                  (errorData as { error?: { message?: string } })?.error
-                    ?.message || `OpenRouter API error: ${response.status}`
-                );
-              }
-
-              const result = await response.json();
-              const resultMessage = result.choices?.[0]?.message;
-              let imageDataUrl: string | null = null;
-
-              if (resultMessage?.images?.[0]?.image_url?.url) {
-                imageDataUrl = resultMessage.images[0].image_url.url;
-              } else if (result.data?.[0]?.b64_json) {
-                imageDataUrl = `data:image/png;base64,${result.data[0].b64_json}`;
-              } else if (result.choices?.[0]?.images?.[0]) {
-                const [imageData] = result.choices[0].images;
-                if (typeof imageData === "string") {
-                  imageDataUrl = imageData.startsWith("data:")
-                    ? imageData
-                    : `data:image/png;base64,${imageData}`;
-                } else if (imageData?.image_url?.url) {
-                  imageDataUrl = imageData.image_url.url;
-                } else if (
-                  imageData?.b64_json ||
-                  imageData?.base64 ||
-                  imageData?.data
-                ) {
-                  const base64 =
-                    imageData.b64_json || imageData.base64 || imageData.data;
-                  imageDataUrl = `data:image/png;base64,${base64}`;
-                }
-              } else if (Array.isArray(resultMessage?.content)) {
-                for (const part of resultMessage.content) {
-                  if (part.inline_data?.data) {
-                    const mimeType = part.inline_data.mime_type || "image/png";
-                    imageDataUrl = `data:${mimeType};base64,${part.inline_data.data}`;
-                    break;
-                  }
-                  if (part.image_url?.url) {
-                    imageDataUrl = part.image_url.url;
-                    break;
-                  }
-                  if (part?.type === "image_url" && part?.image_url?.url) {
-                    imageDataUrl = part.image_url.url;
-                    break;
-                  }
-                }
-              } else if (
-                typeof resultMessage?.content === "string" &&
-                resultMessage.content.startsWith("data:image")
-              ) {
-                imageDataUrl = resultMessage.content;
-              }
-
-              if (!imageDataUrl) {
-                console.error(
-                  "No image data found in response:",
-                  JSON.stringify(result, null, 2)
-                );
-                throw new Error("No image was generated");
-              }
-
-              const assistantMessageId = generateUUID();
-              let uploadedUrl: string | undefined;
-
-              if (imageDataUrl.startsWith("data:")) {
-                const dataUrlMatch = imageDataUrl.match(DATA_URL_REGEX);
-                if (!dataUrlMatch) {
-                  throw new Error("Invalid image data URL format");
-                }
-
-                const [, mimeType, imageBase64] = dataUrlMatch;
-                const extension = mimeType.split("/")[1] || "png";
-                const fileName = `image-${Date.now()}.${extension}`;
-
-                try {
-                  fs.writeFileSync(
-                    fileName,
-                    Buffer.from(imageBase64, "base64")
-                  );
-                  const buffer = await fs.promises.readFile(fileName);
-                  const uint8 = new Uint8Array(buffer);
-                  const file = new File([uint8], fileName, { type: mimeType });
-                  const uploadRes = await utapi.uploadFiles(file);
-                  uploadedUrl = getUploadThingUrlFromResult(uploadRes);
-                } catch (uploadErr) {
-                  console.error("UploadThing upload failed:", uploadErr);
-                } finally {
-                  await cleanupTempFile(fileName);
-                }
-              } else {
-                try {
-                  const imageResponse = await fetch(imageDataUrl);
-                  if (!imageResponse.ok) {
-                    throw new Error(
-                      `Failed to fetch image: ${imageResponse.status}`
-                    );
-                  }
-
-                  const contentType =
-                    imageResponse.headers.get("content-type") || "image/png";
-                  const extension = contentType.split("/")[1] || "png";
-                  const fileName = `image-${Date.now()}.${extension}`;
-                  const arrayBuffer = await imageResponse.arrayBuffer();
-                  const uint8 = new Uint8Array(arrayBuffer);
-
-                  // Write to temp file and upload
-                  fs.writeFileSync(fileName, Buffer.from(uint8));
-                  const file = new File([uint8], fileName, {
-                    type: contentType,
-                  });
-                  const uploadRes = await utapi.uploadFiles(file);
-                  uploadedUrl = getUploadThingUrlFromResult(uploadRes);
-                  await cleanupTempFile(fileName);
-                } catch (downloadErr) {
-                  console.error(
-                    "Failed to download/upload external image:",
-                    downloadErr
-                  );
-                  uploadedUrl = imageDataUrl;
-                }
-              }
-
-              if (!uploadedUrl) {
-                throw new Error("Image generation produced no upload URL");
-              }
-
-              const mediaType = "image/png";
-
-              const messageData = {
-                id: assistantMessageId,
-                role: "assistant",
-                parts: [
-                  {
-                    type: "file",
-                    mediaType,
-                    name: "generated-image",
-                    url: uploadedUrl,
-                  },
-                ],
-              };
-
-              dataStream.write({
-                type: "data-appendMessage",
-                data: JSON.stringify(messageData),
-              });
-
-              fallbackImageAssistantMessage = {
-                id: assistantMessageId,
-                parts: [
-                  {
-                    type: "file" as const,
-                    mediaType,
-                    name: "generated-image",
-                    url: uploadedUrl,
-                  },
-                ],
-              };
-
-              dataStream.write({
-                type: "data-setMessageMetadata",
-                data: JSON.stringify({
-                  id: assistantMessageId,
-                  metadata: {
-                    model: selectedChatModel,
-                    useSearch,
-                    documentCandidate: documentIntent.documentCandidate,
-                    suggestedFormat: documentIntent.suggestedFormat,
-                  },
-                }),
-              });
-            } catch (err) {
-              console.error("Image generation error:", err);
-              dataStream.write({
-                type: "error",
-                errorText:
-                  "An error occurred while generating the image. Please try again.",
-              });
-            }
-          } else {
-            // Use custom system prompt if set, otherwise fall back to existing chat's prompt or default
-            const effectiveSystemPrompt =
-              customSystemPrompt ?? existingChat?.systemPrompt ?? undefined;
-
-            const res = streamText({
-              model: getLanguageModel(selectedChatModel, {
-                useWebSearch: useSearch,
-              }),
-              instructions: systemPrompt({
-                selectedChatModel,
-                customSystemPrompt: effectiveSystemPrompt,
-              }),
-              messages: await convertToModelMessages(uiMessages),
-              experimental_transform: smoothStream({ chunking: "word" }),
-              stopWhen: isStepCount(5),
-              maxOutputTokens: 5000,
-            });
-
-            let assistantMessageId: string | null = null;
-            for await (const chunk of toUIMessageStream({
-              stream: res.stream,
-            })) {
-              if (
-                assistantMessageId === null &&
-                chunk?.type === "data-appendMessage"
-              ) {
-                try {
-                  const appended = JSON.parse(chunk.data as string);
-                  if (
-                    appended?.role === "assistant" &&
-                    typeof appended?.id === "string"
-                  ) {
-                    assistantMessageId = appended.id;
-                  }
-                } catch {
-                  // Ignore malformed chunk metadata.
-                }
-              }
-
-              dataStream.write(chunk);
-            }
-
-            // Forward web-search sources as a custom data part. OpenRouter's
-            // `web` plugin returns citations as annotations; the AI SDK
-            // surfaces them as `source-url` parts inside the stream above,
-            // but we also write a consolidated `data-sources` payload so the
-            // client can render the sources panel without scanning all parts.
-            if (useSearch) {
-              try {
-                const resolvedSources = await res.sources;
-                if (resolvedSources && resolvedSources.length > 0) {
-                  const normalized = resolvedSources
-                    .map((source) => {
-                      const sourceRecord = source as unknown as Record<
-                        string,
-                        unknown
-                      >;
-                      const url =
-                        typeof sourceRecord.url === "string"
-                          ? sourceRecord.url
-                          : "";
-                      if (!url) {
-                        return null;
-                      }
-                      return {
-                        id:
-                          typeof sourceRecord.id === "string"
-                            ? sourceRecord.id
-                            : url,
-                        url,
-                        title:
-                          typeof sourceRecord.title === "string"
-                            ? sourceRecord.title
-                            : undefined,
-                      };
-                    })
-                    .filter((entry) => entry !== null);
-
-                  if (normalized.length > 0) {
-                    dataStream.write({
-                      type: "data-sources",
-                      data: JSON.stringify({ sources: normalized }),
-                    });
-                  }
-                }
-              } catch (err) {
-                console.error("Failed to extract sources:", err);
-              }
-            }
-
-            try {
-              const usage: LanguageModelUsage = await res.usage;
-              const { outputTokens } = usage;
-
-              if (assistantMessageId) {
-                dataStream.write({
-                  type: "data-setMessageMetadata",
-                  data: JSON.stringify({
-                    id: assistantMessageId,
-                    metadata: {
-                      usage: { outputTokens },
-                      outputTokens,
-                      model: selectedChatModel,
-                      useSearch,
-                      documentCandidate: documentIntent.documentCandidate,
-                      suggestedFormat: documentIntent.suggestedFormat,
-                    },
-                  }),
-                });
-              }
-            } catch (err) {
-              console.error("Failed to attach token usage metadata:", err);
-            }
-          }
-        } catch (error) {
-          console.error("Stream execution error:", error);
-          dataStream.write({
-            type: "error",
-            errorText:
-              "An error occurred while generating the response. Please try again.",
+    const stream = createUIMessageStream<ChatMessage>({
+      execute: async ({ writer }) => {
+        if (model.kind === "image") {
+          await writeGeneratedImage(writer, {
+            model,
+            prompt: latestUserText,
+            metadata,
           });
+          await waitForTitle(titleSaved);
+          return;
         }
+
+        const result = streamText({
+          model: getLanguageModel(model.slug, { useWebSearch: useSearch }),
+          instructions: systemPrompt({
+            model,
+            customSystemPrompt:
+              customSystemPrompt ?? existingChat?.systemPrompt ?? undefined,
+          }),
+          messages: await convertToModelMessages([...history, message]),
+          experimental_transform: smoothStream({ chunking: "word" }),
+          stopWhen: isStepCount(5),
+          maxOutputTokens: 5000,
+        });
+
+        writer.merge(
+          toUIMessageStream<ToolSet, ChatMessage>({
+            stream: result.stream,
+            sendSources: true,
+            onError: getStreamErrorText,
+            messageMetadata: ({ part }) =>
+              part.type === "start" ? metadata : undefined,
+          })
+        );
+        await waitForTitle(titleSaved);
       },
       generateId: generateUUID,
-      onEnd: async ({ messages }) => {
+      onEnd: async ({ responseMessage }) => {
+        if (!hasVisibleContent(responseMessage)) {
+          return;
+        }
         try {
-          const toSave = messages.map((saved) => ({
-            id: saved.id,
-            role: saved.role,
-            parts: saved.parts,
-            model: saved.role === "assistant" ? selectedChatModel : null,
-          }));
-
-          if (fallbackImageAssistantMessage) {
-            const persistedImageMessage = fallbackImageAssistantMessage;
-            const alreadyIncluded = toSave.some(
-              (savedMessage) => savedMessage.id === persistedImageMessage.id
-            );
-
-            if (!alreadyIncluded) {
-              toSave.push({
-                id: persistedImageMessage.id,
-                role: "assistant",
-                parts: persistedImageMessage.parts,
-                model: selectedChatModel,
-              });
-            }
-          }
-
-          await saveMessages(id, toSave);
+          await saveMessages(id, [
+            {
+              id: responseMessage.id,
+              role: "assistant",
+              parts: responseMessage.parts,
+              model: model.id,
+            },
+          ]);
         } catch (error) {
-          console.error("Failed to save chat", error);
+          console.error("Failed to save the assistant message", error);
         }
       },
-      onError: () => "Oops, an error occurred",
+      onError: getStreamErrorText,
     });
-    return new Response(stream.pipeThrough(new JsonToSseTransformStream()));
+
+    return createUIMessageStreamResponse({ stream });
   } catch (error) {
     console.error("Chat API error:", error);
     return new Response("Internal server error", { status: 500 });

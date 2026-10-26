@@ -57,6 +57,14 @@ export function convertToUIMessages(messages: DbMessage[]): ChatMessage[] {
   }));
 }
 
+export function hasVisibleContent({ parts }: Pick<ChatMessage, "parts">) {
+  return parts.some(
+    (part) =>
+      part.type === "file" ||
+      (part.type === "text" && part.text.trim().length > 0)
+  );
+}
+
 export async function fetchWithErrorHandlers(
   input: RequestInfo | URL,
   init?: RequestInit

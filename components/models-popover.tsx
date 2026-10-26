@@ -1,12 +1,5 @@
 import { Check, ChevronDown, Coins, Layers, Search } from "lucide-react";
-import {
-  startTransition,
-  useCallback,
-  useMemo,
-  useOptimistic,
-  useState,
-} from "react";
-import { saveChatModelAsCookie } from "@/app/actions";
+import { useCallback, useMemo, useState } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,27 +13,31 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  image_models,
+  CHAT_MODELS,
+  type ChatModel,
+  type ChatModelId,
+  getChatModel,
   type ModelProvider,
-  type model_selection,
   PROVIDER_META,
-  stable_models,
 } from "@/lib/ai/models";
 import { cn } from "@/lib/utils";
 import { CapabilityBadge, ProviderLogo } from "./model-helpful-tooltips";
 
 interface ModelSelectorProps {
-  selectedModelId: string;
+  onSelectModel: (modelId: ChatModelId) => void;
+  selectedModelId: ChatModelId;
 }
 
 const ALL_PROVIDERS = Object.keys(PROVIDER_META) as ModelProvider[];
+const TEXT_MODELS = CHAT_MODELS.filter((model) => model.kind === "text");
+const IMAGE_MODELS = CHAT_MODELS.filter((model) => model.kind === "image");
 
 function ModelItem({
   model,
   isSelected,
   onSelect,
 }: {
-  model: model_selection;
+  model: ChatModel;
   isSelected: boolean;
   onSelect: () => void;
 }) {
@@ -126,31 +123,25 @@ function ModelItem({
 function SectionLabel({ label }: { label: string }) {
   return (
     <div className="px-3 pt-3 pb-1">
-      <span className="font-medium text-[11px] text-muted-foreground/50 uppercase tracking-wider">
-        {label}
-      </span>
+      <span className="text-muted-foreground text-xs">{label}</span>
     </div>
   );
 }
 
-export function ModelsPopover({ selectedModelId }: ModelSelectorProps) {
+export function ModelsPopover({
+  onSelectModel,
+  selectedModelId,
+}: ModelSelectorProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [providerFilter, setProviderFilter] = useState<ModelProvider | null>(
     null
   );
-  const [optimisticModelId, setOptimisticModelId] =
-    useOptimistic(selectedModelId);
 
-  const selectedChatModel = useMemo(
-    () =>
-      image_models.find((m) => m.id === optimisticModelId) ||
-      stable_models.find((m) => m.id === optimisticModelId),
-    [optimisticModelId]
-  );
+  const selectedChatModel = getChatModel(selectedModelId);
 
   const filterModels = useCallback(
-    (models: model_selection[]) =>
+    (models: readonly ChatModel[]) =>
       models.filter((m) => {
         if (providerFilter && m.provider !== providerFilter) {
           return false;
@@ -170,24 +161,21 @@ export function ModelsPopover({ selectedModelId }: ModelSelectorProps) {
   );
 
   const filteredStable = useMemo(
-    () => filterModels(stable_models),
+    () => filterModels(TEXT_MODELS),
     [filterModels]
   );
   const filteredImage = useMemo(
-    () => filterModels(image_models),
+    () => filterModels(IMAGE_MODELS),
     [filterModels]
   );
   const hasResults = filteredStable.length > 0 || filteredImage.length > 0;
 
   const handleSelect = useCallback(
-    (id: string) => {
+    (id: ChatModelId) => {
       setOpen(false);
-      startTransition(() => {
-        setOptimisticModelId(id);
-        saveChatModelAsCookie(id);
-      });
+      onSelectModel(id);
     },
-    [setOptimisticModelId]
+    [onSelectModel]
   );
 
   return (
@@ -210,14 +198,12 @@ export function ModelsPopover({ selectedModelId }: ModelSelectorProps) {
           data-testid="model-selector"
           type="button"
         >
-          {selectedChatModel && (
-            <ProviderLogo
-              className="size-3.5"
-              provider={selectedChatModel.provider}
-            />
-          )}
+          <ProviderLogo
+            className="size-3.5"
+            provider={selectedChatModel.provider}
+          />
           <span className="font-medium text-muted-foreground group-hover:text-foreground">
-            {selectedChatModel?.name}
+            {selectedChatModel.name}
           </span>
           <ChevronDown className="size-3 text-muted-foreground/50 transition-transform group-data-[state=open]:rotate-180" />
         </button>
@@ -288,7 +274,7 @@ export function ModelsPopover({ selectedModelId }: ModelSelectorProps) {
               <SectionLabel label="Models" />
               {filteredStable.map((m) => (
                 <ModelItem
-                  isSelected={m.id === optimisticModelId}
+                  isSelected={m.id === selectedModelId}
                   key={m.id}
                   model={m}
                   onSelect={() => handleSelect(m.id)}
@@ -302,7 +288,7 @@ export function ModelsPopover({ selectedModelId }: ModelSelectorProps) {
               <SectionLabel label="Image" />
               {filteredImage.map((m) => (
                 <ModelItem
-                  isSelected={m.id === optimisticModelId}
+                  isSelected={m.id === selectedModelId}
                   key={m.id}
                   model={m}
                   onSelect={() => handleSelect(m.id)}

@@ -3,7 +3,7 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { PanelLeft } from "lucide-react";
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   useChat as useChatContext,
@@ -11,17 +11,23 @@ import {
 } from "@/components/chat-context";
 import { Button } from "@/components/ui/button";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { image_models } from "@/lib/ai/models";
+import {
+  type ChatModelId,
+  DEFAULT_CHAT_MODEL,
+  findChatModel,
+  getChatModel,
+} from "@/lib/ai/models";
 import type { Session } from "@/lib/auth";
-import type { ExportFormat } from "@/lib/document-export";
-import { extractSources } from "@/lib/sources";
-import type { Attachment, ChatMessage } from "@/lib/types";
+import { extractSources, type Source } from "@/lib/sources";
+import type { Attachment, ChatMessage, DocumentDraft } from "@/lib/types";
 import { fetchWithErrorHandlers, generateUUID } from "@/lib/utils";
 import { ChatHistory } from "./chat-history";
 import { ChatInput } from "./chat-input";
 import { Messages } from "./chat-messages";
 
 const DRAFT_SAVE_DELAY_MS = 200;
+const DOCUMENT_TITLE_MAX_LENGTH = 80;
+const MemoizedChatInput = memo(ChatInput);
 const LazyDocumentSheet = dynamic(
   () => import("./document-sheet").then((module) => module.DocumentSheet),
   {
@@ -39,11 +45,13 @@ const LazyDocumentSheet = dynamic(
   }
 );
 
-const LazySourcesPanel = dynamic(
-  () => import("./sources-panel").then((module) => module.SourcesPanel),
-  {
-    ssr: false,
-  }
+const LazySourcesPanel = memo(
+  dynamic(
+    () => import("./sources-panel").then((module) => module.SourcesPanel),
+    {
+      ssr: false,
+    }
+  )
 );
 
 const DOC_HINTS = [
@@ -103,6 +111,65 @@ function getLatestConversationMessages(messages: ChatMessage[]) {
   return { latestAssistantMessage, latestUserMessage };
 }
 
+function haveSameSources(current: Source[], next: Source[]) {
+  return (
+    current.length === next.length &&
+    current.every(
+      (source, index) =>
+        source.url === next[index].url && source.title === next[index].title
+    )
+  );
+}
+
+function deriveDocumentDraft(
+  messages: ChatMessage[],
+  messageId: string | null
+): DocumentDraft | null {
+  const index = messages.findIndex((candidate) => candidate.id === messageId);
+  if (!messageId || index === -1) {
+    return null;
+  }
+  const source = messages[index];
+  const userText = extractMessageText(
+    messages.findLast(
+      (candidate, candidateIndex) =>
+        candidateIndex < index && candidate.role === "user"
+    )
+  );
+  const isPdf =
+    source.metadata?.suggestedFormat === "pdf" ||
+    userText.toLowerCase().includes("pdf");
+  return {
+    format: isPdf ? "pdf" : "docx",
+    markdown: extractMessageText(source),
+    messageId,
+    title: userText.slice(0, DOCUMENT_TITLE_MAX_LENGTH) || "chat-document",
+  };
+}
+
+function useStableSources(message: ChatMessage | undefined): Source[] {
+  const next = useMemo(() => extractSources(message), [message]);
+  const [sources, setSources] = useState(next);
+  if (!haveSameSources(sources, next)) {
+    setSources(next);
+  }
+  return sources;
+}
+
+function seedChatModelCookie(modelId: ChatModelId) {
+  if (!("cookieStore" in window)) {
+    return;
+  }
+  window.cookieStore.set("chat-model", modelId).catch(() => undefined);
+}
+
+interface ChatRequestSettings {
+  autoDocumentGeneration: boolean;
+  customSystemPrompt: string | undefined;
+  selectedChatModel: ChatModelId;
+  useSearch: boolean;
+}
+
 interface ChatProps {
   id: string;
   initialChatModel: string;
@@ -122,7 +189,9 @@ export function Chat({
   const { setChatLoading, refreshChats } = useChatContext();
   const { getChatInputState, setChatInputState, clearChatInputState } =
     useChatDraft();
-  const [isNewChat, setIsNewChat] = useState(initialMessages?.length === 0);
+  const [selectedModelId, setSelectedModelId] = useState<ChatModelId>(
+    () => findChatModel(initialChatModel)?.id ?? DEFAULT_CHAT_MODEL
+  );
 
   const [input, setInput] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -134,9 +203,6 @@ export function Chat({
     string | undefined
   >(initialSystemPrompt);
   const [isDocumentSheetOpen, setIsDocumentSheetOpen] = useState(false);
-  const [documentMarkdown, setDocumentMarkdown] = useState("");
-  const [documentTitle, setDocumentTitle] = useState("chat-document");
-  const [documentFormat, setDocumentFormat] = useState<ExportFormat>("docx");
   const [documentSourceMessageId, setDocumentSourceMessageId] = useState<
     string | null
   >(null);
@@ -149,7 +215,6 @@ export function Chat({
     Set<string>
   >(() => new Set());
 
-  const lastHandledAssistantIdRef = useRef<string | null>(null);
   const openDocumentBuilder = useCallback(() => {
     setIsDocumentSheetOpen(true);
     // Document and sources panels share the right slot — close sources.
@@ -167,27 +232,45 @@ export function Chat({
     setAutoDocumentGeneration(persistedState.autoDocumentGeneration);
   }, [getChatInputState, id]);
 
+  const handleSelectModel = useCallback((modelId: ChatModelId) => {
+    setSelectedModelId(modelId);
+    seedChatModelCookie(modelId);
+  }, []);
+
+  const requestSettings: ChatRequestSettings = {
+    autoDocumentGeneration,
+    customSystemPrompt,
+    selectedChatModel: selectedModelId,
+    useSearch,
+  };
+  const requestSettingsRef = useRef(requestSettings);
+  useEffect(() => {
+    requestSettingsRef.current = requestSettings;
+  });
+
+  const [transport] = useState(
+    () =>
+      new DefaultChatTransport<ChatMessage>({
+        api: "/api/chat",
+        fetch: fetchWithErrorHandlers,
+        prepareSendMessagesRequest: ({ messages: outgoing, id: chatId }) => ({
+          body: {
+            id: chatId,
+            message: outgoing.at(-1),
+            ...requestSettingsRef.current,
+          },
+        }),
+      })
+  );
+
   const { messages, sendMessage, status, setMessages, stop } =
     useChat<ChatMessage>({
       id,
       messages: initialMessages,
       generateId: generateUUID,
-      transport: new DefaultChatTransport({
-        api: "/api/chat",
-        fetch: fetchWithErrorHandlers,
-        prepareSendMessagesRequest({ messages: outgoing, id: chatId, body }) {
-          return {
-            body: {
-              id: chatId,
-              message: outgoing.at(-1),
-              selectedChatModel: initialChatModel,
-              customSystemPrompt,
-              autoDocumentGeneration,
-              ...body,
-            },
-          };
-        },
-      }),
+      transport,
+      throttle: 50,
+      onFinish: () => refreshChats(),
       onError: (err) => {
         toast.error("Error", {
           description: err.message,
@@ -197,22 +280,21 @@ export function Chat({
   const { latestAssistantMessage, latestUserMessage } =
     getLatestConversationMessages(messages);
 
-  const latestSources = useMemo(
-    () => extractSources(latestAssistantMessage),
-    [latestAssistantMessage]
-  );
+  const latestAssistantId = latestAssistantMessage?.id;
+
+  const latestSources = useStableSources(latestAssistantMessage);
 
   // Auto-open the sources panel when fresh sources arrive for the latest
   // assistant message and the user hasn't dismissed it. Don't fight an
   // already-open document sheet: sources only opens if doc sheet is closed.
   useEffect(() => {
-    if (!latestAssistantMessage) {
+    if (!latestAssistantId) {
       return;
     }
     if (latestSources.length === 0) {
       return;
     }
-    if (sourcesPanelDismissedFor.has(latestAssistantMessage.id)) {
+    if (sourcesPanelDismissedFor.has(latestAssistantId)) {
       return;
     }
     if (isDocumentSheetOpen) {
@@ -221,7 +303,7 @@ export function Chat({
     setIsSourcesPanelOpen(true);
   }, [
     isDocumentSheetOpen,
-    latestAssistantMessage,
+    latestAssistantId,
     latestSources.length,
     sourcesPanelDismissedFor,
   ]);
@@ -229,18 +311,15 @@ export function Chat({
   const handleSourcesPanelOpenChange = useCallback(
     (open: boolean) => {
       setIsSourcesPanelOpen(open);
-      if (!(open || latestAssistantMessage)) {
-        return;
-      }
-      if (!open && latestAssistantMessage) {
+      if (!open && latestAssistantId) {
         setSourcesPanelDismissedFor((prev) => {
           const next = new Set(prev);
-          next.add(latestAssistantMessage.id);
+          next.add(latestAssistantId);
           return next;
         });
       }
     },
-    [latestAssistantMessage]
+    [latestAssistantId]
   );
 
   useEffect(() => {
@@ -264,16 +343,12 @@ export function Chat({
   ]);
 
   const prevStatusRef = useRef(status);
-  const isImageModel = image_models.some((m) => m.id === initialChatModel);
+  const selectedModel = getChatModel(selectedModelId);
+  const isImageModel = selectedModel.kind === "image";
 
   useEffect(() => {
     if (status === "streaming" || status === "ready" || status === "error") {
       setChatLoading(id, false);
-    }
-
-    if (status === "streaming" && isNewChat) {
-      refreshChats();
-      setIsNewChat(false);
     }
 
     if (
@@ -282,72 +357,29 @@ export function Chat({
         prevStatusRef.current === "streaming") &&
       status === "ready"
     ) {
-      toast.success("Image generated!", {
-        description: "Your image has been created successfully.",
-      });
+      toast.success("Image generated");
     }
 
     prevStatusRef.current = status;
-  }, [status, id, setChatLoading, refreshChats, isNewChat, isImageModel]);
+  }, [status, id, setChatLoading, isImageModel]);
+
+  const latestAssistantIsDocument =
+    latestAssistantMessage !== undefined &&
+    extractMessageText(latestAssistantMessage).length > 0 &&
+    (latestAssistantMessage.metadata?.documentCandidate === true ||
+      (autoDocumentGeneration &&
+        hasDocumentIntent(extractMessageText(latestUserMessage))));
 
   useEffect(() => {
-    const latestAssistant = latestAssistantMessage;
-
-    if (!latestAssistant) {
-      return;
+    if (latestAssistantIsDocument && latestAssistantId) {
+      setDocumentSourceMessageId(latestAssistantId);
     }
+  }, [latestAssistantIsDocument, latestAssistantId]);
 
-    const metadata =
-      typeof latestAssistant.metadata === "object" && latestAssistant.metadata
-        ? (latestAssistant.metadata as Record<string, unknown>)
-        : null;
-    const userText = extractMessageText(latestUserMessage);
-    const assistantText = extractMessageText(latestAssistant);
-
-    if (!assistantText) {
-      return;
-    }
-
-    const isAlreadyTracked = documentSourceMessageId === latestAssistant.id;
-
-    if (!isAlreadyTracked) {
-      if (lastHandledAssistantIdRef.current === latestAssistant.id) {
-        return;
-      }
-
-      const metadataCandidate = metadata?.documentCandidate === true;
-      const fallbackCandidate =
-        autoDocumentGeneration &&
-        hasDocumentIntent(userText) &&
-        !!assistantText;
-      if (!(metadataCandidate || fallbackCandidate)) {
-        return;
-      }
-
-      lastHandledAssistantIdRef.current = latestAssistant.id;
-      setDocumentSourceMessageId(latestAssistant.id);
-
-      const suggestedFormat = metadata?.suggestedFormat;
-      const format: ExportFormat =
-        suggestedFormat === "pdf" || userText.toLowerCase().includes("pdf")
-          ? "pdf"
-          : "docx";
-      setDocumentTitle(userText.slice(0, 80) || "chat-document");
-      setDocumentFormat(format);
-    }
-
-    if (
-      isAlreadyTracked ||
-      lastHandledAssistantIdRef.current === latestAssistant.id
-    ) {
-      setDocumentMarkdown(assistantText);
-    }
-  }, [
-    autoDocumentGeneration,
-    documentSourceMessageId,
-    latestAssistantMessage,
-    latestUserMessage,
-  ]);
+  const documentDraft = useMemo(
+    () => deriveDocumentDraft(messages, documentSourceMessageId),
+    [messages, documentSourceMessageId]
+  );
 
   const isRightPanelOpen = isDocumentSheetOpen || isSourcesPanelOpen;
   const messageWidthClass = isRightPanelOpen ? "max-w-2xl" : "max-w-3xl";
@@ -373,31 +405,28 @@ export function Chat({
           <div className="flex w-full flex-1 flex-col overflow-hidden">
             <Messages
               chatId={id}
-              documentDraftFormat={documentFormat}
-              documentDraftMarkdown={documentMarkdown}
-              documentDraftTitle={documentTitle}
-              documentSourceMessageId={documentSourceMessageId}
-              isDocumentSheetOpen={isDocumentSheetOpen}
-              isSourcesPanelOpen={isSourcesPanelOpen}
+              documentDraft={documentDraft}
+              isImageModelSelected={isImageModel}
+              isNarrow={isRightPanelOpen}
               messages={messages}
               onOpenDocumentBuilder={openDocumentBuilder}
               onSuggestionClick={handleSuggestionClick}
-              selectedChatModel={initialChatModel}
               status={status}
             />
 
             <div
               className={`mx-auto w-full px-4 pt-2 pb-5 ${messageWidthClass}`}
             >
-              <ChatInput
+              <MemoizedChatInput
                 attachments={attachments}
                 autoDocumentGeneration={autoDocumentGeneration}
                 chatId={id}
                 clearChatInputState={clearChatInputState}
                 customSystemPrompt={customSystemPrompt}
-                initialChatModel={initialChatModel}
                 input={input}
                 isAuthenticated={isAuthenticated}
+                onSelectModel={handleSelectModel}
+                selectedModelId={selectedModelId}
                 sendMessage={sendMessage}
                 setAttachments={setAttachments}
                 setAutoDocumentGeneration={setAutoDocumentGeneration}
@@ -409,19 +438,19 @@ export function Chat({
                 stop={stop}
                 useSearch={useSearch}
               />
-              <p className="mt-2 select-none text-center font-mono text-[10px] text-muted-foreground/40 uppercase tracking-[0.18em]">
-                AI can be wrong &middot; verify important info
+              <p className="mt-2 select-none text-center text-muted-foreground text-xs">
+                AI can be wrong. Verify important info.
               </p>
             </div>
           </div>
         </div>
         {isDocumentSheetOpen ? (
           <LazyDocumentSheet
-            initialMarkdown={documentMarkdown}
-            initialTitle={documentTitle}
+            initialMarkdown={documentDraft?.markdown}
+            initialTitle={documentDraft?.title}
             onOpenChange={setIsDocumentSheetOpen}
             open={isDocumentSheetOpen}
-            suggestedFormat={documentFormat}
+            suggestedFormat={documentDraft?.format ?? "docx"}
           />
         ) : null}
         {!isDocumentSheetOpen && isSourcesPanelOpen ? (

@@ -1,28 +1,3 @@
-import { createOpenRouter } from "@openrouter/ai-sdk-provider";
-import { customProvider, type LanguageModel } from "ai";
-import { FlaskConical, Image, Info, type LucideIcon } from "lucide-react";
-
-const openrouter = createOpenRouter({
-  apiKey: process.env.OPENROUTER_API_KEY,
-});
-
-// Maps internal model IDs to their OpenRouter slugs. Used when we need to
-// rebuild a model instance with extra options (e.g. the web-search plugin)
-// instead of the pre-configured one in `myProvider`.
-const OPENROUTER_MODEL_SLUGS: Record<string, string> = {
-  "google-model-3-flash": "google/gemini-3-flash-preview",
-  "google-model-2-5-flash-lite": "google/gemini-2.5-flash-lite",
-  "chat-5-mini": "openai/gpt-5-mini",
-  "deepseek-v3-2": "deepseek/deepseek-v3.2",
-  "alibaba-qwen-3-5-plus": "qwen/qwen3.5-plus-02-15",
-  "moonshot-kimi-k-2-5": "moonshotai/kimi-k2.5",
-  "xai-grok-4-1": "x-ai/grok-4.1-fast",
-  "xai-grok-4": "x-ai/grok-4-fast",
-  "meta-llama-4-maverick": "meta-llama/llama-4-maverick",
-};
-
-const WEB_SEARCH_MAX_RESULTS = 5;
-
 export type ModelProvider =
   | "google"
   | "openai"
@@ -77,27 +52,27 @@ export type ModelCapability =
   | "image-edit"
   | "code";
 
-export interface model_selection {
-  capabilities: ModelCapability[];
-  contextWindow: string;
-  description: string;
-  icon: LucideIcon;
-  id: string;
-  image?: LucideIcon;
-  inputPrice: string;
-  name: string;
-  outputPrice: string;
-  provider: ModelProvider;
-  unstable?: LucideIcon;
+export type ModelKind = "text" | "image";
+
+interface ModelSpec {
+  readonly capabilities: readonly ModelCapability[];
+  readonly contextWindow: string;
+  readonly description: string;
+  readonly id: string;
+  readonly inputPrice: string;
+  readonly kind: ModelKind;
+  readonly name: string;
+  readonly outputPrice: string;
+  readonly provider: ModelProvider;
+  readonly slug: string;
 }
 
-export const stable_models: model_selection[] = [
+const MODEL_SPECS = [
   {
     id: "google-model-3-1-flash-lite",
+    slug: "google/gemini-3.1-flash-lite",
+    kind: "text",
     name: "Gemini 3.1 Flash Lite",
-    icon: Info,
-    image: Image,
-    unstable: FlaskConical,
     provider: "google",
     description:
       "High-efficiency multimodal model optimized for low-latency, high-volume workloads",
@@ -108,10 +83,9 @@ export const stable_models: model_selection[] = [
   },
   {
     id: "google-model-2-5-flash-lite",
+    slug: "google/gemini-2.5-flash-lite",
+    kind: "text",
     name: "Gemini 2.5 Flash Lite",
-    icon: Info,
-    image: Image,
-    unstable: FlaskConical,
     provider: "google",
     description:
       "Ultra-low latency and cost-efficient lightweight model with optional reasoning for fast responses.",
@@ -122,9 +96,9 @@ export const stable_models: model_selection[] = [
   },
   {
     id: "chat-5-mini",
+    slug: "openai/gpt-5-mini",
+    kind: "text",
     name: "GPT 5 Mini",
-    icon: Info,
-    image: Image,
     provider: "openai",
     description:
       "Compact version of GPT-5 for lighter reasoning tasks with strong instruction following and safety tuning.",
@@ -135,8 +109,9 @@ export const stable_models: model_selection[] = [
   },
   {
     id: "deepseek-v3-2",
+    slug: "deepseek/deepseek-v3.2",
+    kind: "text",
     name: "DeepSeek V3.2",
-    icon: Info,
     provider: "deepseek",
     description:
       "GPT-5 class MoE model with DeepSeek Sparse Attention for efficient long-context reasoning. Gold medalist on 2025 IMO and IOI.",
@@ -147,8 +122,9 @@ export const stable_models: model_selection[] = [
   },
   {
     id: "alibaba-qwen-3-5-plus",
+    slug: "qwen/qwen3.5-plus-02-15",
+    kind: "text",
     name: "Qwen 3.5 Plus",
-    icon: Info,
     provider: "qwen",
     description:
       "Hybrid architecture with linear attention and sparse MoE for high inference efficiency. Native vision-language with text, image, and video input.",
@@ -159,8 +135,9 @@ export const stable_models: model_selection[] = [
   },
   {
     id: "moonshot-kimi-k-2-5",
+    slug: "moonshotai/kimi-k2.5",
+    kind: "text",
     name: "Kimi K2.5",
-    icon: Info,
     provider: "moonshot",
     description:
       "Native multimodal model with state-of-the-art visual coding and self-directed agent swarm paradigm. Trained on ~15T mixed visual and text tokens.",
@@ -170,33 +147,36 @@ export const stable_models: model_selection[] = [
     capabilities: ["reasoning", "vision", "tool-use", "code"],
   },
   {
-    id: "xai-grok-4-1",
-    name: "Grok 4.1 Fast",
-    icon: Info,
+    id: "xai-grok-4-3",
+    slug: "x-ai/grok-4.3",
+    kind: "text",
+    name: "Grok 4.3",
     provider: "xai",
     description:
-      "xAI's best agentic tool-calling model for customer support and deep research. Optional reasoning with a 2M context window.",
-    contextWindow: "2M",
-    inputPrice: "$0.20",
-    outputPrice: "$0.50",
+      "Reasoning model for agentic workflows and instruction following, with text and image input and a 1M context window.",
+    contextWindow: "1M",
+    inputPrice: "$1.25",
+    outputPrice: "$2.50",
     capabilities: ["reasoning", "vision", "tool-use", "code"],
   },
   {
-    id: "xai-grok-4",
-    name: "Grok 4 Fast",
-    icon: Info,
+    id: "xai-grok-4-7",
+    slug: "x-ai/grok-4.7",
+    kind: "text",
+    name: "Grok 4.7",
     provider: "xai",
     description:
-      "Multimodal model with SOTA cost-efficiency and 2M context. Available in reasoning and non-reasoning flavors.",
-    contextWindow: "2M",
-    inputPrice: "$0.20",
-    outputPrice: "$0.50",
+      "xAI's flagship for coding, agentic tasks, and knowledge work, strong at long software engineering tasks.",
+    contextWindow: "500K",
+    inputPrice: "$2.00",
+    outputPrice: "$6.00",
     capabilities: ["reasoning", "vision", "tool-use", "code"],
   },
   {
     id: "meta-llama-4-maverick",
+    slug: "meta-llama/llama-4-maverick",
+    kind: "text",
     name: "Llama 4 Maverick",
-    icon: Info,
     provider: "meta",
     description:
       "17B active params MoE (400B total) multimodal model supporting 12 languages. Instruction-tuned for assistant behavior, image reasoning, and 1M context.",
@@ -205,13 +185,11 @@ export const stable_models: model_selection[] = [
     outputPrice: "$0.60",
     capabilities: ["vision", "tool-use", "code"],
   },
-];
-
-export const image_models: model_selection[] = [
   {
     id: "chat-image-1-mini",
+    slug: "openai/gpt-5-image-mini",
+    kind: "image",
     name: "GPT Image 1 Mini",
-    icon: Info,
     provider: "openai",
     description:
       "Combines GPT-5 Mini with GPT Image 1 for efficient image generation, text rendering, and editing.",
@@ -222,8 +200,9 @@ export const image_models: model_selection[] = [
   },
   {
     id: "chat-gemini-2-5-flash-image",
+    slug: "google/gemini-2.5-flash-image",
+    kind: "image",
     name: "Gemini 2.5 Flash Image",
-    icon: Info,
     provider: "google",
     description:
       'A.k.a. "Nano Banana" — state-of-the-art image generation with contextual understanding and multi-turn editing.',
@@ -232,58 +211,44 @@ export const image_models: model_selection[] = [
     outputPrice: "$2.50",
     capabilities: ["image-gen", "image-edit", "vision"],
   },
-];
+] as const satisfies readonly ModelSpec[];
 
-export const DEFAULT_CHAT_MODEL: string = "google-model-2-5-flash-lite";
+export type ChatModelId = (typeof MODEL_SPECS)[number]["id"];
 
-export const myProvider = customProvider({
-  languageModels: {
-    "google-model-3-1-flash-lite": openrouter("google/gemini-3.1-flash-lite"),
-    "google-model-2-5-flash-lite": openrouter("google/gemini-2.5-flash-lite"),
-    "chat-5-mini": openrouter("openai/gpt-5-mini"),
-    "deepseek-v3-2": openrouter("deepseek/deepseek-v3.2"),
-    "alibaba-qwen-3-5-plus": openrouter("qwen/qwen3.5-plus-02-15"),
-    "moonshot-kimi-k-2-5": openrouter("moonshotai/kimi-k2.5"),
-    "xai-grok-4-1": openrouter("x-ai/grok-4.1-fast"),
-    "xai-grok-4": openrouter("x-ai/grok-4-fast"),
-    "meta-llama-4-maverick": openrouter("meta-llama/llama-4-maverick"),
-    "title-model": openrouter("google/gemini-2.5-flash-lite"),
-  },
-});
+export interface ChatModel extends ModelSpec {
+  readonly id: ChatModelId;
+}
 
-// The route calls OpenRouter's chat completions API directly for images, so
-// these stay plain slugs instead of provider models.
-export const IMAGE_MODEL_SLUGS: Record<string, string> = {
-  "chat-image-1-mini": "openai/gpt-5-image-mini",
-  "chat-gemini-2-5-flash-image": "google/gemini-2.5-flash-image",
+export const CHAT_MODELS: readonly ChatModel[] = MODEL_SPECS;
+
+export const CHAT_MODEL_IDS: ChatModelId[] = CHAT_MODELS.map(
+  (model) => model.id
+);
+
+export const DEFAULT_CHAT_MODEL: ChatModelId = "google-model-2-5-flash-lite";
+
+export const TITLE_MODEL_SLUG = "google/gemini-2.5-flash-lite";
+
+export function findChatModel(
+  id: string | null | undefined
+): ChatModel | undefined {
+  return CHAT_MODELS.find((model) => model.id === id);
+}
+
+const RETIRED_MODEL_NAMES: Record<string, string> = {
+  "google-model-3-flash": "Gemini 3 Flash",
+  "xai-grok-4-1": "Grok 4.1 Fast",
+  "xai-grok-4": "Grok 4 Fast",
 };
 
-/**
- * Returns the language model for a given internal model ID. When `useWebSearch`
- * is true, the model is reconstructed with OpenRouter's `web` plugin enabled so
- * the request actually performs a live web search. Native provider tools
- * (Google's `googleSearch`, OpenAI's `webSearchPreview`, etc.) do NOT trigger
- * web search when routed through OpenRouter — only the `:online` suffix or the
- * `web` plugin do.
- *
- * @see https://openrouter.ai/docs/features/web-search
- */
-export function getLanguageModel(
-  modelId: string,
-  options?: { useWebSearch?: boolean }
-): LanguageModel {
-  const slug = OPENROUTER_MODEL_SLUGS[modelId];
+export function getModelLabel(id: string): string {
+  return findChatModel(id)?.name ?? RETIRED_MODEL_NAMES[id] ?? id;
+}
 
-  if (options?.useWebSearch && slug) {
-    return openrouter(slug, {
-      plugins: [
-        {
-          id: "web",
-          max_results: WEB_SEARCH_MAX_RESULTS,
-        },
-      ],
-    });
+export function getChatModel(id: ChatModelId): ChatModel {
+  const model = findChatModel(id);
+  if (!model) {
+    throw new Error(`Chat model ${id} is missing from the registry`);
   }
-
-  return myProvider.languageModel(modelId);
+  return model;
 }
