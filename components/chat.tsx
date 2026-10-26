@@ -435,8 +435,8 @@ export function Chat({
   const isSourcesPanelOpen = !isDocumentSheetOpen && panelSources.length > 0;
   const isRightPanelOpen = isDocumentSheetOpen || isSourcesPanelOpen;
   // The server answers with an HTTP error only before it saves a turn, and
-  // fetchWithErrorHandlers turns those into ChatSDKErrors, so nothing to
-  // regenerate was saved.
+  // fetchWithErrorHandlers turns every HTTP error into a ChatSDKError, so
+  // nothing to regenerate was saved.
   const turnWasRefused = status === "error" && error instanceof ChatSDKError;
   const isEmpty = messages.length === 0;
 

@@ -4,7 +4,8 @@ export type ErrorType =
   | "forbidden"
   | "not_found"
   | "rate_limit"
-  | "offline";
+  | "offline"
+  | "server";
 
 export type Surface =
   | "chat"
@@ -108,6 +109,9 @@ export function getMessageByErrorCode(errorCode: ErrorCode): string {
       return "You need to sign in to view this document. Please sign in and try again.";
     case "bad_request:document":
       return "The request to create or update the document was invalid. Please check your input and try again.";
+
+    case "server:api":
+      return "The server couldn't handle that request. Try again in a moment.";
 
     case "forbidden:upload":
       return "An attached file is not one of your uploads. Remove it and upload the file again.";
