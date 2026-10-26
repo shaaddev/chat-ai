@@ -33,6 +33,9 @@ const nativeSetTimeout = self.setTimeout.bind(self);
 const nativeClearTimeout = self.clearTimeout.bind(self);
 const nativeSetInterval = self.setInterval.bind(self);
 const nativeReject = Promise.reject.bind(Promise);
+const nativeFinally = Promise.prototype.finally;
+const NativePromise = Promise;
+const NativeMessageChannel = self.MessageChannel;
 const IDLE = Symbol("idle");
 for (let scope = self; scope; scope = Object.getPrototypeOf(scope)) {
   Reflect.deleteProperty(scope, "postMessage");
@@ -166,16 +169,59 @@ self.addEventListener("securitypolicyviolation", (event) => {
 async function runJavaScript(code) {
   begin();
   const timers = new Set();
+  let pending = 0;
   let mainSettled = false;
+  const idle = () => mainSettled && timers.size === 0 && pending === 0;
   // Browsers report each unhandled rejection in a task queued after the
   // microtasks that caused it, from a source that may run after timers. A
   // rejection made once the microtasks drain is reported from that same
   // source after every earlier one, so its report can safely mean "done".
   const settleIfIdle = () => {
-    if (!mainSettled || timers.size > 0) return;
+    if (!idle()) return;
     nativeSetTimeout(() => {
-      if (timers.size === 0) nativeReject(IDLE);
+      if (idle()) nativeReject(IDLE);
     }, 0);
+  };
+  // Host work resolves from tasks the worker cannot see, so the run counts
+  // it the way it counts timers. The program gets the derived promise, so a
+  // rejection it handles stays handled and one it ignores is still reported.
+  const track = (result) => {
+    if (!(result instanceof NativePromise)) return result;
+    pending += 1;
+    return nativeFinally.call(result, () => {
+      pending -= 1;
+      settleIfIdle();
+    });
+  };
+  const counted = (owner, names) => {
+    for (const name of names) {
+      const original = owner && owner[name];
+      if (typeof original === "function") {
+        owner[name] = function (...args) {
+          return track(original.apply(this, args));
+        };
+      }
+    }
+  };
+  counted(self.SubtleCrypto && SubtleCrypto.prototype, ["encrypt", "decrypt", "sign", "verify", "digest", "generateKey", "deriveKey", "deriveBits", "importKey", "exportKey", "wrapKey", "unwrapKey"]);
+  counted(WebAssembly, ["compile", "instantiate", "compileStreaming", "instantiateStreaming"]);
+  counted(Blob.prototype, ["text", "arrayBuffer", "bytes"]);
+  counted(Response.prototype, ["text", "json", "arrayBuffer", "blob", "formData", "bytes"]);
+  self.MessageChannel = class MessageChannel extends NativeMessageChannel {
+    constructor() {
+      super();
+      for (const [sender, receiver] of [[this.port1, this.port2], [this.port2, this.port1]]) {
+        const send = sender.postMessage.bind(sender);
+        sender.postMessage = (...args) => {
+          pending += 1;
+          send(...args);
+        };
+        receiver.addEventListener("message", () => {
+          pending -= 1;
+          settleIfIdle();
+        });
+      }
+    }
   };
   self.setTimeout = (callback, delay, ...args) => {
     const id = nativeSetTimeout(() => {
