@@ -35,8 +35,6 @@ const nativeSetInterval = self.setInterval.bind(self);
 const nativeReject = Promise.reject.bind(Promise);
 const nativeFinally = Promise.prototype.finally;
 const NativePromise = Promise;
-const NativeMessageChannel = self.MessageChannel;
-const nativeOnMessage = Object.getOwnPropertyDescriptor(MessagePort.prototype, "onmessage");
 const IDLE = Symbol("idle");
 for (let scope = self; scope; scope = Object.getPrototypeOf(scope)) {
   Reflect.deleteProperty(scope, "postMessage");
@@ -184,8 +182,10 @@ async function runJavaScript(code) {
     }, 0);
   };
   // Host work resolves from tasks the worker cannot see, so the run counts
-  // it the way it counts timers. The program gets the derived promise, so a
-  // rejection it handles stays handled and one it ignores is still reported.
+  // these APIs the way it counts timers. Other sources, such as MessageChannel
+  // or FileReader, end with the run unless the program awaits them. The
+  // program gets the derived promise, so a rejection it handles stays handled
+  // and one it ignores is still reported.
   const track = (result) => {
     if (!(result instanceof NativePromise)) return result;
     pending += 1;
@@ -208,66 +208,6 @@ async function runJavaScript(code) {
   counted(WebAssembly, ["compile", "instantiate", "compileStreaming", "instantiateStreaming"]);
   counted(Blob.prototype, ["text", "arrayBuffer", "bytes"]);
   counted(Response.prototype, ["text", "json", "arrayBuffer", "blob", "formData", "bytes"]);
-  // A port delivers messages only after start() or an onmessage assignment,
-  // and drops undelivered ones when it closes. A message counts as pending
-  // only while it can still arrive.
-  const watchPort = (port) => {
-    const state = { started: false, queued: 0, inFlight: 0 };
-    const begin = () => {
-      if (state.started) return;
-      state.started = true;
-      state.inFlight += state.queued;
-      pending += state.queued;
-      state.queued = 0;
-    };
-    const start = port.start.bind(port);
-    port.start = () => {
-      begin();
-      start();
-    };
-    Object.defineProperty(port, "onmessage", {
-      configurable: true,
-      get: () => nativeOnMessage.get.call(port),
-      set: (handler) => {
-        nativeOnMessage.set.call(port, handler);
-        begin();
-      },
-    });
-    const close = port.close.bind(port);
-    port.close = () => {
-      pending -= state.inFlight;
-      state.inFlight = 0;
-      state.queued = 0;
-      close();
-      settleIfIdle();
-    };
-    port.addEventListener("message", () => {
-      if (state.inFlight === 0) return;
-      state.inFlight -= 1;
-      pending -= 1;
-      settleIfIdle();
-    });
-    return state;
-  };
-  self.MessageChannel = class MessageChannel extends NativeMessageChannel {
-    constructor() {
-      super();
-      const ports = new Map([[this.port1, watchPort(this.port1)], [this.port2, watchPort(this.port2)]]);
-      for (const [sender, receiver] of [[this.port1, this.port2], [this.port2, this.port1]]) {
-        const target = ports.get(receiver);
-        const send = sender.postMessage.bind(sender);
-        sender.postMessage = (...args) => {
-          send(...args);
-          if (!target.started) {
-            target.queued += 1;
-            return;
-          }
-          target.inFlight += 1;
-          pending += 1;
-        };
-      }
-    }
-  };
   self.setTimeout = (callback, delay, ...args) => {
     const id = nativeSetTimeout(() => {
       timers.delete(id);
