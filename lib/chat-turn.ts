@@ -11,7 +11,6 @@ import {
 
 // Longer than the server's wait for a reply, so only a hung request times out.
 const SETTLE_TIMEOUT_MS = 10_000;
-const STOP_WAIT_MS = 10_000;
 
 export type TurnFailure = "refused" | "lost" | "stream";
 
@@ -103,7 +102,7 @@ export type TurnRequest =
 
 export type TurnStatus =
   | { phase: "idle" }
-  | { phase: "running" }
+  | { phase: "running"; stopping: boolean }
   | { phase: "settling" }
   | { phase: "unsettled" };
 
@@ -151,13 +150,16 @@ type SettleResult = "settled" | "handed-back" | "failed";
 
 type Phase =
   | { phase: "idle" }
-  | { phase: "running"; turn: Turn; refused: boolean }
+  | { phase: "running"; turn: Turn; refused: boolean; stopping: boolean }
   | ({ phase: "settling"; result: Promise<SettleResult> } & Ended)
   | ({ phase: "unsettled" } & Ended);
 
 const IDLE: Phase = { phase: "idle" };
 
-const statusOf = (phase: Phase): TurnStatus => ({ phase: phase.phase });
+const statusOf = (phase: Phase): TurnStatus =>
+  phase.phase === "running"
+    ? { phase: "running", stopping: phase.stopping }
+    : { phase: phase.phase };
 
 const sameStatus = (a: TurnStatus, b: TurnStatus) =>
   JSON.stringify(a) === JSON.stringify(b);
@@ -217,10 +219,20 @@ export function createTurnGate({
     }
   };
 
-  // A Stop before the response starts waits for it, because the server
-  // answers only after it saves or refuses the turn. A settle sent sooner
-  // could reach the server before that save, and a new chat has no row yet
-  // for it to claim.
+  const updateRunning = (
+    turn: Turn,
+    change: Partial<{ refused: boolean; stopping: boolean }>
+  ) => {
+    if (phase.phase === "running" && phase.turn === turn) {
+      commit({ ...phase, ...change });
+    }
+  };
+
+  // In a saved chat a stop ends the request at once: the settle claims the
+  // turn, so the request fails if it reaches the server later. A chat the
+  // server doesn't have yet has no row to claim the turn in, so the stop
+  // waits for the server's answer, which comes only after it saves or
+  // refuses the turn.
   const fetchTurn = async (
     input: RequestInfo | URL,
     init: RequestInit | undefined
@@ -229,12 +241,11 @@ export function createTurnGate({
     const stopped = init?.signal;
     const request = new AbortController();
     let answered = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
     const stop = () => {
-      if (answered) {
+      if (answered || chatExists) {
         request.abort();
-      } else {
-        timer ??= setTimeout(() => request.abort(), STOP_WAIT_MS);
+      } else if (turn) {
+        updateRunning(turn, { stopping: true });
       }
     };
     if (stopped?.aborted) {
@@ -255,12 +266,10 @@ export function createTurnGate({
       }
       return response;
     } catch (error) {
-      if (turn && isRunning(turn) && turnFailure(error) === "refused") {
-        commit({ phase: "running", turn, refused: true });
+      if (turn && turnFailure(error) === "refused") {
+        updateRunning(turn, { refused: true });
       }
       throw error;
-    } finally {
-      clearTimeout(timer);
     }
   };
 
@@ -429,7 +438,7 @@ export function createTurnGate({
           ? last
           : undefined,
     };
-    commit({ phase: "running", turn, refused: false });
+    commit({ phase: "running", turn, refused: false, stopping: false });
     send(turn).catch(() => {
       if (isRunning(turn)) {
         commit(IDLE);
