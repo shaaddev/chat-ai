@@ -108,7 +108,7 @@ export function ChatInput({
   const [systemPromptDraft, setSystemPromptDraft] = useState(
     customSystemPrompt ?? ""
   );
-  const isSendHeld = turnStatus.phase === "settling" && turnStatus.held;
+  const isSendHeld = turnStatus.phase === "settling" && turnStatus.sendHeld;
   const isStopping = turnStatus.phase === "running" && turnStatus.stopping;
   const tray = getAttachmentTray(chatId);
   const trayReadiness = useTrayReadiness(tray);
@@ -438,8 +438,6 @@ export function ChatInput({
   );
 }
 
-// One button that switches between Stop and Send, so focus stays on it when
-// a stop ends or a reply finishes. aria-disabled keeps it focusable.
 function PureComposerAction({
   canSend,
   describedBy,

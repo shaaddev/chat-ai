@@ -206,8 +206,6 @@ export interface NewChat {
   title: string;
 }
 
-// A claim row exists only so the claimed turn's request fails if it arrives
-// late. It is never a chat's latest turn, even in a chat with no other rows.
 const CLAIMED_AT = new Date(0);
 
 async function latestStreamId(db: Database | Transaction, chatId: string) {

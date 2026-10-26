@@ -131,14 +131,13 @@ const turnActivity = (status: TurnStatus): string | null => {
     return status.stopping ? "Stopping…" : null;
   }
   if (status.phase === "settling") {
-    return status.held
+    return status.sendHeld
       ? "Syncing this chat. Your message will send next."
       : "Syncing this chat…";
   }
   return null;
 };
 
-// The live region at the end of the thread announces this text.
 function TurnActivity({ text }: { text: string }) {
   return (
     <p aria-hidden className="mt-5 py-2 text-muted-foreground text-sm">

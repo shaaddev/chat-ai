@@ -37,7 +37,6 @@ interface HeldRequest {
   signal: AbortSignal | undefined;
 }
 
-// Holds every request until the test answers it, the way a slow server would.
 function fakeServer() {
   const chat: HeldRequest[] = [];
   const settle: HeldRequest[] = [];
@@ -58,8 +57,6 @@ function fakeServer() {
 const UUID = /^[0-9a-f-]{36}$/;
 const encoder = new TextEncoder();
 
-// Answers a chat request with a reply stream that the request's abort ends,
-// as a real response body would.
 function streamReply(
   request: HeldRequest,
   { text, finish }: { text?: string; finish: boolean }
@@ -437,7 +434,7 @@ describe("a send while a turn settles", () => {
     server.settle[0].respond(settled([QUESTION, ANSWER, userTurn], true));
     await followUp;
 
-    expect(whileHeld).toEqual({ phase: "settling", held: true });
+    expect(whileHeld).toEqual({ phase: "settling", sendHeld: true });
     expect(prepared).toBe(1);
     expect(gate.getStatus()).toEqual({ phase: "running", stopping: false });
   });
@@ -526,7 +523,7 @@ describe("a settle that fails", () => {
     const whileChecking = gate.getStatus();
     gate.retry();
 
-    expect(whileChecking).toEqual({ phase: "settling", held: false });
+    expect(whileChecking).toEqual({ phase: "settling", sendHeld: false });
     expect(server.settle).toHaveLength(2);
   });
 
@@ -555,7 +552,7 @@ describe("a settle that fails", () => {
     );
     await followUp;
 
-    expect(whileChecking).toEqual({ phase: "settling", held: true });
+    expect(whileChecking).toEqual({ phase: "settling", sendHeld: true });
   });
 
   test("names an edit it could not confirm", async () => {
@@ -653,10 +650,10 @@ describe("requestSettle", () => {
     });
   });
 
-  test("answers null for a chat the server doesn't have", async () => {
+  test("says when the server doesn't have the chat", async () => {
     respondWith(Response.json({ code: "not_found:chat" }, { status: 404 }));
 
-    expect(await requestSettle("chat", "turn", false)).toBeNull();
+    expect(await requestSettle("chat", "turn", false)).toBe("chat-not-found");
   });
 
   test("fails when the server can't answer or answers without a thread", async () => {

@@ -43,12 +43,11 @@ function parseSettledThread(body: unknown): SettledThread {
   throw new Error("The settle response has no thread");
 }
 
-// Null when the server has no such chat for this user.
 export async function requestSettle(
   chatId: string,
   turnId: string,
   expectReply: boolean
-): Promise<SettledThread | null> {
+): Promise<SettledThread | "chat-not-found"> {
   let response: Response;
   try {
     response = await fetchWithErrorHandlers(`/api/chat/${chatId}/settle`, {
@@ -59,7 +58,7 @@ export async function requestSettle(
     });
   } catch (error) {
     if (error instanceof ChatSDKError && error.type === "not_found") {
-      return null;
+      return "chat-not-found";
     }
     throw error;
   }
@@ -103,26 +102,21 @@ export type TurnRequest =
 
 export type SettleFailure = "offline" | "server";
 
-// What an unsettled turn could not confirm: the reply on screen, or the
-// user's message, edit, or regenerate when no reply text showed yet.
 export type UnsettledSubject = "edit" | "message" | "regeneration" | "reply";
 
 export type TurnStatus =
   | { phase: "idle" }
   | { phase: "running"; stopping: boolean }
-  | { phase: "settling"; held: boolean }
+  | { phase: "settling"; sendHeld: boolean }
   | { phase: "unsettled"; reason: SettleFailure; subject: UnsettledSubject };
 
 export interface TurnEffects {
-  // The server has the chat now, after its first saved turn.
   chatSaved: (request: TurnRequest) => void;
   isMounted: () => boolean;
   refreshChats: () => void;
-  // A send waited on a settle that failed, so it didn't go out.
   sendBlocked: (reason: SettleFailure) => void;
   showError: (error: Error) => void;
   turnFinished: (reply: ChatMessage, keptPrevious: boolean) => void;
-  // Give the request's text back to where the user typed it.
   turnNotSaved: (
     request: TurnRequest,
     options: { editShown: boolean; notify: boolean }
@@ -133,23 +127,17 @@ export interface TurnGate {
   chat: Chat<ChatMessage>;
   getStatus: () => TurnStatus;
   retry: () => void;
-  // `prepare` runs once an earlier turn has settled, so what it reads, such as
-  // the attachment tray, is current. It returns nothing when there is nothing
-  // to send.
   start: (prepare: () => TurnRequest | undefined) => Promise<void>;
   subscribe: (listener: () => void) => () => void;
 }
 
 interface Turn {
   id: string;
-  // The reply a regenerate replaces, which the server keeps if the new one
-  // comes back empty.
   replacedReply: ChatMessage | undefined;
   request: TurnRequest;
 }
 
 interface Ended {
-  // The screen showed reply text, so the turn's request may still be saving it.
   expectReply: boolean;
   shown: ChatMessage[];
   turn: Turn;
@@ -185,12 +173,12 @@ const SUBJECT_BY_KIND: Record<TurnRequest["kind"], UnsettledSubject> = {
 const subjectOf = ({ expectReply, turn }: Ended): UnsettledSubject =>
   expectReply ? "reply" : SUBJECT_BY_KIND[turn.request.kind];
 
-function statusOf(phase: Phase, held: boolean): TurnStatus {
+function statusOf(phase: Phase, sendHeld: boolean): TurnStatus {
   switch (phase.phase) {
     case "running":
       return { phase: "running", stopping: phase.stopping };
     case "settling":
-      return { phase: "settling", held };
+      return { phase: "settling", sendHeld };
     case "unsettled":
       return {
         phase: "unsettled",
@@ -227,16 +215,14 @@ export function createTurnGate({
   effects: TurnEffects;
 }): TurnGate {
   let phase: Phase = IDLE;
-  // A send is waiting for the settle before it goes out.
-  let held = false;
-  let status = statusOf(phase, held);
+  let sendHeld = false;
+  let status = statusOf(phase, sendHeld);
   let chatExists = initialMessages.length > 0;
-  // The thread as the server last saved it.
   let savedThread = initialMessages;
   const listeners = new Set<() => void>();
 
   const publish = () => {
-    const nextStatus = statusOf(phase, held);
+    const nextStatus = statusOf(phase, sendHeld);
     if (sameStatus(status, nextStatus)) {
       return;
     }
@@ -251,8 +237,8 @@ export function createTurnGate({
     publish();
   };
 
-  const setHeld = (next: boolean) => {
-    held = next;
+  const setSendHeld = (next: boolean) => {
+    sendHeld = next;
     publish();
   };
 
@@ -278,11 +264,6 @@ export function createTurnGate({
     }
   };
 
-  // In a saved chat a stop ends the request at once: the settle claims the
-  // turn, so the request fails if it reaches the server later. A chat the
-  // server doesn't have yet has no row to claim the turn in, so the stop
-  // waits for the server's answer, which comes only after it saves or
-  // refuses the turn.
   const fetchTurn = async (
     input: RequestInfo | URL,
     init: RequestInit | undefined
@@ -291,8 +272,9 @@ export function createTurnGate({
     const stopped = init?.signal;
     const request = new AbortController();
     let answered = false;
+    const settleCanClaimTurn = () => answered || chatExists;
     const stop = () => {
-      if (answered || chatExists) {
+      if (settleCanClaimTurn()) {
         request.abort();
       } else if (turn) {
         updateRunning(turn, { stopping: true });
@@ -341,7 +323,6 @@ export function createTurnGate({
       request.kind === "edit" &&
       thread.some(({ id }) => id === request.messageId);
     effects.turnNotSaved(request, { editShown, notify });
-    // A regenerate has no text to give back.
     return request.kind !== "regenerate";
   };
 
@@ -349,12 +330,16 @@ export function createTurnGate({
     const { expectReply, shown, turn } = ended;
     const result = requestSettle(chatId, turn.id, expectReply).then(
       (settled): SettleResult => {
-        // A chat the settle can't find is gone or not this user's. Either
-        // way the turn saved nothing, so the screen keeps what saved before.
-        const saved = settled?.messages ?? (chatExists ? savedThread : []);
+        const chatFound = settled !== "chat-not-found";
+        let saved: ChatMessage[] = [];
+        if (chatFound) {
+          saved = settled.messages;
+        } else if (chatExists) {
+          saved = savedThread;
+        }
         const thread = adoptThread(shown, saved);
         showSaved(thread, turn.request);
-        if (settled?.turnSaved) {
+        if (chatFound && settled.turnSaved) {
           return "settled";
         }
         return handBack(turn, thread, true) ? "handed-back" : "settled";
@@ -369,17 +354,16 @@ export function createTurnGate({
   };
 
   const finish = (turn: Turn, reply: ChatMessage, shown: ChatMessage[]) => {
-    // The server keeps the old reply when a regenerated one comes back empty.
-    const kept = hasVisibleContent(reply) ? undefined : turn.replacedReply;
-    const thread = kept
-      ? [...shown.filter(({ id }) => id !== reply.id), kept]
+    const keptReply = hasVisibleContent(reply) ? undefined : turn.replacedReply;
+    const thread = keptReply
+      ? [...shown.filter(({ id }) => id !== reply.id), keptReply]
       : shown;
     savedThread = thread;
-    if (kept) {
+    if (keptReply) {
       chat.messages = thread;
     }
     commit(IDLE);
-    effects.turnFinished(reply, kept !== undefined);
+    effects.turnFinished(reply, keptReply !== undefined);
     effects.refreshChats();
   };
 
@@ -399,8 +383,8 @@ export function createTurnGate({
       return;
     }
     const { turn, refusal } = phase;
-    // A refusal saved nothing, even after a stop. The chat instance skips
-    // its error callback for a stopped request, so that refusal shows here.
+    // AI SDK's Chat skips onError for an aborted request, so a refusal that
+    // lands after a stop shows here.
     if (refusal) {
       if (isAbort) {
         effects.showError(refusal);
@@ -469,17 +453,15 @@ export function createTurnGate({
 
   const start = async (prepare: () => TurnRequest | undefined) => {
     const pending = phase;
-    if (pending.phase === "running" || held) {
+    if (pending.phase === "running" || sendHeld) {
       return;
     }
     if (pending.phase !== "idle") {
-      setHeld(true);
+      setSendHeld(true);
       const result = await (pending.phase === "settling"
         ? pending.result
         : settle(pending.ended));
-      setHeld(false);
-      // The chat closed while the send waited. Its text stays in the
-      // composer's saved draft.
+      setSendHeld(false);
       if (!effects.isMounted()) {
         return;
       }

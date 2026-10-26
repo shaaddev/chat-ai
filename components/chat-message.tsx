@@ -211,8 +211,6 @@ interface Unsettled {
 export const unsettledText = ({ reason, subject }: Unsettled) =>
   `${UNSETTLED_SUMMARY[subject]} ${SETTLE_FAILURE_HINT[reason]}`;
 
-// The thread's live region announces this notice, so the notice itself is
-// not a live region.
 export function UnsettledNotice({
   onRetry,
   reason,

@@ -225,6 +225,22 @@ describe.skipIf(!hasTestDatabase)(
       return { chatId, userId };
     };
 
+    // The import from Convex copied each chat's messages but no stream rows.
+    const importedChat = async () => {
+      const userId = await testDatabase.createUser();
+      const chatId = crypto.randomUUID();
+      await testDatabase.db
+        .insert(chat)
+        .values({ id: chatId, userId, title: "Imported" });
+      await testDatabase.db.insert(message).values({
+        id: crypto.randomUUID(),
+        chatId,
+        role: "user",
+        parts: [{ type: "text", text: "An imported question" }],
+      });
+      return { chatId, userId };
+    };
+
     const streamRows = async (chatId: string) =>
       (
         await testDatabase.db
@@ -352,9 +368,6 @@ describe.skipIf(!hasTestDatabase)(
       ]);
     });
 
-    // Turns that land in one millisecond push each other's stamps ahead of
-    // the clock. A row stamped later than now puts the next row on that
-    // same stamp unless the next row steps past it.
     const stampAheadOfTheClock = async (chatId: string) => {
       await testDatabase.db.insert(stream).values({
         id: crypto.randomUUID(),
@@ -458,18 +471,7 @@ describe.skipIf(!hasTestDatabase)(
     });
 
     test("in a chat with no turns yet, a repeated settle writes nothing and the next turn still saves", async () => {
-      const userId = await testDatabase.createUser();
-      const chatId = crypto.randomUUID();
-      // The import from Convex copied messages but no stream rows.
-      await testDatabase.db
-        .insert(chat)
-        .values({ id: chatId, userId, title: "Imported" });
-      await testDatabase.db.insert(message).values({
-        id: crypto.randomUUID(),
-        chatId,
-        role: "user",
-        parts: [{ type: "text", text: "An imported question" }],
-      });
+      const { chatId, userId } = await importedChat();
       const unseen = crypto.randomUUID();
 
       const first = await settleTurn({ chatId, userId, turnId: unseen });

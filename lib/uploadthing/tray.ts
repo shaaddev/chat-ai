@@ -69,8 +69,6 @@ interface Upload {
   removed: boolean;
 }
 
-// A hand-back restores every file, so the tray can hold more than one
-// message may carry.
 export function filesOverLimit(items: readonly TrayItem[]): number {
   return Math.max(0, items.length - ATTACHMENT_MAX_COUNT);
 }

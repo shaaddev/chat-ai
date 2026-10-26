@@ -6,8 +6,6 @@ import { useIsMobile } from "@/hooks/use-mobile";
 
 const Toaster = ({ position, ...props }: ToasterProps) => {
   const { theme = "system" } = useTheme();
-  // On a phone the composer fills the bottom of the screen, and a toast
-  // there would hide the text it says is back in the composer.
   const isMobile = useIsMobile();
 
   return (

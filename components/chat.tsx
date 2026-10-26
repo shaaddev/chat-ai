@@ -335,8 +335,6 @@ export function Chat({
     };
   }, []);
 
-  // The context callbacks, setters, and draft store are stable, so the
-  // effects read them once.
   const [turns] = useState(() => {
     const restoreInput = (
       request: TurnRequest,

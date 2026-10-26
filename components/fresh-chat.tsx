@@ -10,14 +10,11 @@ type FreshChatProps = Omit<
   "id" | "initialMessages"
 > & { pageChatId: string };
 
-// Chats this tab started on `/` that the server has saved.
 const savedChats = new Set<string>();
 
-// A first send moves the URL to the chat with replaceState while the router
-// keeps this page. The router can show the page again for `/`, after New
-// chat or Back, with the id it was rendered with. That id stays only while
-// its chat is unsaved, so a draft survives Back but a saved chat never
-// comes back as a new one.
+// A first send moves the URL to the chat with replaceState while Next's
+// router keeps this page. The router can show the page again for `/`, after
+// New chat or Back, with the id it was rendered with.
 export function FreshChat({ pageChatId, ...props }: FreshChatProps) {
   const pathname = usePathname();
   const [visit, setVisit] = useState(() => ({
