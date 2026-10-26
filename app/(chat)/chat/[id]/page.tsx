@@ -29,14 +29,12 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
   const modelIdFromCookie = cookieStore.get("chat-model");
 
   return (
-    <div className="flex min-h-dvh w-full flex-col">
-      <Chat
-        id={chat.id}
-        initialChatModel={modelIdFromCookie?.value ?? DEFAULT_CHAT_MODEL}
-        initialMessages={uiMessages}
-        initialSystemPrompt={chat.systemPrompt ?? undefined}
-        session={session}
-      />
-    </div>
+    <Chat
+      id={chat.id}
+      initialChatModel={modelIdFromCookie?.value ?? DEFAULT_CHAT_MODEL}
+      initialMessages={uiMessages}
+      initialSystemPrompt={chat.systemPrompt ?? undefined}
+      session={session}
+    />
   );
 }

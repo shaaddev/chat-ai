@@ -10,7 +10,7 @@ import {
   useChatDraft,
 } from "@/components/chat-context";
 import { Button } from "@/components/ui/button";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import {
   type ChatModelId,
   DEFAULT_CHAT_MODEL,
@@ -21,7 +21,6 @@ import type { Session } from "@/lib/auth";
 import { extractSources, type Source } from "@/lib/sources";
 import type { Attachment, ChatMessage, DocumentDraft } from "@/lib/types";
 import { fetchWithErrorHandlers, generateUUID } from "@/lib/utils";
-import { ChatHistory } from "./chat-history";
 import { ChatInput } from "./chat-input";
 import { Messages } from "./chat-messages";
 
@@ -385,82 +384,76 @@ export function Chat({
   const messageWidthClass = isRightPanelOpen ? "max-w-2xl" : "max-w-3xl";
 
   return (
-    <SidebarProvider>
-      <div className="flex h-dvh w-full bg-background text-foreground">
-        <ChatHistory session={session} />
+    <div className="flex h-dvh w-full bg-background text-foreground">
+      <div className="flex w-full min-w-0 flex-1 flex-col">
+        <header className="flex h-14 shrink-0 items-center gap-3 px-4">
+          <SidebarTrigger className="rounded-lg">
+            <Button className="size-8" size="icon" variant="ghost">
+              <PanelLeft className="size-4" />
+              <span className="sr-only">Toggle sidebar</span>
+            </Button>
+          </SidebarTrigger>
+          <span className="select-none font-serif text-[15px] text-foreground/75 italic tracking-tight">
+            chat<span className="text-accent">.</span>
+          </span>
+        </header>
 
-        <div className="flex w-full min-w-0 flex-1 flex-col">
-          <header className="flex h-14 shrink-0 items-center gap-3 px-4">
-            <SidebarTrigger className="rounded-lg">
-              <Button className="size-8" size="icon" variant="ghost">
-                <PanelLeft className="size-4" />
-                <span className="sr-only">Toggle sidebar</span>
-              </Button>
-            </SidebarTrigger>
-            <span className="select-none font-serif text-[15px] text-foreground/75 italic tracking-tight">
-              chat<span className="text-accent">.</span>
-            </span>
-          </header>
+        <div className="flex w-full flex-1 flex-col overflow-hidden">
+          <Messages
+            chatId={id}
+            documentDraft={documentDraft}
+            isImageModelSelected={isImageModel}
+            isNarrow={isRightPanelOpen}
+            messages={messages}
+            onOpenDocumentBuilder={openDocumentBuilder}
+            onSuggestionClick={handleSuggestionClick}
+            status={status}
+          />
 
-          <div className="flex w-full flex-1 flex-col overflow-hidden">
-            <Messages
+          <div className={`mx-auto w-full px-4 pt-2 pb-5 ${messageWidthClass}`}>
+            <MemoizedChatInput
+              attachments={attachments}
+              autoDocumentGeneration={autoDocumentGeneration}
               chatId={id}
-              documentDraft={documentDraft}
-              isImageModelSelected={isImageModel}
-              isNarrow={isRightPanelOpen}
-              messages={messages}
-              onOpenDocumentBuilder={openDocumentBuilder}
-              onSuggestionClick={handleSuggestionClick}
+              clearChatInputState={clearChatInputState}
+              customSystemPrompt={customSystemPrompt}
+              input={input}
+              isAuthenticated={isAuthenticated}
+              onSelectModel={handleSelectModel}
+              selectedModelId={selectedModelId}
+              sendMessage={sendMessage}
+              setAttachments={setAttachments}
+              setAutoDocumentGeneration={setAutoDocumentGeneration}
+              setCustomSystemPrompt={setCustomSystemPrompt}
+              setInput={setInput}
+              setMessages={setMessages}
+              setUseSearch={setUseSearch}
               status={status}
+              stop={stop}
+              useSearch={useSearch}
             />
-
-            <div
-              className={`mx-auto w-full px-4 pt-2 pb-5 ${messageWidthClass}`}
-            >
-              <MemoizedChatInput
-                attachments={attachments}
-                autoDocumentGeneration={autoDocumentGeneration}
-                chatId={id}
-                clearChatInputState={clearChatInputState}
-                customSystemPrompt={customSystemPrompt}
-                input={input}
-                isAuthenticated={isAuthenticated}
-                onSelectModel={handleSelectModel}
-                selectedModelId={selectedModelId}
-                sendMessage={sendMessage}
-                setAttachments={setAttachments}
-                setAutoDocumentGeneration={setAutoDocumentGeneration}
-                setCustomSystemPrompt={setCustomSystemPrompt}
-                setInput={setInput}
-                setMessages={setMessages}
-                setUseSearch={setUseSearch}
-                status={status}
-                stop={stop}
-                useSearch={useSearch}
-              />
-              <p className="mt-2 select-none text-center text-muted-foreground text-xs">
-                AI can be wrong. Verify important info.
-              </p>
-            </div>
+            <p className="mt-2 select-none text-center text-muted-foreground text-xs">
+              AI can be wrong. Verify important info.
+            </p>
           </div>
         </div>
-        {isDocumentSheetOpen ? (
-          <LazyDocumentSheet
-            initialMarkdown={documentDraft?.markdown}
-            initialTitle={documentDraft?.title}
-            onOpenChange={setIsDocumentSheetOpen}
-            open={isDocumentSheetOpen}
-            suggestedFormat={documentDraft?.format ?? "docx"}
-          />
-        ) : null}
-        {!isDocumentSheetOpen && isSourcesPanelOpen ? (
-          <LazySourcesPanel
-            onOpenChange={handleSourcesPanelOpenChange}
-            open={isSourcesPanelOpen}
-            sources={latestSources}
-          />
-        ) : null}
       </div>
-    </SidebarProvider>
+      {isDocumentSheetOpen ? (
+        <LazyDocumentSheet
+          initialMarkdown={documentDraft?.markdown}
+          initialTitle={documentDraft?.title}
+          onOpenChange={setIsDocumentSheetOpen}
+          open={isDocumentSheetOpen}
+          suggestedFormat={documentDraft?.format ?? "docx"}
+        />
+      ) : null}
+      {!isDocumentSheetOpen && isSourcesPanelOpen ? (
+        <LazySourcesPanel
+          onOpenChange={handleSourcesPanelOpenChange}
+          open={isSourcesPanelOpen}
+          sources={latestSources}
+        />
+      ) : null}
+    </div>
   );
 }

@@ -11,27 +11,12 @@ export default async function Page() {
   const cookieStore = await cookies();
   const modelIdFromCookie = cookieStore.get("chat-model");
 
-  if (!modelIdFromCookie) {
-    return (
-      <div className="flex min-h-dvh w-full flex-col">
-        <Chat
-          id={id}
-          initialChatModel={DEFAULT_CHAT_MODEL}
-          initialMessages={[]}
-          session={session}
-        />
-      </div>
-    );
-  }
-
   return (
-    <div className="flex min-h-screen w-full flex-col">
-      <Chat
-        id={id}
-        initialChatModel={modelIdFromCookie.value}
-        initialMessages={[]}
-        session={session}
-      />
-    </div>
+    <Chat
+      id={id}
+      initialChatModel={modelIdFromCookie?.value ?? DEFAULT_CHAT_MODEL}
+      initialMessages={[]}
+      session={session}
+    />
   );
 }
