@@ -304,6 +304,19 @@ describe.skipIf(!hasTestDatabase)("POST /api/chat against Postgres", () => {
     await expectNothingSaved(chatId, updatedAt);
   });
 
+  test("an image-model regenerate in a chat that does not exist is not found", async () => {
+    signInAs(await testDatabase.createUser());
+
+    const response = await regenerate(
+      crypto.randomUUID(),
+      crypto.randomUUID(),
+      "chat-image-1-mini"
+    );
+
+    expect(response.status).toBe(404);
+    expect((await response.json()).code).toBe("not_found:chat");
+  });
+
   test("a regenerate of a message that is not in the chat says to reload", async () => {
     const { chatId, updatedAt } = await seedRepliedChat([
       { type: "text", text: "Plan a weekend in Lisbon" },
