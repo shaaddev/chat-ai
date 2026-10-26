@@ -17,6 +17,7 @@ import {
   getChatModel,
 } from "@/lib/ai/models";
 import type { Session } from "@/lib/auth";
+import { ChatSDKError } from "@/lib/errors";
 import { extractSources, type Source } from "@/lib/sources";
 import type { ChatMessage, DocumentDraft } from "@/lib/types";
 import {
@@ -322,7 +323,10 @@ export function Chat({
       },
       onError: (err) => {
         toast.error("Error", {
-          description: err.message,
+          description:
+            err instanceof ChatSDKError && typeof err.cause === "string"
+              ? err.cause
+              : err.message,
         });
       },
     });

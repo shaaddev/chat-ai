@@ -24,6 +24,7 @@ import {
 } from "@/lib/ai/providers";
 import {
   getChatById,
+  getMessagesByChatId,
   ownsUploads,
   saveChat,
   saveReplyIfLatestTurn,
@@ -353,6 +354,22 @@ export async function POST(req: Request) {
       return new Response("Unauthorized", { status: 401 });
     }
 
+    // The schema checks a new message. A regenerate reuses a saved one, so
+    // check it here, before the turn is saved.
+    if (turn.type === "regenerate" && model.kind === "image") {
+      const [target] = convertToUIMessages(
+        (await getMessagesByChatId(id)).filter(
+          ({ id: messageId }) => messageId === turn.userMessageId
+        )
+      );
+      if (target && !getUserText(target.parts)) {
+        return new ChatSDKError(
+          "bad_request:api",
+          "Image models need a text prompt. Describe the image you want."
+        ).toResponse();
+      }
+    }
+
     if (turn.type !== "regenerate") {
       const fileUrls = turn.message.parts.flatMap((part) =>
         part.type === "file" ? [part.url] : []
@@ -395,12 +412,6 @@ export async function POST(req: Request) {
     }
     const history = convertToUIMessages(saved);
     const latestUserText = getUserText(history.at(-1)?.parts ?? []);
-    if (model.kind === "image" && !latestUserText) {
-      return new ChatSDKError(
-        "bad_request:api",
-        "Image models need a text prompt. Describe the image you want."
-      ).toResponse();
-    }
 
     const documentIntent = detectDocumentIntent(
       latestUserText,

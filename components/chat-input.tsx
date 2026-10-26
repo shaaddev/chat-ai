@@ -273,7 +273,9 @@ export function ChatInput({
             }
           }}
           onPaste={handlePaste}
-          placeholder="Ask anything"
+          placeholder={
+            needsText ? "Describe the image you want" : "Ask anything"
+          }
           ref={textareaRef}
           rows={1}
           style={{ height: textareaHeight }}

@@ -68,7 +68,9 @@ export const postRequestBodySchema = z.discriminatedUnion("trigger", [
     .refine(
       ({ selectedChatModel, message }) =>
         getChatModel(selectedChatModel).kind !== "image" ||
-        message.parts.some(({ type }) => type === "text"),
+        message.parts.some(
+          (part) => part.type === "text" && part.text.trim().length > 0
+        ),
       "Image models need a text prompt."
     ),
   z.object({

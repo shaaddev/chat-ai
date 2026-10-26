@@ -164,6 +164,15 @@ describe("POST /api/chat file parts", () => {
     expect(result.success).toBe(false);
   });
 
+  test("rejects a blank prompt to an image model", () => {
+    const result = postRequestBodySchema.safeParse({
+      ...settings,
+      selectedChatModel: "chat-image-1-mini",
+      message: { ...message, parts: [{ type: "text", text: "   " }] },
+    });
+    expect(result.success).toBe(false);
+  });
+
   test("accepts an image model prompt that comes with a reference file", () => {
     const result = postRequestBodySchema.safeParse({
       ...settings,
