@@ -132,7 +132,8 @@ function haveSameSources(current: Source[], next: Source[]) {
 
 function deriveDocumentDraft(
   messages: ChatMessage[],
-  messageId: string | null
+  messageId: string | null,
+  isChatStreaming: boolean
 ): DocumentDraft | null {
   const index = messages.findIndex((candidate) => candidate.id === messageId);
   if (!messageId || index === -1) {
@@ -150,6 +151,7 @@ function deriveDocumentDraft(
     userText.toLowerCase().includes("pdf");
   return {
     format: isPdf ? "pdf" : "docx",
+    isStreaming: isChatStreaming && index === messages.length - 1,
     markdown: extractMessageText(source),
     messageId,
     title: userText.slice(0, DOCUMENT_TITLE_MAX_LENGTH) || "chat-document",
@@ -434,8 +436,13 @@ export function Chat({
   }, [latestAssistantIsDocument, latestAssistantId]);
 
   const documentDraft = useMemo(
-    () => deriveDocumentDraft(messages, documentSourceMessageId),
-    [messages, documentSourceMessageId]
+    () =>
+      deriveDocumentDraft(
+        messages,
+        documentSourceMessageId,
+        status === "streaming"
+      ),
+    [messages, documentSourceMessageId, status]
   );
 
   const isSourcesPanelOpen = !isDocumentSheetOpen && panelSources.length > 0;
@@ -515,6 +522,7 @@ export function Chat({
         <LazyDocumentSheet
           initialMarkdown={documentDraft?.markdown}
           initialTitle={documentDraft?.title}
+          isStreaming={documentDraft?.isStreaming ?? false}
           onOpenChange={setIsDocumentSheetOpen}
           open={isDocumentSheetOpen}
           suggestedFormat={documentDraft?.format ?? "docx"}

@@ -24,6 +24,7 @@ import {
 interface DocumentSheetProps {
   initialMarkdown?: string;
   initialTitle?: string;
+  isStreaming: boolean;
   onOpenChange: (open: boolean) => void;
   open: boolean;
   suggestedFormat?: ExportFormat;
@@ -40,6 +41,7 @@ export function DocumentSheet({
   onOpenChange,
   initialMarkdown = "",
   initialTitle,
+  isStreaming,
   suggestedFormat = "docx",
 }: DocumentSheetProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -220,7 +222,7 @@ export function DocumentSheet({
           />
 
           <div className="min-h-0 flex-1 overflow-auto rounded-xl bg-secondary p-4 text-sm leading-6">
-            <Markdown>{markdown}</Markdown>
+            <Markdown isStreaming={isStreaming}>{markdown}</Markdown>
           </div>
         </div>
 

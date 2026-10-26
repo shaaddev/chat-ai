@@ -21,6 +21,7 @@ export type ChatMessage = UIMessage<ChatMessageMetadata>;
 
 export interface DocumentDraft {
   format: ExportFormat;
+  isStreaming: boolean;
   markdown: string;
   messageId: string;
   title: string;

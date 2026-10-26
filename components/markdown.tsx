@@ -126,6 +126,7 @@ function NonMemoizedMarkdown({
       controls={controls}
       isAnimating={isStreaming}
       lineNumbers={false}
+      parseIncompleteMarkdown={isStreaming}
       plugins={plugins}
       shikiTheme={shikiTheme}
     >

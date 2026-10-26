@@ -175,7 +175,6 @@ function PureChatMessage({
   reply,
 }: MessageProps) {
   const isAssistant = message.role === "assistant";
-  const lastPartIndex = message.parts.length - 1;
   const text = getMessageText(message);
   const reasoningText = isAssistant ? getReasoningText(message) : "";
   const emptyReplyReason = isStreaming ? null : getEmptyReplyReason(message);
@@ -244,7 +243,9 @@ function PureChatMessage({
                 )}
                 data-testid="message-content"
               >
-                <Markdown isStreaming={isStreaming && index === lastPartIndex}>
+                <Markdown
+                  isStreaming={isStreaming && part.state === "streaming"}
+                >
                   {sanitizeText(part.text)}
                 </Markdown>
               </MessageContent>
