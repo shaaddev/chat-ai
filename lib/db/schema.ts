@@ -2,6 +2,7 @@ import type { UIMessagePart } from "ai";
 import {
   boolean,
   index,
+  integer,
   jsonb,
   pgTable,
   text,
@@ -100,6 +101,7 @@ export const chat = pgTable(
       .notNull()
       .default("private"),
     systemPrompt: text("system_prompt"),
+    pinnedKey: text("pinned_key"),
     ...timestamps,
   },
   (table) => [
@@ -140,6 +142,24 @@ export const stream = pgTable(
   (table) => [
     index("stream_chat_id_created_at_idx").on(table.chatId, table.createdAt),
   ]
+);
+
+export const upload = pgTable(
+  "upload",
+  {
+    key: text("key").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    url: text("url").notNull(),
+    name: text("name").notNull(),
+    mediaType: text("media_type").notNull(),
+    size: integer("size"),
+    createdAt: timestamp("created_at", { withTimezone: true, precision: 3 })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("upload_user_id_url_idx").on(table.userId, table.url)]
 );
 
 export type Chat = typeof chat.$inferSelect;

@@ -8,6 +8,27 @@
       "when": 1792977735661,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792984017064,
+      "tag": "0001_chat_pinned_key",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792984189512,
+      "tag": "0002_upload",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792984189880,
+      "tag": "0003_backfill_uploads",
+      "breakpoints": true
     }
   ]
 }
