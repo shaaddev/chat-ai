@@ -5,20 +5,38 @@ import {
   type ReactNode,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
 import { toast } from "sonner";
+import useSWR, { useSWRConfig } from "swr";
 import type { Attachment } from "@/lib/types";
 
-interface Chat {
-  createdAt: Date;
+const CHATS_KEY = "/api/chats";
+const UNDO_WINDOW_MS = 5000;
+
+export interface ChatSummary {
   id: string;
   title: string;
   updatedAt: Date;
 }
+
+interface NewChat {
+  createdAt?: Date;
+  id: string;
+  title: string;
+  updatedAt?: Date;
+}
+
+// SWR's optimisticData rolls back to a whole-list snapshot, which would undo
+// any other edit that settled in between. Unconfirmed edits live here instead
+// and overlay the cache, so each one settles on its own.
+type PendingEdit =
+  | { kind: "delete" }
+  | { kind: "rename"; title: string; updatedAt: Date };
+
+type PendingEdits = ReadonlyMap<string, PendingEdit>;
 
 interface ChatInputState {
   attachments: Attachment[];
@@ -27,16 +45,18 @@ interface ChatInputState {
   useSearch: boolean;
 }
 
-interface ChatContextType {
-  addOptimisticChat: (chat: Chat) => void;
-  chats: Chat[];
-  deleteChat: (chatId: string) => Promise<void>;
-  loading: boolean;
-  loadingChats: Set<string>;
+interface ChatActions {
+  addOptimisticChat: (chat: NewChat) => void;
+  clearChats: () => void;
+  deleteChat: (chatId: string) => void;
   refreshChats: () => Promise<void>;
-  refreshSpecificChat: (chatId: string) => Promise<void>;
+  renameChat: (chatId: string, title: string) => Promise<void>;
   setChatLoading: (chatId: string, loading: boolean) => void;
-  updateChatTitle: (chatId: string, title: string) => void;
+}
+
+interface ChatListState {
+  loadingChats: ReadonlySet<string>;
+  pendingEdits: PendingEdits;
 }
 
 interface ChatDraftContextType {
@@ -45,7 +65,10 @@ interface ChatDraftContextType {
   setChatInputState: (chatId: string, state: Partial<ChatInputState>) => void;
 }
 
-const ChatContext = createContext<ChatContextType | undefined>(undefined);
+const ChatActionsContext = createContext<ChatActions | undefined>(undefined);
+const ChatListStateContext = createContext<ChatListState | undefined>(
+  undefined
+);
 const ChatDraftContext = createContext<ChatDraftContextType | undefined>(
   undefined
 );
@@ -77,119 +100,193 @@ const DEFAULT_CHAT_INPUT_STATE: ChatInputState = {
   autoDocumentGeneration: false,
 };
 
+async function fetchChats(url: string): Promise<ChatSummary[]> {
+  const res = await fetch(url, { cache: "no-store" });
+  if (res.status === 401) {
+    return [];
+  }
+  if (!res.ok) {
+    throw new Error(`GET ${url} failed with ${res.status}`);
+  }
+  const rows: { id: string; title: string; updatedAt: string }[] =
+    await res.json();
+  return rows.map(({ id, title, updatedAt }) => ({
+    id,
+    title,
+    updatedAt: new Date(updatedAt),
+  }));
+}
+
+async function sendChatRequest(
+  chatId: string,
+  init: RequestInit
+): Promise<Response | null> {
+  try {
+    return await fetch(`/api/chats/${chatId}`, init);
+  } catch {
+    return null;
+  }
+}
+
+function withEdit(edits: PendingEdits, chatId: string, edit: PendingEdit) {
+  return new Map(edits).set(chatId, edit);
+}
+
+function withoutEdit(edits: PendingEdits, chatId: string, edit: PendingEdit) {
+  if (edits.get(chatId) !== edit) {
+    return edits;
+  }
+  const next = new Map(edits);
+  next.delete(chatId);
+  return next;
+}
+
+function applyPendingEdits(
+  chats: ChatSummary[],
+  edits: PendingEdits
+): ChatSummary[] {
+  if (edits.size === 0) {
+    return chats;
+  }
+  return chats.flatMap((chat) => {
+    const edit = edits.get(chat.id);
+    if (!edit) {
+      return [chat];
+    }
+    if (edit.kind === "delete") {
+      return [];
+    }
+    return [{ ...chat, title: edit.title, updatedAt: edit.updatedAt }];
+  });
+}
+
 export function ChatProvider({ children }: { children: ReactNode }) {
-  const [chats, setChats] = useState<Chat[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingChats, setLoadingChats] = useState<Set<string>>(new Set());
+  const { cache, mutate } = useSWRConfig();
+  const [pendingEdits, setPendingEdits] = useState<PendingEdits>(
+    () => new Map()
+  );
+  const [loadingChats, setLoadingChats] = useState<ReadonlySet<string>>(
+    () => new Set()
+  );
   const chatInputStatesRef = useRef<Map<string, ChatInputState>>(new Map());
 
-  const fetchChats = useCallback(async () => {
-    try {
-      setLoading(true);
-      const res = await fetch("/api/chats", {
-        cache: "no-store",
-      });
-
-      if (res.status === 401) {
-        setChats([]);
-        return;
-      }
-
-      if (!res.ok) {
-        throw new Error("Failed to fetch chats");
-      }
-
-      const data = await res.json();
-
-      const sortedChats = data.sort(
-        (a: Chat, b: Chat) =>
-          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-      );
-
-      setChats(sortedChats);
-    } catch (error) {
-      console.error("Error fetching chats: ", error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // initial fetch
-  useEffect(() => {
-    fetchChats();
-  }, [fetchChats]);
+  const updateCachedChats = useCallback(
+    (update: (chats: ChatSummary[]) => ChatSummary[]) =>
+      mutate<ChatSummary[]>(CHATS_KEY, (chats) => chats && update(chats), {
+        revalidate: false,
+      }),
+    [mutate]
+  );
 
   const refreshChats = useCallback(async () => {
-    await fetchChats();
-  }, [fetchChats]);
+    await mutate(CHATS_KEY);
+  }, [mutate]);
 
-  const addOptimisticChat = useCallback((chat: Chat) => {
-    setChats((prevChats) => {
-      // Check if chat already exists
-      const exists = prevChats.find((c) => c.id === chat.id);
-      if (exists) {
-        return prevChats;
+  const clearChats = useCallback(() => {
+    mutate(CHATS_KEY, undefined, { revalidate: false });
+  }, [mutate]);
+
+  const addOptimisticChat = useCallback(
+    ({ id, title, updatedAt = new Date() }: NewChat) => {
+      if (!cache.get(CHATS_KEY)?.data) {
+        return;
       }
+      updateCachedChats((chats) =>
+        chats.some((chat) => chat.id === id)
+          ? chats
+          : [{ id, title, updatedAt }, ...chats]
+      );
+    },
+    [cache, updateCachedChats]
+  );
 
-      // Add new chat at the beginning (most recent)
-      return [chat, ...prevChats];
-    });
-  }, []);
+  const renameChat = useCallback(
+    async (chatId: string, title: string) => {
+      const edit: PendingEdit = {
+        kind: "rename",
+        title,
+        updatedAt: new Date(),
+      };
+      setPendingEdits((edits) => withEdit(edits, chatId, edit));
+
+      const res = await sendChatRequest(chatId, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title }),
+      });
+      if (res?.ok) {
+        await updateCachedChats((chats) =>
+          chats.map((chat) =>
+            chat.id === chatId
+              ? { ...chat, title, updatedAt: edit.updatedAt }
+              : chat
+          )
+        );
+      } else {
+        toast.error("Chat wasn't renamed", {
+          description: "Check your connection and try again.",
+        });
+      }
+      setPendingEdits((edits) => withoutEdit(edits, chatId, edit));
+    },
+    [updateCachedChats]
+  );
+
+  const deleteChat = useCallback(
+    (chatId: string) => {
+      const edit: PendingEdit = { kind: "delete" };
+      setPendingEdits((edits) => withEdit(edits, chatId, edit));
+
+      let settled = false;
+      const undo = () => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        setPendingEdits((edits) => withoutEdit(edits, chatId, edit));
+      };
+      const commit = async () => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        const res = await sendChatRequest(chatId, { method: "DELETE" });
+        if (res && (res.ok || res.status === 404)) {
+          chatInputStatesRef.current.delete(chatId);
+          await updateCachedChats((chats) =>
+            chats.filter((chat) => chat.id !== chatId)
+          );
+        } else {
+          toast.error("Chat wasn't deleted", {
+            description: "It's back in your list. Try deleting it again.",
+          });
+        }
+        setPendingEdits((edits) => withoutEdit(edits, chatId, edit));
+      };
+
+      toast("Chat deleted", {
+        duration: UNDO_WINDOW_MS,
+        action: { label: "Undo", onClick: undo },
+        onAutoClose: commit,
+        onDismiss: commit,
+      });
+    },
+    [updateCachedChats]
+  );
 
   const setChatLoading = useCallback((chatId: string, isLoading: boolean) => {
     setLoadingChats((prev) => {
-      const newSet = new Set(prev);
+      if (prev.has(chatId) === isLoading) {
+        return prev;
+      }
+      const next = new Set(prev);
       if (isLoading) {
-        newSet.add(chatId);
+        next.add(chatId);
       } else {
-        newSet.delete(chatId);
+        next.delete(chatId);
       }
-      return newSet;
+      return next;
     });
-  }, []);
-
-  const updateChatTitle = useCallback((chatId: string, title: string) => {
-    setChats((prevChats) =>
-      prevChats.map((chat) =>
-        chat.id === chatId ? { ...chat, title, updatedAt: new Date() } : chat
-      )
-    );
-  }, []);
-
-  const refreshSpecificChat = useCallback(async (chatId: string) => {
-    try {
-      const res = await fetch(`/api/chats/${chatId}`, {
-        cache: "no-store",
-      });
-
-      if (res.ok) {
-        const updatedChat = await res.json();
-        setChats((prevChats) =>
-          prevChats.map((chat) => (chat.id === chatId ? updatedChat : chat))
-        );
-      }
-    } catch (error) {
-      console.error("Error fetching specific chat: ", error);
-    }
-  }, []);
-
-  const deleteChat = useCallback(async (chatId: string) => {
-    try {
-      const res = fetch(`/api/chats/${chatId}`, {
-        method: "DELETE",
-      });
-
-      toast.promise(res, {
-        loading: "Deleting chat...",
-        success: "Chat deleted successfully",
-        error: "Failed to delete chat",
-      });
-
-      setChats((prevChats) => prevChats.filter((chat) => chat.id !== chatId));
-      chatInputStatesRef.current.delete(chatId);
-    } catch (error) {
-      console.error("Error deleting chat: ", error);
-    }
   }, []);
 
   const getChatInputState = useCallback((chatId: string): ChatInputState => {
@@ -227,29 +324,28 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const contextValue = useMemo(
+  const actions = useMemo<ChatActions>(
     () => ({
-      chats,
-      loading,
-      loadingChats,
-      refreshChats,
-      deleteChat,
       addOptimisticChat,
+      clearChats,
+      deleteChat,
+      refreshChats,
+      renameChat,
       setChatLoading,
-      updateChatTitle,
-      refreshSpecificChat,
     }),
     [
-      chats,
-      loading,
-      loadingChats,
-      refreshChats,
-      deleteChat,
       addOptimisticChat,
+      clearChats,
+      deleteChat,
+      refreshChats,
+      renameChat,
       setChatLoading,
-      updateChatTitle,
-      refreshSpecificChat,
     ]
+  );
+
+  const listState = useMemo<ChatListState>(
+    () => ({ loadingChats, pendingEdits }),
+    [loadingChats, pendingEdits]
   );
 
   const draftContextValue = useMemo(
@@ -262,20 +358,48 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <ChatContext.Provider value={contextValue}>
-      <ChatDraftContext.Provider value={draftContextValue}>
-        {children}
-      </ChatDraftContext.Provider>
-    </ChatContext.Provider>
+    <ChatActionsContext.Provider value={actions}>
+      <ChatListStateContext.Provider value={listState}>
+        <ChatDraftContext.Provider value={draftContextValue}>
+          {children}
+        </ChatDraftContext.Provider>
+      </ChatListStateContext.Provider>
+    </ChatActionsContext.Provider>
   );
 }
 
 export function useChat() {
-  const context = useContext(ChatContext);
+  const context = useContext(ChatActionsContext);
   if (context === undefined) {
     throw new Error("useChat must be used within a ChatProvider");
   }
   return context;
+}
+
+type ChatList =
+  | { status: "loading" }
+  | { status: "error" }
+  | {
+      status: "ready";
+      chats: ChatSummary[];
+      loadingChats: ReadonlySet<string>;
+    };
+
+export function useChatList(): ChatList {
+  const context = useContext(ChatListStateContext);
+  if (context === undefined) {
+    throw new Error("useChatList must be used within a ChatProvider");
+  }
+  const { data, error } = useSWR(CHATS_KEY, fetchChats);
+  const { loadingChats, pendingEdits } = context;
+  const chats = useMemo(
+    () => data && applyPendingEdits(data, pendingEdits),
+    [data, pendingEdits]
+  );
+  if (chats) {
+    return { status: "ready", chats, loadingChats };
+  }
+  return { status: error ? "error" : "loading" };
 }
 
 export function useChatDraft() {

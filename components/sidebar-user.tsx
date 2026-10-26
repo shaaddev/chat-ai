@@ -1,6 +1,9 @@
+"use client";
+
 import { ChevronsUpDown, LogOut, User } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { useChat } from "@/components/chat-context";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -28,17 +31,21 @@ interface UserProps {
 export function SidebarUser({ email, avatar, name }: UserProps) {
   const { isMobile } = useSidebar();
   const router = useRouter();
+  const { clearChats } = useChat();
 
   const handleLogout = async () => {
     await authClient.signOut({
       fetchOptions: {
         onSuccess: () => {
-          toast.success("Logged out successfully");
+          clearChats();
+          toast.success("Logged out");
           router.push("/");
           router.refresh();
         },
         onError: () => {
-          toast.error("Failed to log out");
+          toast.error("Log out failed", {
+            description: "Check your connection and try again.",
+          });
         },
       },
     });
@@ -50,19 +57,19 @@ export function SidebarUser({ email, avatar, name }: UserProps) {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
-              className="cursor-pointer rounded-xl transition-all duration-150 ease-in-out hover:bg-sidebar-accent data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+              className="cursor-pointer rounded-lg hover:bg-sidebar-accent focus-visible:ring-ring data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
               size="lg"
             >
-              <Avatar className="h-8 w-8 rounded-lg">
+              <Avatar className="size-8 rounded-full">
                 <AvatarImage alt={name} src={avatar} />
-                <AvatarFallback className="rounded-2xl bg-primary text-primary-foreground">
+                <AvatarFallback className="rounded-full bg-primary text-primary-foreground">
                   {name?.charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">{name}</span>
               </div>
-              <ChevronsUpDown className="ml-auto size-4" />
+              <ChevronsUpDown aria-hidden className="ml-auto size-4" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
@@ -73,9 +80,9 @@ export function SidebarUser({ email, avatar, name }: UserProps) {
           >
             <DropdownMenuLabel className="p-0 font-normal">
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                <Avatar className="size-8 rounded-2xl">
+                <Avatar className="size-8 rounded-full">
                   <AvatarImage alt={name} src={avatar} />
-                  <AvatarFallback className="rounded-lg bg-primary text-primary-foreground">
+                  <AvatarFallback className="rounded-full bg-primary text-primary-foreground">
                     {name?.charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
@@ -90,18 +97,18 @@ export function SidebarUser({ email, avatar, name }: UserProps) {
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem
-                className="rounded-xl hover:cursor-pointer"
+                className="rounded-lg hover:cursor-pointer"
                 onClick={() => router.push("/account")}
               >
-                <User />
-                Account Settings
+                <User aria-hidden />
+                Account settings
               </DropdownMenuItem>
               <DropdownMenuItem
-                className="rounded-xl hover:cursor-pointer"
+                className="rounded-lg hover:cursor-pointer"
                 onClick={handleLogout}
               >
-                <LogOut />
-                Log Out
+                <LogOut aria-hidden />
+                Log out
               </DropdownMenuItem>
             </DropdownMenuGroup>
           </DropdownMenuContent>

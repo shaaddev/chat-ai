@@ -1,3 +1,4 @@
+import { MotionConfig } from "motion/react";
 import type { Metadata } from "next";
 import { Geist, JetBrains_Mono, Source_Serif_4 } from "next/font/google";
 import "./globals.css";
@@ -97,10 +98,12 @@ export default function RootLayout({
         className={`${geistSans.variable} ${sourceSerif.variable} ${jetbrainsMono.variable} bg-background text-foreground antialiased`}
       >
         <ThemeProvider>
-          <ChatProvider>
-            <main className="lg:mx-auto">{children}</main>
-            <Toaster position="bottom-right" />
-          </ChatProvider>
+          <MotionConfig reducedMotion="user">
+            <ChatProvider>
+              <main className="lg:mx-auto">{children}</main>
+              <Toaster position="bottom-right" />
+            </ChatProvider>
+          </MotionConfig>
         </ThemeProvider>
         {process.env.NODE_ENV === "development" && <PerformanceMonitor />}
       </body>
