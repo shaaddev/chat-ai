@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import type { ReactNode } from "react";
 import { auth } from "@/app/auth";
 import { ChatHistory } from "@/components/chat-history";
+import { CommandPalette } from "@/components/command-palette";
 import { SidebarProvider } from "@/components/ui/sidebar";
 
 export default async function ChatLayout({
@@ -13,6 +14,7 @@ export default async function ChatLayout({
   return (
     <SidebarProvider defaultOpen={defaultOpen}>
       <ChatHistory session={session} />
+      <CommandPalette />
       <div className="flex h-dvh min-w-0 flex-1 flex-col md:py-2 md:pr-2 md:peer-data-[state=collapsed]:pl-2">
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-card md:rounded-2xl">
           {children}

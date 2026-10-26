@@ -1,24 +1,45 @@
 "use client";
 
-import { Check, Copy, Globe } from "lucide-react";
+import { Globe, Pencil, RotateCw } from "lucide-react";
 import Image, { type ImageLoaderProps } from "next/image";
-import { memo, useState } from "react";
+import { memo, useEffect, useRef } from "react";
 import { getModelLabel, getModelProvider } from "@/lib/ai/models";
+import {
+  type EmptyReplyReason,
+  getEmptyReplyReason,
+  getReasoningText,
+} from "@/lib/message-display";
 import { extractSources, getFaviconUrl, type Source } from "@/lib/sources";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { cn, sanitizeText } from "@/lib/utils";
 import { Markdown } from "./markdown";
+import { ActionButton, CopyButton, MessageActions } from "./message-actions";
 import { MessageContent } from "./message-content";
+import { MessageEditor } from "./message-editor";
+import { MessageReasoning } from "./message-reasoning";
 import { ProviderDot } from "./model-helpful-tooltips";
 import { PreviewAttachment } from "./preview-attachment";
 
-const COPIED_FEEDBACK_MS = 2000;
-
 const passthroughImageLoader = ({ src }: ImageLoaderProps) => src;
 
+export interface EditControls {
+  cancel: () => void;
+  start: (messageId: string) => void;
+  submit: (message: ChatMessage, text: string) => void;
+}
+
+export interface ReplyControls {
+  onEditPrompt: () => void;
+  onRegenerate: () => void;
+  regenerateLabel: string;
+}
+
 interface MessageProps {
+  edit?: EditControls;
+  isEditing: boolean;
   isStreaming: boolean;
   message: ChatMessage;
+  reply?: ReplyControls;
 }
 
 function getAttachmentName(part: Record<string, unknown>) {
@@ -106,32 +127,90 @@ function SourceChips({ sources }: { sources: Source[] }) {
   );
 }
 
-function PureChatMessage({ message, isStreaming }: MessageProps) {
-  const [copied, setCopied] = useState(false);
+const EMPTY_REPLY_SUMMARY: Record<EmptyReplyReason, string> = {
+  length: "The reply hit its length limit before writing any text.",
+  other: "The model ended its turn without writing a reply.",
+};
+
+function EmptyReplyNotice({
+  onRegenerate,
+  reason,
+}: {
+  onRegenerate?: () => void;
+  reason: EmptyReplyReason;
+}) {
+  return (
+    <div
+      className="flex flex-wrap items-center gap-x-4 gap-y-2.5 rounded-xl bg-secondary py-3 pr-3 pl-4 text-sm"
+      role="status"
+    >
+      <p className="min-w-0 flex-1 leading-normal">
+        <span className="font-medium">{EMPTY_REPLY_SUMMARY[reason]}</span>{" "}
+        <span className="text-muted-foreground">
+          {onRegenerate
+            ? "Regenerate to try again, or pick another model first."
+            : "Pick another model and send the message again."}
+        </span>
+      </p>
+      {onRegenerate ? (
+        <button
+          className="inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-[10px] bg-card px-3 font-medium text-[13px] transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          onClick={onRegenerate}
+          type="button"
+        >
+          <RotateCw aria-hidden className="size-3.5" />
+          Regenerate
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function PureChatMessage({
+  edit,
+  isEditing,
+  isStreaming,
+  message,
+  reply,
+}: MessageProps) {
   const attachments = getAttachmentsFromMessage(message);
   const isAssistant = message.role === "assistant";
   const lastPartIndex = message.parts.length - 1;
   const text = getMessageText(message);
+  const reasoningText = isAssistant ? getReasoningText(message) : "";
+  const emptyReplyReason = isStreaming ? null : getEmptyReplyReason(message);
   const modelId = message.metadata?.model;
   const usedSearch = message.metadata?.useSearch === true;
   const sources = isAssistant && !isStreaming ? extractSources(message) : [];
+  const editButtonRef = useRef<HTMLButtonElement>(null);
+  const wasEditingRef = useRef(isEditing);
 
-  const handleCopyMessage = async () => {
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), COPIED_FEEDBACK_MS);
-  };
+  useEffect(() => {
+    const focusWasDropped =
+      document.activeElement === null ||
+      document.activeElement === document.body;
+    if (wasEditingRef.current && !isEditing && focusWasDropped) {
+      editButtonRef.current?.focus();
+    }
+    wasEditingRef.current = isEditing;
+  }, [isEditing]);
 
   return (
     <div data-message-id={message.id} data-role={message.role}>
       <div
         className={cn(
-          "flex w-full flex-col",
-          isAssistant ? "group/message" : "gap-2.5"
+          "group/message flex w-full flex-col",
+          !isAssistant && "gap-2.5"
         )}
       >
         {isAssistant && modelId ? (
           <ModelChip modelId={modelId} usedSearch={usedSearch} />
+        ) : null}
+        {reasoningText ? (
+          <MessageReasoning
+            isThinking={isStreaming && text.length === 0}
+            text={reasoningText}
+          />
         ) : null}
         {attachments.length > 0 && (
           <div
@@ -150,8 +229,19 @@ function PureChatMessage({ message, isStreaming }: MessageProps) {
             ))}
           </div>
         )}
+        {isEditing && edit ? (
+          <MessageEditor
+            initialText={text}
+            onCancel={edit.cancel}
+            onSubmit={(nextText) => edit.submit(message, nextText)}
+          />
+        ) : null}
         {message.parts.map((part, index) => {
-          if (part.type !== "text" || part.text.trim().length === 0) {
+          if (
+            isEditing ||
+            part.type !== "text" ||
+            part.text.trim().length === 0
+          ) {
             return null;
           }
           return (
@@ -177,26 +267,50 @@ function PureChatMessage({ message, isStreaming }: MessageProps) {
             </div>
           );
         })}
-        {isAssistant && !isStreaming && (
+        {emptyReplyReason ? (
+          <EmptyReplyNotice
+            onRegenerate={reply?.onRegenerate}
+            reason={emptyReplyReason}
+          />
+        ) : null}
+        {isAssistant && !isStreaming && !emptyReplyReason && (
           <div className="mt-3.5 flex flex-wrap items-center justify-between gap-2">
             <SourceChips sources={sources} />
-            {text.length > 0 && (
-              <div className="ml-auto flex gap-0.5 pointer-fine:opacity-0 transition-opacity duration-200 focus-within:opacity-100 pointer-fine:group-hover/message:opacity-100">
-                <button
-                  aria-label={copied ? "Copied" : "Copy message"}
-                  className="flex size-8 cursor-pointer items-center justify-center rounded-[10px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  onClick={handleCopyMessage}
-                  type="button"
-                >
-                  {copied ? (
-                    <Check aria-hidden className="size-4" />
-                  ) : (
-                    <Copy aria-hidden className="size-4" />
-                  )}
-                </button>
-              </div>
+            {(text.length > 0 || reply) && (
+              <MessageActions className="ml-auto">
+                {text.length > 0 && <CopyButton text={text} />}
+                {reply ? (
+                  <>
+                    <ActionButton
+                      icon={RotateCw}
+                      label={reply.regenerateLabel}
+                      onClick={reply.onRegenerate}
+                    />
+                    <ActionButton
+                      icon={Pencil}
+                      label="Edit prompt"
+                      onClick={reply.onEditPrompt}
+                    />
+                  </>
+                ) : null}
+              </MessageActions>
             )}
           </div>
+        )}
+        {isAssistant ? null : (
+          <MessageActions
+            className={cn("-mt-1.5 justify-end", isEditing && "invisible")}
+          >
+            {text.length > 0 && <CopyButton text={text} />}
+            {edit ? (
+              <ActionButton
+                icon={Pencil}
+                label="Edit message"
+                onClick={() => edit.start(message.id)}
+                ref={editButtonRef}
+              />
+            ) : null}
+          </MessageActions>
         )}
       </div>
     </div>

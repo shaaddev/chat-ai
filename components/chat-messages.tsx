@@ -1,7 +1,7 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
 import { ArrowDown, FileText, ImageIcon } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { Fragment, memo, useEffect, useRef, useState } from "react";
+import { Fragment, memo, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -12,9 +12,16 @@ import {
 } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useMessages } from "@/hooks/use-message";
+import { type ChatModelId, getModelLabel } from "@/lib/ai/models";
+import { focusComposer } from "@/lib/composer";
+import { isShownInThread } from "@/lib/message-display";
 import type { ChatMessage, DocumentDraft } from "@/lib/types";
-import { cn, hasVisibleContent } from "@/lib/utils";
-import { PreviewMessage } from "./chat-message";
+import { cn } from "@/lib/utils";
+import {
+  type EditControls,
+  PreviewMessage,
+  type ReplyControls,
+} from "./chat-message";
 import { Markdown } from "./markdown";
 import { ThinkingIndicator } from "./thinking-indicator";
 
@@ -24,7 +31,10 @@ interface MessagesProps {
   isImageModelSelected: boolean;
   isNarrow: boolean;
   messages: ChatMessage[];
+  onEditMessage: (message: ChatMessage, text: string) => void;
   onOpenDocumentBuilder: () => void;
+  onRegenerate: () => void;
+  selectedModelId: ChatModelId;
   status: UseChatHelpers<ChatMessage>["status"];
 }
 
@@ -134,7 +144,10 @@ function PureMessages({
   isImageModelSelected,
   isNarrow,
   documentDraft,
+  onEditMessage,
   onOpenDocumentBuilder,
+  onRegenerate,
+  selectedModelId,
 }: MessagesProps) {
   const { containerRef, isAtBottom, scrollToBottom, scrollUserMessageToTop } =
     useMessages();
@@ -148,10 +161,42 @@ function PureMessages({
   const isAwaitingContent =
     isBusy &&
     lastMessage !== undefined &&
-    (lastMessage.role === "user" || !hasVisibleContent(lastMessage));
-  const visibleMessages = messages.filter(hasVisibleContent);
+    (lastMessage.role === "user" || !isShownInThread(lastMessage));
+  const visibleMessages = messages.filter(isShownInThread);
   const latestUserMessageId =
     messages.findLast((message) => message.role === "user")?.id ?? null;
+
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  if (isBusy && editingMessageId !== null) {
+    setEditingMessageId(null);
+  }
+
+  const editControls = useMemo<EditControls>(
+    () => ({
+      cancel: () => setEditingMessageId(null),
+      start: setEditingMessageId,
+      submit: (message, text) => {
+        setEditingMessageId(null);
+        onEditMessage(message, text);
+        focusComposer();
+      },
+    }),
+    [onEditMessage]
+  );
+
+  const latestReplyId =
+    !isBusy && lastMessage?.role === "assistant" ? lastMessage.id : null;
+  const regenerateLabel = `Regenerate with ${getModelLabel(selectedModelId)}`;
+  const replyControls = useMemo<ReplyControls | undefined>(() => {
+    if (!(latestReplyId && latestUserMessageId)) {
+      return;
+    }
+    return {
+      onEditPrompt: () => setEditingMessageId(latestUserMessageId),
+      onRegenerate,
+      regenerateLabel,
+    };
+  }, [latestReplyId, latestUserMessageId, onRegenerate, regenerateLabel]);
 
   // Scroll the just-sent user message to the top of the viewport once per
   // submission. Tracked by ref so we don't re-fire on every re-render.
@@ -246,7 +291,7 @@ function PureMessages({
                   <Fragment key={message.id}>
                     <div
                       className={cn(
-                        index > 0 && message.role === "assistant" && "mt-5",
+                        index > 0 && message.role === "assistant" && "mt-1.5",
                         index > 0 && message.role !== "assistant" && "mt-7"
                       )}
                       style={
@@ -256,8 +301,15 @@ function PureMessages({
                       }
                     >
                       <PreviewMessage
+                        edit={isBusy ? undefined : editControls}
+                        isEditing={message.id === editingMessageId}
                         isStreaming={message.id === streamingMessageId}
                         message={message}
+                        reply={
+                          message.id === latestReplyId
+                            ? replyControls
+                            : undefined
+                        }
                       />
                       {isLast && isAwaitingContent ? (
                         <PendingReply isImage={isImageModelSelected} />
