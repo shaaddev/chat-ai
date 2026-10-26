@@ -404,11 +404,15 @@ const reports = [];
 let now = 0;
 let nextId = 1;
 let scheduled = false;
+let workerClosed = false;
 globalThis.postMessage = (message) => {
   writeSync(1, JSON.stringify(message) + "\\n");
   if (message.type === "exit") process.exit(0);
 };
 globalThis.addEventListener = (type, handler) => listeners.set(type, handler);
+globalThis.close = () => {
+  workerClosed = true;
+};
 globalThis.setTimeout = (callback, delay = 0, ...args) => {
   const id = nextId++;
   timers.set(id, { at: now + delay, run: () => callback(...args) });
@@ -503,6 +507,7 @@ function schedule() {
 }
 function step() {
   scheduled = false;
+  if (workerClosed) return;
   const task = (TIMER_FIRST ? nextTimer() ?? nextReport() : nextReport() ?? nextTimer()) ?? host.shift();
   if (!task) return;
   try {
@@ -701,6 +706,11 @@ describe.each(["timer first", "rejection first"] as const)(
         "a message posted on a closed port",
         "const { port1, port2 } = new MessageChannel();\nport2.onmessage = () => {};\nport1.close();\nport1.postMessage(1);\nconsole.log('posted');",
         "posted\n",
+      ],
+      [
+        "a program that closes its worker",
+        "console.log('closing');\nclose();\nconsole.log('after close');",
+        "closing\n",
       ],
       [
         "a message to a port that never starts",
