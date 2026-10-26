@@ -393,7 +393,9 @@ type TaskOrder = "timer first" | "rejection first";
 // child process whose timers and rejection reports are explicit queues. Like
 // a browser, it drops the report for a rejection handled before the report
 // runs. Host work, such as a WebAssembly compile, a Blob read, or a port
-// message, resolves from a third queue that always runs last.
+// message, resolves from a third queue that always runs last. An uncaught
+// throw reaches the error listener the way WebKit reports one from compiled
+// code: as "Script error." with no error object.
 const workerProcess = (code: string, order: TaskOrder) => `
 const { writeSync } = require("node:fs");
 const TIMER_FIRST = ${order === "timer first"};
@@ -512,6 +514,8 @@ function step() {
   if (!task) return;
   try {
     task();
+  } catch {
+    listeners.get("error")({ error: null, message: "Script error.", preventDefault() {} });
   } finally {
     schedule();
   }
@@ -658,6 +662,18 @@ describe.each(["timer first", "rejection first"] as const)(
         "Promise.resolve().then(() => Promise.resolve().then(() => { throw new Error('deep'); }));",
         "",
         "Uncaught (in promise) Error: deep",
+      ],
+      [
+        "a throw inside a timer",
+        "setTimeout(() => {\n  console.log('tick');\n  throw new Error('in timer');\n}, 10);",
+        "tick\n",
+        "Uncaught Error: in timer",
+      ],
+      [
+        "a throw the browser reports without its error",
+        "const { port1, port2 } = new MessageChannel();\nport1.onmessage = () => { throw new Error('in handler'); };\nport2.postMessage(1);\nawait new Blob(['x']).text();",
+        "",
+        "Script error.",
       ],
     ])("reports %s as an error", (_, code, printed, reason) => {
       const { stdout, exit } = runInWorker(code, { order });
