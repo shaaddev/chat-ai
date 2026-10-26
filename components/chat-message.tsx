@@ -7,6 +7,7 @@ import { getModelLabel, getModelProvider } from "@/lib/ai/models";
 import {
   type EmptyReplyReason,
   getEmptyReplyReason,
+  getReasoningText,
 } from "@/lib/message-display";
 import { extractSources, getFaviconUrl, type Source } from "@/lib/sources";
 import type { Attachment, ChatMessage } from "@/lib/types";
@@ -15,6 +16,7 @@ import { Markdown } from "./markdown";
 import { ActionButton, CopyButton, MessageActions } from "./message-actions";
 import { MessageContent } from "./message-content";
 import { MessageEditor } from "./message-editor";
+import { MessageReasoning } from "./message-reasoning";
 import { ProviderDot } from "./model-helpful-tooltips";
 import { PreviewAttachment } from "./preview-attachment";
 
@@ -175,6 +177,7 @@ function PureChatMessage({
   const isAssistant = message.role === "assistant";
   const lastPartIndex = message.parts.length - 1;
   const text = getMessageText(message);
+  const reasoningText = isAssistant ? getReasoningText(message) : "";
   const emptyReplyReason = isStreaming ? null : getEmptyReplyReason(message);
   const modelId = message.metadata?.model;
   const usedSearch = message.metadata?.useSearch === true;
@@ -202,6 +205,12 @@ function PureChatMessage({
       >
         {isAssistant && modelId ? (
           <ModelChip modelId={modelId} usedSearch={usedSearch} />
+        ) : null}
+        {reasoningText ? (
+          <MessageReasoning
+            isThinking={isStreaming && text.length === 0}
+            text={reasoningText}
+          />
         ) : null}
         {attachments.length > 0 && (
           <div
