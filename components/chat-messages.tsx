@@ -126,7 +126,7 @@ function ScrollToBottomButton({
         <motion.button
           animate={{ opacity: 1, y: 0 }}
           aria-label="Scroll to latest message"
-          className="absolute bottom-4 left-1/2 z-20 inline-flex size-9 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full bg-popover text-muted-foreground shadow-md transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="touch-hitbox absolute bottom-4 left-1/2 z-20 inline-flex size-9 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full bg-popover text-muted-foreground shadow-md transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           exit={{ opacity: 0, y: 8 }}
           initial={{ opacity: 0, y: 8 }}
           onClick={onClick}

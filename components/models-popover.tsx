@@ -189,7 +189,7 @@ export function ModelsPopover({
         className="outline-hidden focus:outline-hidden"
       >
         <button
-          className="group inline-flex h-[34px] min-w-0 cursor-pointer items-center gap-[7px] rounded-[10px] px-2.5 font-medium text-[13.5px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-accent data-[state=open]:text-foreground"
+          className="group touch-hitbox relative inline-flex h-[34px] min-w-0 cursor-pointer items-center gap-[7px] rounded-[10px] px-2.5 font-medium text-[13.5px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-accent data-[state=open]:text-foreground"
           data-testid="model-selector"
           type="button"
         >

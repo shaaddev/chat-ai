@@ -221,6 +221,27 @@
 }
 
 /* === UTILITIES === */
+
+/* Grows a control's hit area to at least 44px on touch screens without
+   changing how it looks. The control must be positioned. */
+@utility touch-hitbox {
+  @media (pointer: coarse) {
+    &::after {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: max(100%, 44px);
+      height: max(100%, 44px);
+      content: "";
+      translate: -50% -50%;
+    }
+  }
+}
+
+[data-streamdown="code-block-actions"] button {
+  @apply relative touch-hitbox;
+}
+
 @layer utilities {
   .no-scrollbar::-webkit-scrollbar {
     display: none;

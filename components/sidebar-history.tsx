@@ -306,7 +306,7 @@ function ChatRowComponent({
       ) : (
         <SidebarMenuButton
           asChild
-          className={`select-none [-webkit-touch-callout:none] focus-visible:ring-ring ${isDragging ? "opacity-0" : ""}`}
+          className={`pointer-coarse:h-11 select-none [-webkit-touch-callout:none] focus-visible:ring-ring ${isDragging ? "opacity-0" : ""}`}
           isActive={isActive}
         >
           <Link
@@ -345,7 +345,7 @@ function ChatRowComponent({
           <DropdownMenuTrigger asChild>
             <SidebarMenuAction
               aria-label={`More options for ${chat.title}`}
-              className="rounded-lg focus-visible:ring-ring"
+              className="pointer-coarse:top-3! rounded-lg focus-visible:ring-ring"
               showOnHover
             >
               <MoreHorizontal aria-hidden className="size-4" />

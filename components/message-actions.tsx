@@ -16,7 +16,7 @@ export function MessageActions({
   return (
     <div
       className={cn(
-        "flex gap-0.5 pointer-fine:opacity-0 transition-opacity duration-200 focus-within:opacity-100 pointer-fine:group-hover/message:opacity-100",
+        "flex gap-0.5 pointer-coarse:gap-3 pointer-fine:opacity-0 transition-opacity duration-200 focus-within:opacity-100 pointer-fine:group-hover/message:opacity-100",
         className
       )}
     >
@@ -39,7 +39,7 @@ export function ActionButton({
   return (
     <button
       aria-label={label}
-      className="flex size-8 cursor-pointer items-center justify-center rounded-[10px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="touch-hitbox relative flex size-8 cursor-pointer items-center justify-center rounded-[10px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       onClick={onClick}
       ref={ref}
       title={label}
