@@ -10,7 +10,7 @@ import {
   test,
 } from "bun:test";
 import { eq, sql } from "drizzle-orm";
-import { stream } from "./schema";
+import { chat, message, stream } from "./schema";
 import { hasTestDatabase, openTestDatabase } from "./test-database";
 
 mock.module("server-only", () => ({}));
@@ -442,6 +442,39 @@ describe.skipIf(!hasTestDatabase)(
 
       expect(second).toEqual(first);
       expect(await streamRows(chatId)).toBe(rowsAfterFirst);
+    });
+
+    test("in a chat with no turns yet, a repeated settle writes nothing and the next turn still saves", async () => {
+      const userId = await testDatabase.createUser();
+      const chatId = crypto.randomUUID();
+      // The import from Convex copied messages but no stream rows.
+      await testDatabase.db
+        .insert(chat)
+        .values({ id: chatId, userId, title: "Imported" });
+      await testDatabase.db.insert(message).values({
+        id: crypto.randomUUID(),
+        chatId,
+        role: "user",
+        parts: [{ type: "text", text: "An imported question" }],
+      });
+      const unseen = crypto.randomUUID();
+
+      const first = await settleTurn({ chatId, userId, turnId: unseen });
+      const rowsAfterFirst = await streamRows(chatId);
+      const second = await settleTurn({ chatId, userId, turnId: unseen });
+      const rowsAfterSecond = await streamRows(chatId);
+      const pending = await isReplyPending({ chatId, userId, turnId: unseen });
+      const next = await ask(chatId, userId, "A new question");
+      await answer(chatId, next, "A new answer");
+
+      expect(second).toEqual(first);
+      expect(rowsAfterSecond).toBe(rowsAfterFirst);
+      expect(pending).toBe(false);
+      expect(await thread(chatId)).toEqual([
+        "An imported question",
+        "A new question",
+        "A new answer",
+      ]);
     });
 
     test("a chat that does not exist has nothing to settle", async () => {
