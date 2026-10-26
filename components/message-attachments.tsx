@@ -22,10 +22,15 @@ function toAttachments(message: ChatMessage): Attachment[] {
     }
     const size =
       "size" in part && typeof part.size === "number" ? part.size : undefined;
+    const savedName =
+      "name" in part && typeof part.name === "string" ? part.name : undefined;
     return [
       {
         contentType: part.mediaType,
-        name: part.filename ?? (isImageType(part.mediaType) ? "Image" : "File"),
+        name:
+          part.filename ??
+          savedName ??
+          (isImageType(part.mediaType) ? "Image" : "File"),
         size,
         url: part.url,
       },
