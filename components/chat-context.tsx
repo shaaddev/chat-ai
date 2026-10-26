@@ -415,7 +415,12 @@ export function useChatTitle(chatId: string): string | undefined {
   if (context === undefined) {
     throw new Error("useChatTitle must be used within a ChatProvider");
   }
-  const { data } = useSWR<ChatSummary[]>(CHATS_KEY);
+  // On mobile the sidebar, and its list request, stay unmounted while the
+  // sheet is closed. This reader fetches only when the list is refreshed.
+  const { data } = useSWR(CHATS_KEY, fetchChats, {
+    revalidateOnMount: false,
+    revalidateOnFocus: false,
+  });
   const edit = context.pendingEdits.get(chatId);
   if (edit?.kind === "rename") {
     return edit.title;

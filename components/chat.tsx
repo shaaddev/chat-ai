@@ -164,12 +164,12 @@ function seedChatModelCookie(modelId: ChatModelId) {
 
 function ChatHeaderComponent({
   chatId,
-  isEmpty,
+  savedTitle,
 }: {
   chatId: string;
-  isEmpty: boolean;
+  savedTitle: string | undefined;
 }) {
-  const title = useChatTitle(chatId) ?? (isEmpty ? "New chat" : "");
+  const title = useChatTitle(chatId) ?? savedTitle ?? "New chat";
   return (
     <header className="flex h-[50px] shrink-0 items-center gap-1.5 px-2 md:h-12 md:px-3.5">
       <SidebarTrigger className="size-9 rounded-[10px] text-muted-foreground" />
@@ -192,6 +192,7 @@ interface ChatProps {
   initialChatModel: string;
   initialMessages: ChatMessage[];
   initialSystemPrompt?: string;
+  initialTitle?: string;
   session: Session | null;
 }
 
@@ -201,6 +202,7 @@ export function Chat({
   initialMessages,
   session,
   initialSystemPrompt,
+  initialTitle,
 }: ChatProps) {
   const [isAuthenticated] = useState(!!session);
   const { setChatLoading, refreshChats } = useChatContext();
@@ -404,7 +406,7 @@ export function Chat({
   return (
     <div className="flex h-full min-h-0 w-full">
       <div className="flex w-full min-w-0 flex-1 flex-col">
-        <ChatHeader chatId={id} isEmpty={isEmpty} />
+        <ChatHeader chatId={id} savedTitle={initialTitle} />
 
         <div className="relative flex min-h-0 w-full flex-1 flex-col">
           <Messages

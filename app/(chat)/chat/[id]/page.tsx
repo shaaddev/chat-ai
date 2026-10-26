@@ -34,6 +34,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
       initialChatModel={modelIdFromCookie?.value ?? DEFAULT_CHAT_MODEL}
       initialMessages={uiMessages}
       initialSystemPrompt={chat.systemPrompt ?? undefined}
+      initialTitle={chat.title}
       session={session}
     />
   );
