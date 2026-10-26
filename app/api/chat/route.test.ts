@@ -1,15 +1,32 @@
 /// <reference types="bun-types/test" />
 import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
 import type { Session } from "@/app/auth";
-import { chat } from "@/lib/db/schema";
+import { chat, message } from "@/lib/db/schema";
 import { hasTestDatabase, openTestDatabase } from "@/lib/db/test-database";
+import type { ChatMessage } from "@/lib/types";
 
 let session: Session | null = null;
+const titleRequests: ChatMessage[] = [];
+const backgroundTasks: Promise<unknown>[] = [];
 
 mock.module("server-only", () => ({}));
 mock.module("@/app/auth", () => ({ auth: async () => session }));
+const nextServer = await import("next/server");
+mock.module("next/server", () => ({
+  ...nextServer,
+  after: (task: Promise<unknown>) => backgroundTasks.push(task),
+}));
+const providers = await import("@/lib/ai/providers");
+mock.module("@/lib/ai/providers", () => ({
+  ...providers,
+  generateChatTitle: async (firstMessage: ChatMessage) => {
+    titleRequests.push(firstMessage);
+    return "Generated title";
+  },
+}));
 
 const { POST } = await import("./route");
+const { getChatsByUserId } = await import("@/lib/db/queries");
 
 const signInAs = (userId: string | null) => {
   session = userId
@@ -17,11 +34,11 @@ const signInAs = (userId: string | null) => {
     : null;
 };
 
-const firstTurn = (chatId: string) => ({
+const firstTurn = (chatId: string, messageId = crypto.randomUUID()) => ({
   id: chatId,
   selectedChatModel: "chat-5-mini",
   message: {
-    id: crypto.randomUUID(),
+    id: messageId,
     role: "user",
     parts: [{ type: "text", text: "Plan a weekend in Lisbon" }],
   },
@@ -68,5 +85,30 @@ describe.skipIf(!hasTestDatabase)("POST /api/chat against Postgres", () => {
 
     expect(response.status).toBe(403);
     expect((await response.json()).code).toBe("forbidden:chat");
+  });
+
+  test("a first turn rejected for a taken message id leaves no chat behind", async () => {
+    const userId = await testDatabase.createUser();
+    const earlierChatId = crypto.randomUUID();
+    const takenMessageId = crypto.randomUUID();
+    await testDatabase.db
+      .insert(chat)
+      .values({ id: earlierChatId, userId, title: "Earlier chat" });
+    await testDatabase.db.insert(message).values({
+      id: takenMessageId,
+      chatId: earlierChatId,
+      role: "user",
+      parts: [{ type: "text", text: "Hello" }],
+    });
+    signInAs(userId);
+    titleRequests.length = 0;
+
+    const response = await post(firstTurn(crypto.randomUUID(), takenMessageId));
+
+    expect(response.status).toBe(400);
+    expect((await getChatsByUserId(userId)).map(({ id }) => id)).toEqual([
+      earlierChatId,
+    ]);
+    expect(titleRequests).toEqual([]);
   });
 });
