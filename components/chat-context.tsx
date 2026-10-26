@@ -431,6 +431,21 @@ export function useChatTitle(chatId: string): string | undefined {
   return data?.find((chat) => chat.id === chatId)?.title;
 }
 
+// Reads the sidebar's cached list without a fetcher, so it never sends a
+// request of its own.
+export function useCachedChats(): ChatSummary[] {
+  const context = useContext(ChatListStateContext);
+  if (context === undefined) {
+    throw new Error("useCachedChats must be used within a ChatProvider");
+  }
+  const { data } = useSWR<ChatSummary[]>(CHATS_KEY);
+  const { pendingEdits } = context;
+  return useMemo(
+    () => (data ? applyPendingEdits(data, pendingEdits) : []),
+    [data, pendingEdits]
+  );
+}
+
 export function useChatDraft() {
   const context = useContext(ChatDraftContext);
   if (context === undefined) {
