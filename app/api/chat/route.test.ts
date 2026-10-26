@@ -1,5 +1,7 @@
 /// <reference types="bun-types/test" />
 import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
+import { simulateReadableStream } from "ai";
+import { MockLanguageModelV4 } from "ai/test";
 import type { Session } from "@/app/auth";
 import { chat, message } from "@/lib/db/schema";
 import { hasTestDatabase, openTestDatabase } from "@/lib/db/test-database";
@@ -7,7 +9,33 @@ import type { ChatMessage } from "@/lib/types";
 
 let session: Session | null = null;
 const titleRequests: ChatMessage[] = [];
+let pendingTitle = Promise.withResolvers<string>();
 const backgroundTasks: Promise<unknown>[] = [];
+
+const replyModel = new MockLanguageModelV4({
+  doStream: async () => ({
+    stream: simulateReadableStream({
+      chunks: [
+        { type: "text-start", id: "reply" },
+        { type: "text-delta", id: "reply", delta: "Here is a plan." },
+        { type: "text-end", id: "reply" },
+        {
+          type: "finish",
+          finishReason: { unified: "stop", raw: undefined },
+          usage: {
+            inputTokens: {
+              total: 1,
+              noCache: 1,
+              cacheRead: undefined,
+              cacheWrite: undefined,
+            },
+            outputTokens: { total: 1, text: 1, reasoning: undefined },
+          },
+        },
+      ],
+    }),
+  }),
+});
 
 mock.module("server-only", () => ({}));
 mock.module("@/app/auth", () => ({ auth: async () => session }));
@@ -19,14 +47,17 @@ mock.module("next/server", () => ({
 const providers = await import("@/lib/ai/providers");
 mock.module("@/lib/ai/providers", () => ({
   ...providers,
-  generateChatTitle: async (firstMessage: ChatMessage) => {
+  generateChatTitle: (firstMessage: ChatMessage) => {
     titleRequests.push(firstMessage);
-    return "Generated title";
+    return pendingTitle.promise;
   },
+  getLanguageModel: () => replyModel,
 }));
 
 const { POST } = await import("./route");
-const { getChatsByUserId } = await import("@/lib/db/queries");
+const { getChatById, getChatsByUserId, updateChat } = await import(
+  "@/lib/db/queries"
+);
 
 const signInAs = (userId: string | null) => {
   session = userId
@@ -110,5 +141,35 @@ describe.skipIf(!hasTestDatabase)("POST /api/chat against Postgres", () => {
       earlierChatId,
     ]);
     expect(titleRequests).toEqual([]);
+  });
+
+  test("the generated title replaces the provisional one", async () => {
+    const userId = await testDatabase.createUser();
+    const chatId = crypto.randomUUID();
+    signInAs(userId);
+    pendingTitle = Promise.withResolvers();
+
+    const response = await post(firstTurn(chatId));
+    expect((await getChatById(chatId))?.title).toBe("Plan a weekend in Lisbon");
+    pendingTitle.resolve("Weekend in Lisbon");
+    await Promise.all(backgroundTasks);
+    await response.text();
+
+    expect((await getChatById(chatId))?.title).toBe("Weekend in Lisbon");
+  });
+
+  test("a rename made while the title generates survives it", async () => {
+    const userId = await testDatabase.createUser();
+    const chatId = crypto.randomUUID();
+    signInAs(userId);
+    pendingTitle = Promise.withResolvers();
+
+    const response = await post(firstTurn(chatId));
+    await updateChat({ id: chatId, userId, changes: { title: "Lisbon trip" } });
+    pendingTitle.resolve("Weekend in Lisbon");
+    await Promise.all(backgroundTasks);
+    await response.text();
+
+    expect((await getChatById(chatId))?.title).toBe("Lisbon trip");
   });
 });
