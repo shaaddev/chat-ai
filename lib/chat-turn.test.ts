@@ -275,9 +275,9 @@ describe("a turn", () => {
     expect(calls).toEqual(["finished, kept the old reply"]);
   });
 
-  test("that ends after its chat closed is not settled", async () => {
+  test("that ends after its chat closed is still settled, so its text can go back to that chat", async () => {
     let mounted = true;
-    const { gate, server } = openChat(undefined, {
+    const { calls, gate, server } = openChat(undefined, {
       isMounted: () => mounted,
     });
 
@@ -285,9 +285,41 @@ describe("a turn", () => {
     await until(() => server.chat.length === 1);
     mounted = false;
     server.chat[0].fail(new TypeError("Failed to fetch"));
+    await until(() => server.settle.length === 1);
+    server.settle[0].respond(settled([QUESTION, ANSWER], false));
+    await until(() => gate.getStatus().phase === "idle");
+
+    expect(calls).toEqual(["handed back append, told"]);
+  });
+
+  test("whose saved chat the settle can't find keeps the thread on screen", async () => {
+    const { calls, gate, server } = openChat();
+
+    await ask(gate, "Hello");
+    await until(() => server.chat.length === 1);
+    server.chat[0].fail(new TypeError("Failed to fetch"));
+    await until(() => server.settle.length === 1);
+    server.settle[0].respond(errorResponse(404, "not_found:chat"));
+    await until(() => gate.getStatus().phase === "idle");
+
+    expect(shown(gate)).toEqual([
+      "user: Earlier question",
+      "assistant: Earlier answer",
+    ]);
+    expect(calls).toEqual(["handed back append, told"]);
+  });
+
+  test("stopped and then refused hands its text back and shows why, without a settle", async () => {
+    const { calls, gate, server } = openChat([]);
+    await ask(gate, "Hello");
+    await until(() => server.chat.length === 1);
+
+    gate.chat.stop();
+    server.chat[0].respond(errorResponse(400, "bad_request:api"));
     await until(() => gate.getStatus().phase === "idle");
 
     expect(server.settle).toHaveLength(0);
+    expect(calls).toEqual(["error shown", "handed back append"]);
   });
 });
 
@@ -333,7 +365,7 @@ describe("a stop before the response", () => {
 });
 
 describe("a send while a turn settles", () => {
-  const stopBeforeText = async (
+  const dropBeforeText = async (
     gate: TurnGate,
     server: ReturnType<typeof fakeServer>
   ) => {
@@ -345,7 +377,7 @@ describe("a send while a turn settles", () => {
 
   test("goes out once the settle shows the earlier turn saved", async () => {
     const { gate, server } = openChat();
-    await stopBeforeText(gate, server);
+    await dropBeforeText(gate, server);
     const [userTurn] = gate.chat.messages.slice(-1);
 
     const followUp = ask(gate, "A short one");
@@ -362,7 +394,7 @@ describe("a send while a turn settles", () => {
 
   test("shows that it is held, and a second send meanwhile is ignored", async () => {
     const { gate, server } = openChat();
-    await stopBeforeText(gate, server);
+    await dropBeforeText(gate, server);
     const [userTurn] = gate.chat.messages.slice(-1);
     let prepared = 0;
     const prepare = () => {
@@ -381,9 +413,31 @@ describe("a send while a turn settles", () => {
     expect(gate.getStatus()).toEqual({ phase: "running", stopping: false });
   });
 
+  test("never goes out once its chat has closed", async () => {
+    let mounted = true;
+    const { calls, gate, server } = openChat(undefined, {
+      isMounted: () => mounted,
+    });
+    await dropBeforeText(gate, server);
+    const [userTurn] = gate.chat.messages.slice(-1);
+    let prepared = false;
+
+    const followUp = gate.start(() => {
+      prepared = true;
+      return { kind: "append", files: [], text: "A short one" };
+    });
+    mounted = false;
+    server.settle[0].respond(settled([QUESTION, ANSWER, userTurn], true));
+    await followUp;
+
+    expect(prepared).toBe(false);
+    expect(server.chat).toHaveLength(1);
+    expect(calls).toEqual([]);
+  });
+
   test("never goes out when the earlier text comes back to the composer", async () => {
     const { calls, gate, server } = openChat();
-    await stopBeforeText(gate, server);
+    await dropBeforeText(gate, server);
     let prepared = false;
 
     const followUp = gate.start(() => {
@@ -434,6 +488,45 @@ describe("a settle that fails", () => {
     server.settle[1].respond(settled([QUESTION, ANSWER, userTurn], true));
     await followUp;
     await until(() => server.chat.length === 2);
+  });
+
+  test("shows the check when it is tried again, and a second try meanwhile sends nothing", async () => {
+    const { gate, server } = await failSettle();
+
+    gate.retry();
+    const whileChecking = gate.getStatus();
+    gate.retry();
+
+    expect(whileChecking).toEqual({ phase: "settling", held: false });
+    expect(server.settle).toHaveLength(2);
+  });
+
+  test("names the new reason when a second try fails differently", async () => {
+    const { gate, server } = await failSettle();
+
+    gate.retry();
+    await until(() => server.settle.length === 2);
+    server.settle[1].respond(errorResponse(500, "server:api"));
+    await until(() => gate.getStatus().phase === "unsettled");
+
+    expect(gate.getStatus()).toEqual({
+      phase: "unsettled",
+      reason: "server",
+      subject: "message",
+    });
+  });
+
+  test("holds a new send while it is checked again", async () => {
+    const { gate, server } = await failSettle();
+
+    const followUp = ask(gate, "A short one");
+    const whileChecking = gate.getStatus();
+    server.settle[1].respond(
+      settled([QUESTION, ANSWER, ...gate.chat.messages.slice(-1)], true)
+    );
+    await followUp;
+
+    expect(whileChecking).toEqual({ phase: "settling", held: true });
   });
 
   test("offline names the message it could not confirm", async () => {
