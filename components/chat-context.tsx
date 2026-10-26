@@ -205,6 +205,22 @@ function pinFailure(from: string | null, to: string | null) {
   return from === null ? "Chat wasn't pinned" : "Chat wasn't moved";
 }
 
+// Repeats until nothing is left, so a delete started while logout waits
+// still goes out before the session ends.
+async function settleDeletes(
+  pending: ReadonlyMap<string, PendingDelete>,
+  inFlight: ReadonlySet<Promise<void>>
+): Promise<void> {
+  if (pending.size === 0 && inFlight.size === 0) {
+    return;
+  }
+  await Promise.all([
+    ...[...pending.values()].map((pendingDelete) => pendingDelete.commit()),
+    ...inFlight,
+  ]);
+  await settleDeletes(pending, inFlight);
+}
+
 export function ChatProvider({ children }: { children: ReactNode }) {
   const { cache, mutate } = useSWRConfig();
   const [pendingEdits, setPendingEdits] = useState<PendingEdits>(
@@ -232,14 +248,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("pagehide", sendPendingDeletes);
   }, []);
 
-  const flushPendingDeletes = useCallback(async () => {
-    await Promise.all([
-      ...[...pendingDeletesRef.current.values()].map((pending) =>
-        pending.commit()
-      ),
-      ...inFlightDeletesRef.current,
-    ]);
-  }, []);
+  const flushPendingDeletes = useCallback(
+    () => settleDeletes(pendingDeletesRef.current, inFlightDeletesRef.current),
+    []
+  );
 
   const updateCachedChats = useCallback(
     (update: (chats: ChatSummary[]) => ChatSummary[]) =>

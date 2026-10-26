@@ -2,8 +2,6 @@
 
 import { LogOut, User } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
-import { useChat } from "@/components/chat-context";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -20,7 +18,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { authClient } from "@/lib/auth-client";
+import { useLogOut } from "@/hooks/use-log-out";
 
 const WHITESPACE = /\s+/;
 
@@ -42,27 +40,7 @@ interface UserProps {
 export function SidebarUser({ email, avatar, name }: UserProps) {
   const { isMobile } = useSidebar();
   const router = useRouter();
-  const { clearChats, flushPendingDeletes } = useChat();
-
-  const handleLogout = async () => {
-    // A delete still waiting on its Undo toast needs the session to go out.
-    await flushPendingDeletes();
-    await authClient.signOut({
-      fetchOptions: {
-        onSuccess: () => {
-          clearChats();
-          toast.success("Logged out");
-          router.push("/");
-          router.refresh();
-        },
-        onError: () => {
-          toast.error("Log out failed", {
-            description: "Check your connection and try again.",
-          });
-        },
-      },
-    });
-  };
+  const logOut = useLogOut();
 
   return (
     <SidebarMenu>
@@ -115,7 +93,7 @@ export function SidebarUser({ email, avatar, name }: UserProps) {
               </DropdownMenuItem>
               <DropdownMenuItem
                 className="rounded-lg hover:cursor-pointer"
-                onClick={handleLogout}
+                onClick={logOut}
               >
                 <LogOut aria-hidden />
                 Log out
