@@ -76,13 +76,13 @@ function parseMarkdownBlocks(md: string): MdBlock[] {
     if (line.startsWith("```")) {
       const lang = line.slice(3).trim();
       const codeLines: string[] = [];
-      i++;
+      i += 1;
       while (i < lines.length && !lines[i].startsWith("```")) {
         codeLines.push(lines[i]);
-        i++;
+        i += 1;
       }
       if (i < lines.length) {
-        i++;
+        i += 1;
       }
       blocks.push({ type: "code", lang, content: codeLines.join("\n") });
       continue;
@@ -95,31 +95,31 @@ function parseMarkdownBlocks(md: string): MdBlock[] {
         level: headingMatch[1].length,
         runs: parseInline(headingMatch[2]),
       });
-      i++;
+      i += 1;
       continue;
     }
 
     if (UNORDERED_LIST_REGEX.test(line)) {
       const content = line.replace(UNORDERED_LIST_PREFIX_REGEX, "");
       blocks.push({ type: "list-item", runs: parseInline(content) });
-      i++;
+      i += 1;
       continue;
     }
 
     if (ORDERED_LIST_REGEX.test(line)) {
       const content = line.replace(ORDERED_LIST_PREFIX_REGEX, "");
       blocks.push({ type: "list-item", runs: parseInline(content) });
-      i++;
+      i += 1;
       continue;
     }
 
     if (!line.trim()) {
-      i++;
+      i += 1;
       continue;
     }
 
     blocks.push({ type: "paragraph", runs: parseInline(line) });
-    i++;
+    i += 1;
   }
 
   return blocks;

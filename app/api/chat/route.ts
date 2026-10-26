@@ -3,10 +3,11 @@ import type { LanguageModelUsage } from "ai";
 import {
   convertToModelMessages,
   createUIMessageStream,
+  isStepCount,
   JsonToSseTransformStream,
   smoothStream,
-  stepCountIs,
   streamText,
+  toUIMessageStream,
 } from "ai";
 import { after } from "next/server";
 import {
@@ -17,8 +18,8 @@ import { generateTitleFromUserMessage } from "@/app/actions";
 import { auth } from "@/app/auth";
 import {
   getLanguageModel,
+  IMAGE_MODEL_SLUGS,
   image_models,
-  myProvider,
   stable_models,
 } from "@/lib/ai/models";
 import { systemPrompt } from "@/lib/ai/prompts";
@@ -48,14 +49,14 @@ function getUploadThingUrlFromResult(result: unknown): string | undefined {
       return undefined;
     }
     const rec = obj as Record<string, unknown>;
-    const data = rec.data;
+    const { data } = rec;
     if (data && typeof data === "object") {
       const drec = data as Record<string, unknown>;
       const ufs = drec.ufsUrl;
       if (typeof ufs === "string") {
         return ufs;
       }
-      const url = drec.url;
+      const { url } = drec;
       if (typeof url === "string") {
         return url;
       }
@@ -64,7 +65,7 @@ function getUploadThingUrlFromResult(result: unknown): string | undefined {
     if (typeof ufs === "string") {
       return ufs;
     }
-    const url = rec.url;
+    const { url } = rec;
     if (typeof url === "string") {
       return url;
     }
@@ -249,13 +250,6 @@ export async function POST(req: Request) {
           );
 
           if (isImageModel) {
-            const latestUserText = message.parts
-              .filter((p) => p.type === "text")
-              .map((p) => p.text)
-              .join("\n")
-              .trim()
-              .slice(0, 10_000);
-
             try {
               const response = await fetch(
                 "https://openrouter.ai/api/v1/chat/completions",
@@ -270,7 +264,7 @@ export async function POST(req: Request) {
                     "X-Title": "Chat AI - Shaad",
                   },
                   body: JSON.stringify({
-                    model: myProvider.imageModel(selectedChatModel),
+                    model: IMAGE_MODEL_SLUGS[selectedChatModel],
                     messages: [
                       {
                         role: "user",
@@ -307,7 +301,7 @@ export async function POST(req: Request) {
               } else if (result.data?.[0]?.b64_json) {
                 imageDataUrl = `data:image/png;base64,${result.data[0].b64_json}`;
               } else if (result.choices?.[0]?.images?.[0]) {
-                const imageData = result.choices[0].images[0];
+                const [imageData] = result.choices[0].images;
                 if (typeof imageData === "string") {
                   imageDataUrl = imageData.startsWith("data:")
                     ? imageData
@@ -363,8 +357,7 @@ export async function POST(req: Request) {
                   throw new Error("Invalid image data URL format");
                 }
 
-                const mimeType = dataUrlMatch[1];
-                const imageBase64 = dataUrlMatch[2];
+                const [, mimeType, imageBase64] = dataUrlMatch;
                 const extension = mimeType.split("/")[1] || "png";
                 const fileName = `image-${Date.now()}.${extension}`;
 
@@ -481,18 +474,20 @@ export async function POST(req: Request) {
               model: getLanguageModel(selectedChatModel, {
                 useWebSearch: useSearch,
               }),
-              system: systemPrompt({
+              instructions: systemPrompt({
                 selectedChatModel,
                 customSystemPrompt: effectiveSystemPrompt,
               }),
               messages: await convertToModelMessages(uiMessages),
               experimental_transform: smoothStream({ chunking: "word" }),
-              stopWhen: stepCountIs(5),
+              stopWhen: isStepCount(5),
               maxOutputTokens: 5000,
             });
 
             let assistantMessageId: string | null = null;
-            for await (const chunk of res.toUIMessageStream()) {
+            for await (const chunk of toUIMessageStream({
+              stream: res.stream,
+            })) {
               if (
                 assistantMessageId === null &&
                 chunk?.type === "data-appendMessage"
@@ -563,7 +558,7 @@ export async function POST(req: Request) {
 
             try {
               const usage: LanguageModelUsage = await res.usage;
-              const outputTokens = usage.outputTokens;
+              const { outputTokens } = usage;
 
               if (assistantMessageId) {
                 dataStream.write({
@@ -595,13 +590,13 @@ export async function POST(req: Request) {
         }
       },
       generateId: generateUUID,
-      onFinish: async ({ messages }) => {
+      onEnd: async ({ messages }) => {
         try {
-          const toSave = messages.map((message) => ({
-            id: message.id,
-            role: message.role,
-            parts: message.parts,
-            model: message.role === "assistant" ? selectedChatModel : null,
+          const toSave = messages.map((saved) => ({
+            id: saved.id,
+            role: saved.role,
+            parts: saved.parts,
+            model: saved.role === "assistant" ? selectedChatModel : null,
           }));
 
           if (fallbackImageAssistantMessage) {
@@ -625,9 +620,7 @@ export async function POST(req: Request) {
           console.error("Failed to save chat", error);
         }
       },
-      onError: () => {
-        return "Oops, an error occurred";
-      },
+      onError: () => "Oops, an error occurred",
     });
     return new Response(stream.pipeThrough(new JsonToSseTransformStream()));
   } catch (error) {

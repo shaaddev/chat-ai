@@ -249,13 +249,14 @@ export const myProvider = customProvider({
     "meta-llama-4-maverick": openrouter("meta-llama/llama-4-maverick"),
     "title-model": openrouter("google/gemini-2.5-flash-lite"),
   },
-  imageModels: {
-    // @ts-expect-error - keep as string since we're using the direct API
-    "chat-image-1-mini": "openai/gpt-5-image-mini",
-    // @ts-expect-error - same as above
-    "chat-gemini-2-5-flash-image": "google/gemini-2.5-flash-image",
-  },
 });
+
+// The route calls OpenRouter's chat completions API directly for images, so
+// these stay plain slugs instead of provider models.
+export const IMAGE_MODEL_SLUGS: Record<string, string> = {
+  "chat-image-1-mini": "openai/gpt-5-image-mini",
+  "chat-gemini-2-5-flash-image": "google/gemini-2.5-flash-image",
+};
 
 /**
  * Returns the language model for a given internal model ID. When `useWebSearch`

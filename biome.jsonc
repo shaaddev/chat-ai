@@ -20,7 +20,8 @@
         "useAwait": "off",
         "noEvolvingTypes": "off",
         "noArrayIndexKey": "off", // temp: we may take this back on later
-        "noImplicitAnyLet": "off"
+        "noImplicitAnyLet": "off",
+        "noUnnecessaryConditions": "off"
       },
       "correctness": {
         "noUnusedVariables": "off", // temp: we may take this back on later
@@ -31,8 +32,9 @@
         "noNestedTernary": "off",
         "useCollapsedElseIf": "off"
       },
-      "nursery": {
-        "noUnnecessaryConditions": "off"
+      "performance": {
+        // Inline handlers are this codebase's idiom; no profile shows a cost.
+        "noJsxPropsBind": "off"
       },
       "complexity": {
         "noExcessiveCognitiveComplexity": "off",
@@ -40,6 +42,14 @@
       },
       "a11y": {
         "noSvgWithoutTitle": "off"
+      }
+    }
+  },
+  "assist": {
+    "actions": {
+      "source": {
+        // Sorting would reorder literals whose key order drives UI order.
+        "useSortedKeys": "off"
       }
     }
   }

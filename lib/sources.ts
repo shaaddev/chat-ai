@@ -39,7 +39,7 @@ function asString(value: unknown): string | undefined {
 export function extractSources(
   message: ChatMessage | null | undefined
 ): Source[] {
-  if (!message || message.role !== "assistant") {
+  if (message?.role !== "assistant") {
     return [];
   }
 

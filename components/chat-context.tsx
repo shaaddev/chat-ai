@@ -136,10 +136,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const setChatLoading = useCallback((chatId: string, loading: boolean) => {
+  const setChatLoading = useCallback((chatId: string, isLoading: boolean) => {
     setLoadingChats((prev) => {
       const newSet = new Set(prev);
-      if (loading) {
+      if (isLoading) {
         newSet.add(chatId);
       } else {
         newSet.delete(chatId);

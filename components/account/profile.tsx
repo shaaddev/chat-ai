@@ -65,8 +65,8 @@ export function Profile({ user_info }: { user_info: UserInfo }) {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = (e) => {
-        setProfileImage(e.target?.result as string);
+      reader.onload = (loadEvent) => {
+        setProfileImage(loadEvent.target?.result as string);
       };
       reader.readAsDataURL(file);
     }

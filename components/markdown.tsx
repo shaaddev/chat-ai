@@ -1,3 +1,4 @@
+import { code } from "@streamdown/code";
 import Link from "next/link";
 import React, { memo } from "react";
 import { Streamdown, type StreamdownProps } from "streamdown";
@@ -40,7 +41,6 @@ const PROSE_CLASSES = [
   "[&_li]:my-1 [&_li]:leading-[1.65]",
   "[&_a]:text-accent [&_a]:underline-offset-2 hover:[&_a]:underline",
   "[&_code]:font-mono [&_code]:rounded [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-[0.88em]",
-  "[&_pre]:my-4 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:border [&_pre]:border-border/60 [&_pre]:bg-muted/50 [&_pre]:p-4",
   "[&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-[13px] [&_pre_code]:leading-[1.55]",
   "[&_blockquote]:my-4 [&_blockquote]:border-foreground/20 [&_blockquote]:border-l-2 [&_blockquote]:pl-4 [&_blockquote]:font-serif [&_blockquote]:text-muted-foreground [&_blockquote]:italic",
   "[&_table]:my-4 [&_table]:w-full [&_table]:border-collapse [&_table]:text-[14px]",
@@ -50,17 +50,16 @@ const PROSE_CLASSES = [
   "[&_img]:my-4 [&_img]:rounded-lg",
 ].join(" ");
 
-const NonMemoizedMarkdown = ({ children }: { children: string }) => {
-  return (
-    <Streamdown
-      className={PROSE_CLASSES}
-      components={components}
-      shikiTheme={["houston", "houston"]}
-    >
-      {children}
-    </Streamdown>
-  );
-};
+const NonMemoizedMarkdown = ({ children }: { children: string }) => (
+  <Streamdown
+    className={PROSE_CLASSES}
+    components={components}
+    plugins={{ code }}
+    shikiTheme={["houston", "houston"]}
+  >
+    {children}
+  </Streamdown>
+);
 
 export const Markdown = memo(
   NonMemoizedMarkdown,

@@ -8,7 +8,7 @@ import {
   requireDatabaseUrl,
 } from "./convex-export";
 
-const dir = process.argv[2];
+const [, , dir] = process.argv;
 if (!dir || dir.startsWith("--")) {
   console.error(
     "usage: bun scripts/verify-convex-migration.ts <export-dir> [--since=<ms>]"
@@ -91,7 +91,7 @@ for (const doc of snapshot.chats) {
     if (createdAfter(doc, since)) {
       problems.push(`chat ${id}: missing`);
     } else {
-      deletedAfterCutover.chats++;
+      deletedAfterCutover.chats += 1;
     }
     continue;
   }
@@ -126,7 +126,7 @@ for (const doc of snapshot.messages) {
     if (createdAfter(doc, since) && chatId && chats.has(chatId)) {
       problems.push(`message ${doc._id}: missing`);
     } else {
-      deletedAfterCutover.messages++;
+      deletedAfterCutover.messages += 1;
     }
     continue;
   }

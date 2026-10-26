@@ -142,16 +142,16 @@ export function ModelsPopover({ selectedModelId }: ModelSelectorProps) {
   const [optimisticModelId, setOptimisticModelId] =
     useOptimistic(selectedModelId);
 
-  const selectedChatModel = useMemo(() => {
-    return (
+  const selectedChatModel = useMemo(
+    () =>
       image_models.find((m) => m.id === optimisticModelId) ||
-      stable_models.find((m) => m.id === optimisticModelId)
-    );
-  }, [optimisticModelId]);
+      stable_models.find((m) => m.id === optimisticModelId),
+    [optimisticModelId]
+  );
 
   const filterModels = useCallback(
-    (models: model_selection[]) => {
-      return models.filter((m) => {
+    (models: model_selection[]) =>
+      models.filter((m) => {
         if (providerFilter && m.provider !== providerFilter) {
           return false;
         }
@@ -165,8 +165,7 @@ export function ModelsPopover({ selectedModelId }: ModelSelectorProps) {
           );
         }
         return true;
-      });
-    },
+      }),
     [providerFilter, query]
   );
 
