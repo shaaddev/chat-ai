@@ -65,14 +65,14 @@ const signInAs = (userId: string | null) => {
     : null;
 };
 
-const firstTurn = (chatId: string, messageId = crypto.randomUUID()) => ({
+const firstTurn = (
+  chatId: string,
+  messageId = crypto.randomUUID(),
+  text = "Plan a weekend in Lisbon"
+) => ({
   id: chatId,
   selectedChatModel: "chat-5-mini",
-  message: {
-    id: messageId,
-    role: "user",
-    parts: [{ type: "text", text: "Plan a weekend in Lisbon" }],
-  },
+  message: { id: messageId, role: "user", parts: [{ type: "text", text }] },
 });
 
 const post = (body: unknown) =>
@@ -141,6 +141,24 @@ describe.skipIf(!hasTestDatabase)("POST /api/chat against Postgres", () => {
       earlierChatId,
     ]);
     expect(titleRequests).toEqual([]);
+  });
+
+  test("a first message with a NUL character still starts its chat", async () => {
+    const userId = await testDatabase.createUser();
+    const chatId = crypto.randomUUID();
+    signInAs(userId);
+
+    pendingTitle = Promise.withResolvers();
+
+    const response = await post(
+      firstTurn(chatId, crypto.randomUUID(), "Plan a weekend\u0000 in Lisbon")
+    );
+    pendingTitle.resolve("Weekend in Lisbon");
+    await Promise.all(backgroundTasks);
+    await response.text();
+
+    expect(response.status).toBe(200);
+    expect((await getChatById(chatId))?.title).toBe("Weekend in Lisbon");
   });
 
   test("the generated title replaces the provisional one", async () => {
