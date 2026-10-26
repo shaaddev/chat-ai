@@ -1,54 +1,26 @@
-"use server";
+import "server-only";
 
 import React from "react";
 import { Resend } from "resend";
-import MagicLinkEmail from "@/emails/magic-link";
 import OtpEmail from "@/emails/otp-link";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
-export const magic_link_message = async (email: string, url: string) => {
-  try {
-    await resend.emails.send({
-      from: "chat <chat@shaaddev.com>",
-      to: [email],
-      subject: "Magic Link Verification",
-      react: React.createElement(MagicLinkEmail, {
-        email: email as string,
-        link: url as string,
-      }),
-    });
-
-    return {
-      success: true,
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error,
-    };
+export async function sendOtpEmail(email: string, pin: string) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("RESEND_API_KEY is not set");
+    }
+    console.info(`[auth] OTP for ${email}: ${pin}`);
+    return;
   }
-};
 
-export const email_otp_message = async (email: string, pin: string) => {
-  try {
-    await resend.emails.send({
-      from: "chat <chat@shaaddev.com>",
-      to: [email],
-      subject: "One-Time Password Verification",
-      react: React.createElement(OtpEmail, {
-        email: email as string,
-        pin: pin as string,
-      }),
-    });
-
-    return {
-      success: true,
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error,
-    };
+  const { error } = await new Resend(apiKey).emails.send({
+    from: "chat <chat@shaaddev.com>",
+    to: [email],
+    subject: "One-Time Password Verification",
+    react: React.createElement(OtpEmail, { email, pin }),
+  });
+  if (error) {
+    throw new Error(`Failed to send OTP email: ${error.message}`);
   }
-};
+}

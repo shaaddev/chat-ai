@@ -9,9 +9,9 @@ runs:
         bun-version: latest
 
     - name: setup node
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v7
       with:
         node-version: 24
 
     - shell: bash
-      run: bun install
+      run: bun install --frozen-lockfile

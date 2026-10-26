@@ -67,7 +67,8 @@ export function extractSources(
     });
   };
 
-  for (const part of message.parts ?? []) {
+  const parts: unknown[] = message.parts ?? [];
+  for (const part of parts) {
     if (!isRecord(part)) {
       continue;
     }

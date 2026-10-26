@@ -28,46 +28,26 @@ export function extractFileKey(url: string): string | null {
  * Extracts file keys from message parts that contain file attachments
  */
 export function extractFileKeysFromMessages(
-  messages: Array<{
-    parts: unknown;
-    attachments?: unknown;
-  }>
+  messages: Array<{ parts: unknown }>
 ): string[] {
   const fileKeys: string[] = [];
 
   for (const message of messages) {
-    // Check parts for file attachments
-    if (Array.isArray(message.parts)) {
-      for (const part of message.parts) {
-        if (
-          typeof part === "object" &&
-          part !== null &&
-          "type" in part &&
-          part.type === "file" &&
-          "url" in part &&
-          typeof part.url === "string"
-        ) {
-          const key = extractFileKey(part.url);
-          if (key) {
-            fileKeys.push(key);
-          }
-        }
-      }
+    if (!Array.isArray(message.parts)) {
+      continue;
     }
-
-    // Check legacy attachments field if it exists
-    if (Array.isArray(message.attachments)) {
-      for (const attachment of message.attachments) {
-        if (
-          typeof attachment === "object" &&
-          attachment !== null &&
-          "url" in attachment &&
-          typeof attachment.url === "string"
-        ) {
-          const key = extractFileKey(attachment.url);
-          if (key) {
-            fileKeys.push(key);
-          }
+    for (const part of message.parts) {
+      if (
+        typeof part === "object" &&
+        part !== null &&
+        "type" in part &&
+        part.type === "file" &&
+        "url" in part &&
+        typeof part.url === "string"
+      ) {
+        const key = extractFileKey(part.url);
+        if (key) {
+          fileKeys.push(key);
         }
       }
     }

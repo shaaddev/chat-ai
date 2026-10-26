@@ -5,8 +5,6 @@ import { ChatProvider } from "@/components/chat-context";
 import { PerformanceMonitor } from "@/components/performance-monitor";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
-import { getToken } from "@/lib/auth-server";
-import { ConvexClientProvider } from "@/lib/convex/client";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://chat.shaaddev.com"),
@@ -51,21 +49,11 @@ const jetbrainsMono = JetBrains_Mono({
   preload: true,
 });
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Get initial token, gracefully handle errors (user not authenticated)
-  let initialToken: string | null = null;
-  try {
-    const token = await getToken();
-    initialToken = token ?? null;
-  } catch {
-    // User not authenticated - this is expected for logged out users
-    initialToken = null;
-  }
-
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -109,12 +97,10 @@ export default async function RootLayout({
         className={`${geistSans.variable} ${sourceSerif.variable} ${jetbrainsMono.variable} bg-background text-foreground antialiased`}
       >
         <ThemeProvider>
-          <ConvexClientProvider initialToken={initialToken}>
-            <ChatProvider>
-              <main className="lg:mx-auto">{children}</main>
-              <Toaster position="bottom-right" />
-            </ChatProvider>
-          </ConvexClientProvider>
+          <ChatProvider>
+            <main className="lg:mx-auto">{children}</main>
+            <Toaster position="bottom-right" />
+          </ChatProvider>
         </ThemeProvider>
         {process.env.NODE_ENV === "development" && <PerformanceMonitor />}
       </body>

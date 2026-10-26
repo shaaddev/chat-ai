@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/app/auth";
-import { getChatsByUserId } from "@/lib/convex/queries";
+import { getChatsByUserId } from "@/lib/db/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +11,7 @@ export async function GET() {
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    const chats = await getChatsByUserId({ id: session.user.id });
+    const chats = await getChatsByUserId(session.user.id);
     return NextResponse.json(chats);
   } catch (error) {
     console.error("Failed to fetch chats: ", error);
