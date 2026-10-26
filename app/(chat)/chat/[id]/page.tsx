@@ -35,6 +35,7 @@ export default async function Page(props: { params: Promise<{ id: string }> }) {
       initialMessages={uiMessages}
       initialSystemPrompt={chat.systemPrompt ?? undefined}
       initialTitle={chat.title}
+      key={chat.id}
       session={session}
     />
   );

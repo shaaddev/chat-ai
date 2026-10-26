@@ -19,23 +19,129 @@ import {
   getChatModel,
 } from "@/lib/ai/models";
 import type { Session } from "@/lib/auth";
+import {
+  adoptThread,
+  joinDraftText,
+  requestSettle,
+  type SettledThread,
+  turnFailure,
+  turnOutcome,
+} from "@/lib/chat-turn";
 import { openCommandPalette } from "@/lib/command-palette";
 import { ChatSDKError } from "@/lib/errors";
 import { extractSources, type Source } from "@/lib/sources";
 import type { ChatMessage, DocumentDraft } from "@/lib/types";
+import { readiness, type SentFile, sentFiles } from "@/lib/uploadthing/tray";
 import {
   cn,
   fetchWithErrorHandlers,
   generateUUID,
   hasVisibleContent,
 } from "@/lib/utils";
+import { getAttachmentTray } from "./attachment-tray";
 import { ChatInput } from "./chat-input";
-import { Messages } from "./chat-messages";
+import { Messages, type SettleStatus, type UnsavedEdit } from "./chat-messages";
 import { AttachmentDropZone } from "./drop-overlay";
 import { EmptyGreeting, SuggestionChips } from "./empty-chat-state";
 
 const DRAFT_SAVE_DELAY_MS = 200;
 const DOCUMENT_TITLE_MAX_LENGTH = 80;
+const CHAT_TITLE_MAX_LENGTH = 80;
+const STOP_WAIT_MS = 10_000;
+
+type TurnRequest =
+  | { kind: "append"; files: SentFile[]; text: string }
+  | { kind: "edit"; messageId: string; text: string }
+  | { kind: "regenerate"; replacedReply: ChatMessage | undefined };
+
+interface Turn {
+  id: string;
+  request: TurnRequest;
+}
+
+interface PreparedTurn {
+  request: TurnRequest;
+  send: () => Promise<void>;
+}
+
+type SettleResult = "settled" | "handed-back" | "failed";
+
+interface Ended {
+  expectReply: boolean;
+  shown: ChatMessage[];
+  turn: Turn;
+}
+
+type PendingTurn =
+  | { phase: "running"; turn: Turn; error?: unknown }
+  | ({ phase: "settling"; result: Promise<SettleResult> } & Ended)
+  | ({ phase: "unsettled" } & Ended);
+
+const TURN_NOT_SAVED: Record<
+  TurnRequest["kind"],
+  { title: string; description: string }
+> = {
+  append: {
+    title: "Your message wasn't sent",
+    description: "It's back in the composer.",
+  },
+  edit: {
+    title: "Your edit wasn't saved",
+    description: "Its text is back so you can try again.",
+  },
+  regenerate: {
+    title: "The reply wasn't regenerated",
+    description: "Try regenerating it again.",
+  },
+};
+
+const chatTitle = ({ request }: Turn) =>
+  (request.kind === "append"
+    ? request.text
+        .replaceAll("\u0000", "")
+        .trim()
+        .slice(0, CHAT_TITLE_MAX_LENGTH)
+    : "") || "New chat";
+
+// A Stop before the response starts waits for it, because the server answers
+// only after it saves or refuses the turn. A settle sent sooner could reach the
+// server before that save, and a new chat has no row yet for it to claim.
+async function fetchTurn(
+  input: RequestInfo | URL,
+  init: RequestInit | undefined,
+  onAccepted: () => void
+): Promise<Response> {
+  const stopped = init?.signal;
+  const request = new AbortController();
+  let accepted = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const stop = () => {
+    if (accepted) {
+      request.abort();
+    } else {
+      timer ??= setTimeout(() => request.abort(), STOP_WAIT_MS);
+    }
+  };
+  if (stopped?.aborted) {
+    stop();
+  }
+  stopped?.addEventListener("abort", stop, { once: true });
+  try {
+    const response = await fetchWithErrorHandlers(input, {
+      ...init,
+      signal: request.signal,
+    });
+    accepted = true;
+    onAccepted();
+    if (stopped?.aborted) {
+      request.abort();
+    }
+    return response;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 const MemoizedChatInput = memo(ChatInput);
 const LazyDocumentSheet = dynamic(
   () => import("./document-sheet").then((module) => module.DocumentSheet),
@@ -227,7 +333,7 @@ export function Chat({
   initialTitle,
 }: ChatProps) {
   const [isAuthenticated] = useState(!!session);
-  const { setChatLoading, refreshChats } = useChatContext();
+  const { addOptimisticChat, setChatLoading, refreshChats } = useChatContext();
   const { getChatInputState, setChatInputState, clearChatInputState } =
     useChatDraft();
   const [selectedModelId, setSelectedModelId] = useState<ChatModelId>(
@@ -286,104 +392,338 @@ export function Chat({
     requestSettingsRef.current = requestSettings;
   });
 
-  const [lastTrigger, setLastTrigger] = useState<
-    "submit-message" | "regenerate-message"
-  >("submit-message");
+  const savedThreadRef = useRef(initialMessages);
+  const isNewChatRef = useRef(initialMessages.length === 0);
+  const pendingRef = useRef<PendingTurn | undefined>(undefined);
+  const [settleStatus, setSettleStatus] = useState<SettleStatus | null>(null);
+  const [unsavedEdit, setUnsavedEdit] = useState<UnsavedEdit | null>(null);
+  const mountedRef = useRef(false);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const setPending = useCallback((pending: PendingTurn | undefined) => {
+    pendingRef.current = pending;
+    setSettleStatus(
+      pending?.phase === "settling" || pending?.phase === "unsettled"
+        ? pending.phase
+        : null
+    );
+  }, []);
+
+  const showChatSaved = useCallback(
+    (turn: Turn) => {
+      if (!(isNewChatRef.current && mountedRef.current)) {
+        return;
+      }
+      isNewChatRef.current = false;
+      window.history.replaceState({}, "", `/chat/${id}`);
+      addOptimisticChat({ id, title: chatTitle(turn) });
+    },
+    [addOptimisticChat, id]
+  );
+
   const [transport] = useState(
     () =>
       new DefaultChatTransport<ChatMessage>({
         api: "/api/chat",
-        fetch: fetchWithErrorHandlers,
+        fetch: (url, init) =>
+          fetchTurn(url, init, () => {
+            const pending = pendingRef.current;
+            if (pending) {
+              showChatSaved(pending.turn);
+            }
+          }),
         prepareSendMessagesRequest: ({
           messages: outgoing,
           id: chatId,
           trigger,
           messageId,
-        }) => {
-          setLastTrigger(trigger);
-          return {
-            body: {
-              id: chatId,
-              message: outgoing.at(-1),
-              trigger,
-              messageId,
-              ...requestSettingsRef.current,
-            },
-          };
-        },
+        }) => ({
+          body: {
+            id: chatId,
+            message: outgoing.at(-1),
+            trigger,
+            messageId,
+            turnId: pendingRef.current?.turn.id,
+            ...requestSettingsRef.current,
+          },
+        }),
       })
   );
 
-  // The server saves a regenerated reply only when it has visible content, and
-  // otherwise keeps the old one, so the thread puts the old one back to match.
-  const replacedReplyRef = useRef<ChatMessage | undefined>(undefined);
-
-  const {
-    error,
-    messages,
-    regenerate,
-    sendMessage,
-    status,
-    setMessages,
-    stop,
-  } = useChat<ChatMessage>({
-    id,
-    messages: initialMessages,
-    generateId: generateUUID,
-    transport,
-    throttle: 50,
-    onFinish: ({ message, isAbort, isError }) => {
-      const replacedReply = replacedReplyRef.current;
-      replacedReplyRef.current = undefined;
-      if (!(isAbort || isError) && message.parts.some(isFileUIPart)) {
-        toast.success("Image generated");
-      }
-      if (replacedReply && !hasVisibleContent(message)) {
-        setMessages((current) => [
-          ...current.filter(({ id: messageId }) => messageId !== message.id),
-          replacedReply,
-        ]);
-        if (!(isAbort || isError)) {
-          toast("Kept the previous reply", {
-            description: "The regenerated reply came back empty.",
+  const { messages, regenerate, sendMessage, status, setMessages, stop } =
+    useChat<ChatMessage>({
+      id,
+      messages: initialMessages,
+      generateId: generateUUID,
+      transport,
+      throttle: 50,
+      onFinish: ({ message, messages: thread, isAbort, isError }) => {
+        const pending = pendingRef.current;
+        if (pending?.phase !== "running") {
+          refreshChats();
+          return;
+        }
+        // Leaving a chat mid-turn skips the settle, so the reply the server is
+        // still saving lands.
+        if (!mountedRef.current) {
+          pendingRef.current = undefined;
+          refreshChats();
+          return;
+        }
+        const { turn, error } = pending;
+        const outcome = turnOutcome({ isAbort, isError, error });
+        if (outcome === "finished") {
+          finishTurn(turn, message, thread);
+        } else if (outcome === "refused") {
+          restoreInput(turn, showSaved(turn, thread, savedThreadRef.current));
+        } else {
+          settle({
+            turn,
+            shown: thread,
+            expectReply: hasVisibleContent(message),
           });
         }
-      }
-      refreshChats();
-    },
-    onError: (err) => {
-      toast.error("Error", {
-        description:
-          err instanceof ChatSDKError && typeof err.cause === "string"
-            ? err.cause
-            : err.message,
-      });
-    },
-  });
+      },
+      onError: (err) => {
+        const pending = pendingRef.current;
+        if (pending?.phase === "running") {
+          setPending({ ...pending, error: err });
+        }
+        if (turnFailure(err) === "lost") {
+          return;
+        }
+        toast.error("Error", {
+          description:
+            err instanceof ChatSDKError && typeof err.cause === "string"
+              ? err.cause
+              : err.message,
+        });
+      },
+    });
   const { latestAssistantMessage, latestUserMessage } =
     getLatestConversationMessages(messages);
 
-  const replyToRegenerate = messages.at(-1);
-  const handleRegenerate = useCallback(async () => {
-    replacedReplyRef.current =
-      replyToRegenerate?.role === "assistant" &&
-      hasVisibleContent(replyToRegenerate)
-        ? replyToRegenerate
-        : undefined;
-    setChatLoading(id, true);
-    await regenerate();
-  }, [id, regenerate, replyToRegenerate, setChatLoading]);
+  const showChatMissing = useCallback(() => {
+    isNewChatRef.current = true;
+    if (mountedRef.current && window.location.pathname === `/chat/${id}`) {
+      window.history.replaceState({}, "", "/");
+    }
+  }, [id]);
 
-  const handleEditMessage = useCallback(
-    async (message: ChatMessage, text: string) => {
+  const showSaved = useCallback(
+    (turn: Turn, shown: ChatMessage[], saved: ChatMessage[]) => {
+      const thread = adoptThread(shown, saved);
+      savedThreadRef.current = thread;
+      setMessages(thread);
+      setPending(undefined);
+      if (thread.length > 0) {
+        showChatSaved(turn);
+      } else {
+        showChatMissing();
+      }
+      refreshChats();
+      return thread;
+    },
+    [refreshChats, setMessages, setPending, showChatMissing, showChatSaved]
+  );
+
+  const restoreInput = useCallback(
+    ({ request }: Turn, thread: ChatMessage[]) => {
+      if (request.kind === "regenerate") {
+        return false;
+      }
+      const isEditShown =
+        request.kind === "edit" &&
+        thread.some(({ id: messageId }) => messageId === request.messageId);
+      if (isEditShown && mountedRef.current) {
+        setUnsavedEdit({ messageId: request.messageId, text: request.text });
+        return true;
+      }
+      if (mountedRef.current) {
+        setInput((typed) => joinDraftText(request.text, typed));
+      } else {
+        // The composer loads this draft when the chat opens again.
+        setChatInputState(id, {
+          input: joinDraftText(request.text, getChatInputState(id).input),
+        });
+      }
+      if (request.kind === "append") {
+        getAttachmentTray(id).restore(request.files);
+      }
+      return true;
+    },
+    [getChatInputState, id, setChatInputState]
+  );
+
+  const settle = useCallback(
+    ({ expectReply, shown, turn }: Ended) => {
+      const result = requestSettle(id, turn.id, expectReply).then(
+        ({ messages: saved, turnSaved }: SettledThread): SettleResult => {
+          const thread = showSaved(turn, shown, saved);
+          if (turnSaved) {
+            return "settled";
+          }
+          if (mountedRef.current) {
+            const notice = TURN_NOT_SAVED[turn.request.kind];
+            toast(notice.title, { description: notice.description });
+          }
+          return restoreInput(turn, thread) ? "handed-back" : "settled";
+        },
+        (): SettleResult => {
+          setPending({ phase: "unsettled", expectReply, shown, turn });
+          return "failed";
+        }
+      );
+      setPending({ phase: "settling", expectReply, result, shown, turn });
+      return result;
+    },
+    [id, restoreInput, setPending, showSaved]
+  );
+
+  const finishTurn = useCallback(
+    (turn: Turn, reply: ChatMessage, thread: ChatMessage[]) => {
+      if (reply.parts.some(isFileUIPart)) {
+        toast.success("Image generated");
+      }
+      const { request } = turn;
+      // The server keeps the old reply when a regenerated one comes back empty.
+      const keptReply =
+        request.kind === "regenerate" && !hasVisibleContent(reply)
+          ? request.replacedReply
+          : undefined;
+      const saved = keptReply
+        ? [
+            ...thread.filter(({ id: messageId }) => messageId !== reply.id),
+            keptReply,
+          ]
+        : thread;
+      if (keptReply) {
+        setMessages(saved);
+        toast("Kept the previous reply", {
+          description: "The regenerated reply came back empty.",
+        });
+      }
+      savedThreadRef.current = saved;
+      setPending(undefined);
+      refreshChats();
+    },
+    [refreshChats, setMessages, setPending]
+  );
+
+  const startTurn = useCallback(
+    async (prepare: () => PreparedTurn | undefined) => {
+      const pending = pendingRef.current;
+      if (pending?.phase === "running") {
+        return;
+      }
+      if (pending) {
+        const result = await (pending.phase === "settling"
+          ? pending.result
+          : settle(pending));
+        if (result !== "settled" || pendingRef.current) {
+          return;
+        }
+      }
+      const prepared = prepare();
+      if (!prepared) {
+        return;
+      }
+      const turn: Turn = { id: generateUUID(), request: prepared.request };
+      setPending({ phase: "running", turn });
       setChatLoading(id, true);
-      await sendMessage({
-        text,
-        files: message.parts.filter(isFileUIPart),
-        messageId: message.id,
+      prepared.send().catch(() => {
+        if (pendingRef.current?.turn === turn) {
+          setPending(undefined);
+          setChatLoading(id, false);
+        }
       });
     },
-    [id, sendMessage, setChatLoading]
+    [id, setChatLoading, setPending, settle]
+  );
+
+  const retrySettle = useCallback(() => {
+    const pending = pendingRef.current;
+    if (pending?.phase === "unsettled") {
+      settle(pending);
+    }
+  }, [settle]);
+
+  useEffect(() => {
+    if (settleStatus !== "unsettled") {
+      return;
+    }
+    window.addEventListener("online", retrySettle);
+    return () => window.removeEventListener("online", retrySettle);
+  }, [retrySettle, settleStatus]);
+
+  // The attachments are read when the turn starts, which can be after a
+  // settle the send waited on.
+  const sendTurn = useCallback(
+    (text: string) =>
+      startTurn(() => {
+        const tray = getAttachmentTray(id);
+        const items = tray.getItems();
+        const trayState = readiness(items);
+        const files = sentFiles(items);
+        if (
+          trayState === "uploading" ||
+          trayState === "failed" ||
+          !(text || files.length > 0)
+        ) {
+          return;
+        }
+        return {
+          request: { kind: "append", files, text },
+          send: () => {
+            clearChatInputState(id);
+            tray.clearAfterSend();
+            setInput("");
+            return sendMessage({
+              role: "user",
+              parts: [
+                ...files.map((file) => ({ type: "file" as const, ...file })),
+                ...(text ? [{ type: "text" as const, text }] : []),
+              ],
+            });
+          },
+        };
+      }),
+    [clearChatInputState, id, sendMessage, startTurn]
+  );
+
+  const replyToRegenerate = messages.at(-1);
+  const handleRegenerate = useCallback(() => {
+    startTurn(() => ({
+      request: {
+        kind: "regenerate",
+        replacedReply:
+          replyToRegenerate?.role === "assistant" &&
+          hasVisibleContent(replyToRegenerate)
+            ? replyToRegenerate
+            : undefined,
+      },
+      send: () => regenerate(),
+    }));
+  }, [regenerate, replyToRegenerate, startTurn]);
+
+  const handleEditMessage = useCallback(
+    (message: ChatMessage, text: string) => {
+      startTurn(() => ({
+        request: { kind: "edit", messageId: message.id, text },
+        send: () =>
+          sendMessage({
+            text,
+            files: message.parts.filter(isFileUIPart),
+            messageId: message.id,
+          }),
+      }));
+    },
+    [sendMessage, startTurn]
   );
 
   const latestAssistantId = latestAssistantMessage?.id;
@@ -447,14 +787,6 @@ export function Chat({
 
   const isSourcesPanelOpen = !isDocumentSheetOpen && panelSources.length > 0;
   const isRightPanelOpen = isDocumentSheetOpen || isSourcesPanelOpen;
-  // The server answers with an HTTP error only before it saves a turn, and
-  // fetchWithErrorHandlers turns every HTTP error into a ChatSDKError. So a
-  // refused send or edit saved no message to regenerate. A refused
-  // regenerate leaves its saved message, which can still be regenerated.
-  const sendWasRefused =
-    status === "error" &&
-    error instanceof ChatSDKError &&
-    lastTrigger === "submit-message";
   const isEmpty = messages.length === 0;
 
   return (
@@ -476,11 +808,13 @@ export function Chat({
             onEditMessage={handleEditMessage}
             onOpenDocumentBuilder={openDocumentBuilder}
             onRegenerate={handleRegenerate}
+            onRetrySettle={retrySettle}
             onToggleSources={toggleSources}
             selectedModelId={selectedModelId}
-            sendWasRefused={sendWasRefused}
+            settleStatus={settleStatus}
             sourcesMessageId={isSourcesPanelOpen ? sourcesMessageId : null}
             status={status}
+            unsavedEdit={unsavedEdit}
           />
 
           <div
@@ -496,13 +830,12 @@ export function Chat({
             <MemoizedChatInput
               autoDocumentGeneration={autoDocumentGeneration}
               chatId={id}
-              clearChatInputState={clearChatInputState}
               customSystemPrompt={customSystemPrompt}
               input={input}
               isAuthenticated={isAuthenticated}
               onSelectModel={handleSelectModel}
               selectedModelId={selectedModelId}
-              sendMessage={sendMessage}
+              sendTurn={sendTurn}
               setAutoDocumentGeneration={setAutoDocumentGeneration}
               setCustomSystemPrompt={setCustomSystemPrompt}
               setInput={setInput}

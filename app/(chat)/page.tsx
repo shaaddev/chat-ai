@@ -16,6 +16,7 @@ export default async function Page() {
       id={id}
       initialChatModel={modelIdFromCookie?.value ?? DEFAULT_CHAT_MODEL}
       initialMessages={[]}
+      key={id}
       session={session}
     />
   );

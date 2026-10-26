@@ -22,9 +22,17 @@ import {
   EmptyReplyNotice,
   PreviewMessage,
   type ReplyControls,
+  UnsettledNotice,
 } from "./chat-message";
 import { Markdown } from "./markdown";
 import { ThinkingIndicator } from "./thinking-indicator";
+
+export type SettleStatus = "settling" | "unsettled";
+
+export interface UnsavedEdit {
+  messageId: string;
+  text: string;
+}
 
 interface MessagesProps {
   chatId: string;
@@ -35,11 +43,13 @@ interface MessagesProps {
   onEditMessage: (message: ChatMessage, text: string) => void;
   onOpenDocumentBuilder: () => void;
   onRegenerate: () => void;
+  onRetrySettle: () => void;
   onToggleSources: (messageId: string) => void;
   selectedModelId: ChatModelId;
-  sendWasRefused: boolean;
+  settleStatus: SettleStatus | null;
   sourcesMessageId: string | null;
   status: UseChatHelpers<ChatMessage>["status"];
+  unsavedEdit: UnsavedEdit | null;
 }
 
 const CODE_BLOCK_REGEX = /```[\s\S]*?```/;
@@ -147,21 +157,24 @@ function PureMessages({
   chatId,
   messages,
   status,
-  sendWasRefused,
+  settleStatus,
   isImageModelSelected,
   isNarrow,
   documentDraft,
   onEditMessage,
   onOpenDocumentBuilder,
   onRegenerate,
+  onRetrySettle,
   onToggleSources,
   selectedModelId,
   sourcesMessageId,
+  unsavedEdit,
 }: MessagesProps) {
   const { containerRef, isAtBottom, scrollToBottom, scrollUserMessageToTop } =
     useMessages();
 
   const isBusy = status === "submitted" || status === "streaming";
+  const isIdle = !isBusy && settleStatus === null;
   const lastMessage = messages.at(-1);
   const streamingMessageId =
     status === "streaming" && lastMessage?.role === "assistant"
@@ -172,22 +185,31 @@ function PureMessages({
     lastMessage !== undefined &&
     (lastMessage.role === "user" || !isShownInThread(lastMessage));
   const visibleMessages = messages.filter(isShownInThread);
-  const isMissingReply =
-    !(isBusy || sendWasRefused) && endsWithoutReply(messages);
+  const isMissingReply = isIdle && endsWithoutReply(messages);
   const latestUserMessageId =
     messages.findLast((message) => message.role === "user")?.id ?? null;
 
-  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
-  if (isBusy && editingMessageId !== null) {
-    setEditingMessageId(null);
+  const [editing, setEditing] = useState<{
+    messageId: string;
+    text?: string;
+  } | null>(null);
+  if (!isIdle && editing !== null) {
+    setEditing(null);
+  }
+  const [shownUnsavedEdit, setShownUnsavedEdit] = useState(unsavedEdit);
+  if (unsavedEdit !== shownUnsavedEdit) {
+    setShownUnsavedEdit(unsavedEdit);
+    if (unsavedEdit) {
+      setEditing(unsavedEdit);
+    }
   }
 
   const editControls = useMemo<EditControls>(
     () => ({
-      cancel: () => setEditingMessageId(null),
-      start: setEditingMessageId,
+      cancel: () => setEditing(null),
+      start: (messageId) => setEditing({ messageId }),
       submit: (message, text) => {
-        setEditingMessageId(null);
+        setEditing(null);
         onEditMessage(message, text);
         focusComposer();
       },
@@ -196,14 +218,14 @@ function PureMessages({
   );
 
   const latestReplyId =
-    !isBusy && lastMessage?.role === "assistant" ? lastMessage.id : null;
+    isIdle && lastMessage?.role === "assistant" ? lastMessage.id : null;
   const regenerateLabel = `Regenerate with ${getModelLabel(selectedModelId)}`;
   const replyControls = useMemo<ReplyControls | undefined>(() => {
     if (!(latestReplyId && latestUserMessageId)) {
       return;
     }
     return {
-      onEditPrompt: () => setEditingMessageId(latestUserMessageId),
+      onEditPrompt: () => setEditing({ messageId: latestUserMessageId }),
       onRegenerate,
       regenerateLabel,
     };
@@ -312,8 +334,8 @@ function PureMessages({
                       }
                     >
                       <PreviewMessage
-                        edit={isBusy ? undefined : editControls}
-                        isEditing={message.id === editingMessageId}
+                        edit={isIdle ? editControls : undefined}
+                        isEditing={message.id === editing?.messageId}
                         isSourcesOpen={message.id === sourcesMessageId}
                         isStreaming={message.id === streamingMessageId}
                         message={message}
@@ -321,6 +343,11 @@ function PureMessages({
                         reply={
                           message.id === latestReplyId
                             ? replyControls
+                            : undefined
+                        }
+                        unsavedEditText={
+                          message.id === editing?.messageId
+                            ? editing.text
                             : undefined
                         }
                       />
@@ -333,6 +360,11 @@ function PureMessages({
                             onRegenerate={onRegenerate}
                             reason="missing"
                           />
+                        </div>
+                      ) : null}
+                      {isLast && settleStatus === "unsettled" ? (
+                        <div className="mt-5">
+                          <UnsettledNotice onRetry={onRetrySettle} />
                         </div>
                       ) : null}
                     </div>

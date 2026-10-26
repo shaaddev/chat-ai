@@ -42,11 +42,19 @@ export interface TrayEffects {
 
 export type TrayReadiness = "empty" | "uploading" | "failed" | "ready";
 
+export interface SentFile {
+  filename: string;
+  mediaType: string;
+  size: number;
+  url: string;
+}
+
 export interface AttachmentTray {
   add: (files: File[]) => void;
   clearAfterSend: () => void;
   getItems: () => readonly TrayItem[];
   remove: (id: string) => void;
+  restore: (files: readonly SentFile[]) => void;
   retry: (id: string) => void;
   subscribe: (listener: () => void) => () => void;
 }
@@ -64,6 +72,21 @@ export function readiness(items: readonly TrayItem[]): TrayReadiness {
     return "failed";
   }
   return items.some((item) => item.status === "done") ? "ready" : "empty";
+}
+
+export function sentFiles(items: readonly TrayItem[]): SentFile[] {
+  return items.flatMap((item) =>
+    item.status === "done"
+      ? [
+          {
+            filename: item.name,
+            mediaType: item.mediaType,
+            size: item.size,
+            url: item.url,
+          },
+        ]
+      : []
+  );
 }
 
 function withStatus(item: TrayItem, status: TrayItemStatus): TrayItem {
@@ -207,6 +230,34 @@ export function createAttachmentTray(effects: TrayEffects): AttachmentTray {
         effects.discard(item.url);
       } else {
         cancel(item);
+      }
+    },
+    restore: (sent) => {
+      const room = ATTACHMENT_MAX_COUNT - items.length;
+      const restored: TrayItem[] = [];
+      const rejections: Rejection[] = [];
+      for (const { filename: name, mediaType, size, url } of sent) {
+        const check = checkAttachment({ type: mediaType, size });
+        if (check.ok && restored.length < room) {
+          restored.push({
+            id: effects.createId(),
+            mediaType: check.mediaType,
+            name,
+            previewUrl: isImageType(check.mediaType) ? url : null,
+            size,
+            status: "done",
+            url,
+          });
+        } else {
+          rejections.push({ name, reason: check.ok ? "count" : check.reason });
+          effects.discard(url);
+        }
+      }
+      if (rejections.length > 0) {
+        effects.notifyRejected(rejections);
+      }
+      if (restored.length > 0) {
+        commit([...restored, ...items]);
       }
     },
     retry: (id) => {

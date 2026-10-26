@@ -9,6 +9,7 @@ import {
   createAttachmentTray,
   type Rejection,
   readiness,
+  sentFiles,
   type UploadOptions,
 } from "./tray";
 
@@ -228,6 +229,104 @@ describe("attachment tray", () => {
 
     expect(tray.getItems()).toEqual([]);
     expect(discarded).toEqual([]);
+  });
+
+  test("restored files come back as done uploads ahead of newer ones", async () => {
+    const { tray, uploads } = setup();
+    tray.add([pdf("new.pdf")]);
+    uploads[0].resolve("https://files.test/new.pdf");
+    await settle();
+
+    tray.restore([
+      {
+        filename: "chart.png",
+        mediaType: "image/png",
+        size: 2048,
+        url: "https://files.test/chart.png",
+      },
+    ]);
+
+    expect(
+      tray.getItems().map(({ name, status }) => ({ name, status }))
+    ).toEqual([
+      { name: "chart.png", status: "done" },
+      { name: "new.pdf", status: "done" },
+    ]);
+    expect(tray.getItems()[0]).toMatchObject({
+      previewUrl: "https://files.test/chart.png",
+      url: "https://files.test/chart.png",
+    });
+    expect(readiness(tray.getItems())).toBe("ready");
+  });
+
+  test("removing a restored file deletes its stored file", () => {
+    const { tray, discarded } = setup();
+    tray.restore([
+      {
+        filename: "notes.pdf",
+        mediaType: "application/pdf",
+        size: 512,
+        url: "u1",
+      },
+    ]);
+
+    tray.remove(tray.getItems()[0].id);
+
+    expect(tray.getItems()).toEqual([]);
+    expect(discarded).toEqual(["u1"]);
+  });
+
+  test("restored files the tray would refuse are rejected and deleted", () => {
+    const { tray, discarded, rejected } = setup();
+    tray.add(
+      Array.from({ length: ATTACHMENT_MAX_COUNT - 1 }, (_, index) =>
+        image(`kept-${index}.png`)
+      )
+    );
+
+    tray.restore([
+      {
+        filename: "clip.mov",
+        mediaType: "video/quicktime",
+        size: 1,
+        url: "u1",
+      },
+      {
+        filename: "huge.png",
+        mediaType: "image/png",
+        size: ATTACHMENT_MAX_BYTES + 1,
+        url: "u2",
+      },
+      { filename: "fits.png", mediaType: "image/png", size: 1, url: "u3" },
+      { filename: "extra.png", mediaType: "image/png", size: 1, url: "u4" },
+    ]);
+
+    expect(tray.getItems()).toHaveLength(ATTACHMENT_MAX_COUNT);
+    expect(tray.getItems()[0].name).toBe("fits.png");
+    expect(rejected).toEqual([
+      [
+        { name: "clip.mov", reason: "type" },
+        { name: "huge.png", reason: "size" },
+        { name: "extra.png", reason: "count" },
+      ],
+    ]);
+    expect(discarded).toEqual(["u1", "u2", "u4"]);
+  });
+
+  test("a send carries only the finished uploads", async () => {
+    const { tray, uploads } = setup();
+    tray.add([image("done.png"), pdf("pending.pdf")]);
+    uploads[0].resolve("https://files.test/done.png");
+    await settle();
+
+    expect(sentFiles(tray.getItems())).toEqual([
+      {
+        filename: "done.png",
+        mediaType: "image/png",
+        size: tray.getItems()[0].size,
+        url: "https://files.test/done.png",
+      },
+    ]);
   });
 
   test("notifies subscribers until they unsubscribe", () => {

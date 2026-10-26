@@ -10,7 +10,6 @@ import {
   useState,
 } from "react";
 import { toast } from "sonner";
-import { useChat } from "@/components/chat-context";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -54,13 +53,12 @@ function pastedFiles(clipboard: DataTransfer): File[] {
 interface ChatInputProps {
   autoDocumentGeneration: boolean;
   chatId: string;
-  clearChatInputState: (chatId: string) => void;
   customSystemPrompt?: string;
   input: string;
   isAuthenticated?: boolean;
   onSelectModel: (modelId: ChatModelId) => void;
   selectedModelId: ChatModelId;
-  sendMessage: UseChatHelpers<ChatMessage>["sendMessage"];
+  sendTurn: (text: string) => Promise<void>;
   setAutoDocumentGeneration: Dispatch<SetStateAction<boolean>>;
   setCustomSystemPrompt: Dispatch<SetStateAction<string | undefined>>;
   setInput: Dispatch<SetStateAction<string>>;
@@ -74,7 +72,7 @@ interface ChatInputProps {
 export function ChatInput({
   setInput,
   input,
-  sendMessage,
+  sendTurn,
   stop,
   status,
   chatId,
@@ -86,7 +84,6 @@ export function ChatInput({
   setUseSearch,
   autoDocumentGeneration,
   setAutoDocumentGeneration,
-  clearChatInputState,
   customSystemPrompt,
   setCustomSystemPrompt,
 }: ChatInputProps) {
@@ -99,7 +96,7 @@ export function ChatInput({
   const [systemPromptDraft, setSystemPromptDraft] = useState(
     customSystemPrompt ?? ""
   );
-  const { addOptimisticChat, setChatLoading } = useChat();
+  const [isSendWaiting, setIsSendWaiting] = useState(false);
   const tray = getAttachmentTray(chatId);
   const trayReadiness = useTrayReadiness(tray);
   const hasText = input.trim().length > 0;
@@ -120,72 +117,22 @@ export function ChatInput({
     [isAuthenticated, tray]
   );
 
-  const submitForm = useCallback(() => {
-    if (!canSend) {
+  const submitForm = useCallback(async () => {
+    if (!canSend || isSendWaiting) {
       return;
     }
-
-    window.history.replaceState({}, "", `/chat/${chatId}`);
-
     if (!isAuthenticated) {
       setShowLoginDialog(true);
       return;
     }
 
-    setChatLoading(chatId, true);
-
-    addOptimisticChat({
-      id: chatId,
-      title: input.replaceAll("\u0000", "").trim().slice(0, 80) || "New chat",
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
-
-    const fileParts = tray.getItems().flatMap((item) =>
-      item.status === "done"
-        ? [
-            {
-              type: "file" as const,
-              mediaType: item.mediaType,
-              filename: item.name,
-              size: item.size,
-              url: item.url,
-            },
-          ]
-        : []
-    );
-
+    setIsSendWaiting(true);
     try {
-      sendMessage({
-        role: "user",
-        parts: [
-          ...fileParts,
-          ...(hasText ? [{ type: "text" as const, text: input }] : []),
-        ],
-      });
-    } catch (error) {
-      setChatLoading(chatId, false);
-      throw error;
+      await sendTurn(hasText ? input : "");
+    } finally {
+      setIsSendWaiting(false);
     }
-
-    clearChatInputState(chatId);
-    tray.clearAfterSend();
-    setInput("");
-    // Note: we intentionally do NOT reset useSearch — it persists across
-    // submissions and is the user's global preference.
-  }, [
-    canSend,
-    sendMessage,
-    setInput,
-    chatId,
-    isAuthenticated,
-    addOptimisticChat,
-    setChatLoading,
-    tray,
-    hasText,
-    input,
-    clearChatInputState,
-  ]);
+  }, [canSend, isSendWaiting, isAuthenticated, sendTurn, hasText, input]);
 
   const isBusy = status === "submitted" || status === "streaming";
 
@@ -276,6 +223,7 @@ export function ChatInput({
           placeholder={
             needsText ? "Describe the image you want" : "Ask anything"
           }
+          readOnly={isSendWaiting}
           ref={textareaRef}
           rows={1}
           style={{ height: textareaHeight }}
@@ -397,7 +345,10 @@ export function ChatInput({
           {isBusy ? (
             <StopButton setMessages={setMessages} stop={stop} />
           ) : (
-            <SendButton canSend={canSend} submitForm={submitForm} />
+            <SendButton
+              canSend={canSend && !isSendWaiting}
+              submitForm={submitForm}
+            />
           )}
         </div>
       </div>
