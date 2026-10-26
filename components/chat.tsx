@@ -499,7 +499,11 @@ export function Chat({
         />
       ) : null}
       {isSourcesPanelOpen ? (
-        <LazySourcesPanel onClose={closeSources} sources={panelSources} />
+        <LazySourcesPanel
+          key={sourcesMessageId}
+          onClose={closeSources}
+          sources={panelSources}
+        />
       ) : null}
     </div>
   );
