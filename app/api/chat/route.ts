@@ -464,6 +464,8 @@ export async function POST(req: Request) {
               parts: responseMessage.parts,
               model: model.id,
             },
+            replacesRepliesAfter:
+              turn.type === "regenerate" ? turn.userMessageId : undefined,
           });
         } catch (error) {
           console.error("Failed to save the assistant message", error);

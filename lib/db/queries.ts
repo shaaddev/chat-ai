@@ -202,6 +202,10 @@ export async function saveUserTurn({
 // Thrown inside the transaction so the deletes roll back with the insert.
 class MessageIdTakenError extends Error {}
 
+const messagePosition = sql`(${message.createdAt}, ${message.id})`;
+const positionOf = (messageId: string) =>
+  sql`(select ${message.createdAt}, ${message.id} from ${message} where ${message.id} = ${messageId})`;
+
 async function saveUserTurnOrThrow({
   chatId,
   userId,
@@ -231,13 +235,18 @@ async function saveUserTurnOrThrow({
       if (!kept) {
         return null;
       }
-      const position = sql`(${message.createdAt}, ${message.id})`;
-      const keptPosition = sql`(select ${message.createdAt}, ${message.id} from ${message} where ${message.id} = ${kept.id})`;
-      const replaced =
-        turn.type === "edit"
-          ? sql`${position} >= ${keptPosition}`
-          : sql`${position} > ${keptPosition}`;
-      await tx.delete(message).where(and(eq(message.chatId, chatId), replaced));
+      // A regenerate keeps the current reply until its replacement saves,
+      // so a stopped or empty regenerate loses nothing.
+      if (turn.type === "edit") {
+        await tx
+          .delete(message)
+          .where(
+            and(
+              eq(message.chatId, chatId),
+              sql`${messagePosition} >= ${positionOf(kept.id)}`
+            )
+          );
+      }
     }
     const now = new Date();
     if (turn.type !== "regenerate") {
@@ -258,11 +267,19 @@ async function saveUserTurnOrThrow({
     }
     await tx.insert(stream).values({ id: streamId, chatId, createdAt: now });
     await tx.update(chat).set({ updatedAt: now }).where(eq(chat.id, chatId));
-    return await tx
+    const history = await tx
       .select()
       .from(message)
-      .where(eq(message.chatId, chatId))
+      .where(
+        and(
+          eq(message.chatId, chatId),
+          turn.type === "regenerate"
+            ? sql`${messagePosition} <= ${positionOf(turn.userMessageId)}`
+            : undefined
+        )
+      )
       .orderBy(asc(message.createdAt), asc(message.id));
+    return history;
   });
 }
 
@@ -270,10 +287,12 @@ export async function saveReplyIfLatestTurn({
   chatId,
   streamId,
   reply,
+  replacesRepliesAfter,
 }: {
   chatId: string;
   streamId: string;
   reply: NewMessage & Pick<Message, "model">;
+  replacesRepliesAfter?: string;
 }) {
   await getDb().transaction(async (tx) => {
     await tx
@@ -283,6 +302,16 @@ export async function saveReplyIfLatestTurn({
       .for("update");
     if ((await latestStreamId(tx, chatId)) !== streamId) {
       return;
+    }
+    if (replacesRepliesAfter) {
+      await tx
+        .delete(message)
+        .where(
+          and(
+            eq(message.chatId, chatId),
+            sql`${messagePosition} > ${positionOf(replacesRepliesAfter)}`
+          )
+        );
     }
     const now = new Date();
     await tx
