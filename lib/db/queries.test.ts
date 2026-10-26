@@ -9,7 +9,7 @@ import {
   setSystemTime,
   test,
 } from "bun:test";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { stream } from "./schema";
 import { hasTestDatabase, openTestDatabase } from "./test-database";
 
@@ -352,37 +352,60 @@ describe.skipIf(!hasTestDatabase)(
       ]);
     });
 
-    test("turns and settles in one millisecond still sort in the order they ran", async () => {
+    // Turns that land in one millisecond push each other's stamps ahead of
+    // the clock, so a row stamped later than now stands in for that tie.
+    const stampAheadOfTheClock = async (chatId: string) => {
+      await testDatabase.db.insert(stream).values({
+        id: crypto.randomUUID(),
+        chatId,
+        createdAt: sql`clock_timestamp() + interval '1 second'`,
+      });
+    };
+
+    test("a turn becomes the latest even when an earlier row is stamped ahead of the clock", async () => {
       const { chatId, userId } = await answeredChat();
-      const startTurn = async () => {
-        const turnId = crypto.randomUUID();
-        await saveUserTurn({
-          chatId,
-          userId,
-          streamId: turnId,
-          turn: append("Another question"),
-        });
-        return turnId;
-      };
-      const turnThenSettle = async (remaining: number): Promise<void> => {
-        if (remaining === 0) {
-          return;
-        }
-        await settleTurn({ chatId, userId, turnId: await startTurn() });
-        await turnThenSettle(remaining - 1);
-      };
+      await stampAheadOfTheClock(chatId);
 
-      await turnThenSettle(50);
-      const lastTurnId = await startTurn();
-      const stamps = (
-        await testDatabase.db
-          .select({ createdAt: stream.createdAt })
-          .from(stream)
-          .where(eq(stream.chatId, chatId))
-      ).map(({ createdAt }) => createdAt.getTime());
+      const turnId = await ask(chatId, userId, "Tell me a story");
 
-      expect(new Set(stamps).size).toBe(stamps.length);
-      expect(await getLatestStreamId(chatId)).toBe(lastTurnId);
+      expect(await getLatestStreamId(chatId)).toBe(turnId);
+    });
+
+    test("a settle ends a turn that is stamped ahead of the clock", async () => {
+      const { chatId, userId } = await answeredChat();
+      await stampAheadOfTheClock(chatId);
+      const turnId = await ask(chatId, userId, "Tell me a story");
+
+      await settleTurn({ chatId, userId, turnId });
+      await answer(chatId, turnId, "Once upon a time");
+
+      expect(await thread(chatId)).toEqual([
+        "First question",
+        "First answer",
+        "Tell me a story",
+      ]);
+    });
+
+    test("a turn id from another chat is not a turn of this chat", async () => {
+      const { chatId, userId } = await answeredChat();
+      const other = await answeredChat();
+      const otherTurnId = await ask(
+        other.chatId,
+        other.userId,
+        "Tell me a story"
+      );
+
+      const settled = await settleTurn({ chatId, userId, turnId: otherTurnId });
+      await answer(other.chatId, otherTurnId, "Once upon a time");
+
+      expect(settled?.turnSaved).toBe(false);
+      expect(await thread(chatId)).toEqual(["First question", "First answer"]);
+      expect(await thread(other.chatId)).toEqual([
+        "First question",
+        "First answer",
+        "Tell me a story",
+        "Once upon a time",
+      ]);
     });
 
     test("a turn settled before its request arrives cannot save when it arrives", async () => {
