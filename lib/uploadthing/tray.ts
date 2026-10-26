@@ -44,7 +44,7 @@ export type TrayReadiness = "empty" | "uploading" | "failed" | "ready";
 
 export interface SentFile {
   filename: string;
-  mediaType: string;
+  mediaType: AttachmentMediaType;
   size: number;
   url: string;
 }
@@ -232,33 +232,24 @@ export function createAttachmentTray(effects: TrayEffects): AttachmentTray {
         cancel(item);
       }
     },
+    // Every file goes back, even past the per-message limit. They are the
+    // user's uploads, so only the user removes them.
     restore: (sent) => {
-      const room = ATTACHMENT_MAX_COUNT - items.length;
-      const restored: TrayItem[] = [];
-      const rejections: Rejection[] = [];
-      for (const { filename: name, mediaType, size, url } of sent) {
-        const check = checkAttachment({ type: mediaType, size });
-        if (check.ok && restored.length < room) {
-          restored.push({
-            id: effects.createId(),
-            mediaType: check.mediaType,
-            name,
-            previewUrl: isImageType(check.mediaType) ? url : null,
-            size,
-            status: "done",
-            url,
-          });
-        } else {
-          rejections.push({ name, reason: check.ok ? "count" : check.reason });
-          effects.discard(url);
-        }
+      if (sent.length === 0) {
+        return;
       }
-      if (rejections.length > 0) {
-        effects.notifyRejected(rejections);
-      }
-      if (restored.length > 0) {
-        commit([...restored, ...items]);
-      }
+      const restored = sent.map(
+        ({ filename, mediaType, size, url }): TrayItem => ({
+          id: effects.createId(),
+          mediaType,
+          name: filename,
+          previewUrl: isImageType(mediaType) ? url : null,
+          size,
+          status: "done",
+          url,
+        })
+      );
+      commit([...restored, ...items]);
     },
     retry: (id) => {
       const item = items.find((candidate) => candidate.id === id);
