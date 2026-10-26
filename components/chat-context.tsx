@@ -410,6 +410,23 @@ export function useChatList(): ChatList {
   return { status: error ? "error" : "loading" };
 }
 
+/** Reads a chat's title from the list the sidebar loads, without fetching. */
+export function useChatTitle(chatId: string): string | undefined {
+  const context = useContext(ChatListStateContext);
+  if (context === undefined) {
+    throw new Error("useChatTitle must be used within a ChatProvider");
+  }
+  const { data } = useSWR<ChatSummary[]>(CHATS_KEY);
+  const edit = context.pendingEdits.get(chatId);
+  if (edit?.kind === "rename") {
+    return edit.title;
+  }
+  if (edit?.kind === "delete") {
+    return;
+  }
+  return data?.find((chat) => chat.id === chatId)?.title;
+}
+
 export function useChatDraft() {
   const context = useContext(ChatDraftContext);
   if (context === undefined) {

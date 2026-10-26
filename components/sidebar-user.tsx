@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronsUpDown, LogOut, User } from "lucide-react";
+import { LogOut, User } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useChat } from "@/components/chat-context";
@@ -21,6 +21,17 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { authClient } from "@/lib/auth-client";
+
+const WHITESPACE = /\s+/;
+
+function initialsOf(name: string | undefined) {
+  return (name ?? "")
+    .split(WHITESPACE)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word.charAt(0).toUpperCase())
+    .join("");
+}
 
 interface UserProps {
   avatar?: string;
@@ -57,19 +68,16 @@ export function SidebarUser({ email, avatar, name }: UserProps) {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
-              className="cursor-pointer rounded-lg hover:bg-sidebar-accent focus-visible:ring-ring data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+              className="gap-2.5 px-2 font-medium text-sidebar-foreground focus-visible:ring-ring"
               size="lg"
             >
-              <Avatar className="size-8 rounded-full">
+              <Avatar className="size-7">
                 <AvatarImage alt={name} src={avatar} />
-                <AvatarFallback className="rounded-full bg-primary text-primary-foreground">
-                  {name?.charAt(0).toUpperCase()}
+                <AvatarFallback className="bg-secondary font-semibold text-[11px] text-muted-foreground">
+                  {initialsOf(name)}
                 </AvatarFallback>
               </Avatar>
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">{name}</span>
-              </div>
-              <ChevronsUpDown aria-hidden className="ml-auto size-4" />
+              <span className="truncate">{name}</span>
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
@@ -80,10 +88,10 @@ export function SidebarUser({ email, avatar, name }: UserProps) {
           >
             <DropdownMenuLabel className="p-0 font-normal">
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                <Avatar className="size-8 rounded-full">
+                <Avatar className="size-7">
                   <AvatarImage alt={name} src={avatar} />
-                  <AvatarFallback className="rounded-full bg-primary text-primary-foreground">
-                    {name?.charAt(0).toUpperCase()}
+                  <AvatarFallback className="bg-card font-semibold text-[11px] text-muted-foreground">
+                    {initialsOf(name)}
                   </AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">

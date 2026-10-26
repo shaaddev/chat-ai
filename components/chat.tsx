@@ -1,15 +1,14 @@
 "use client";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import { PanelLeft } from "lucide-react";
 import dynamic from "next/dynamic";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   useChat as useChatContext,
   useChatDraft,
+  useChatTitle,
 } from "@/components/chat-context";
-import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import {
   type ChatModelId,
@@ -161,6 +160,24 @@ function seedChatModelCookie(modelId: ChatModelId) {
   }
   window.cookieStore.set("chat-model", modelId).catch(() => undefined);
 }
+
+function ChatHeaderComponent({
+  chatId,
+  isEmpty,
+}: {
+  chatId: string;
+  isEmpty: boolean;
+}) {
+  const title = useChatTitle(chatId) ?? (isEmpty ? "New chat" : "");
+  return (
+    <header className="flex h-[50px] shrink-0 items-center gap-1.5 px-2 md:h-12 md:px-3.5">
+      <SidebarTrigger className="size-9 rounded-[10px] text-muted-foreground" />
+      <h1 className="min-w-0 truncate font-medium text-sm">{title}</h1>
+    </header>
+  );
+}
+
+const ChatHeader = memo(ChatHeaderComponent);
 
 interface ChatRequestSettings {
   autoDocumentGeneration: boolean;
@@ -384,19 +401,9 @@ export function Chat({
   const messageWidthClass = isRightPanelOpen ? "max-w-2xl" : "max-w-3xl";
 
   return (
-    <div className="flex h-dvh w-full bg-background text-foreground">
+    <div className="flex h-full min-h-0 w-full">
       <div className="flex w-full min-w-0 flex-1 flex-col">
-        <header className="flex h-14 shrink-0 items-center gap-3 px-4">
-          <SidebarTrigger className="rounded-lg">
-            <Button className="size-8" size="icon" variant="ghost">
-              <PanelLeft className="size-4" />
-              <span className="sr-only">Toggle sidebar</span>
-            </Button>
-          </SidebarTrigger>
-          <span className="select-none font-serif text-[15px] text-foreground/75 italic tracking-tight">
-            chat<span className="text-primary">.</span>
-          </span>
-        </header>
+        <ChatHeader chatId={id} isEmpty={messages.length === 0} />
 
         <div className="flex w-full flex-1 flex-col overflow-hidden">
           <Messages
