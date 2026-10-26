@@ -57,6 +57,7 @@ interface ChatActions {
   addOptimisticChat: (chat: NewChat) => void;
   clearChats: () => void;
   deleteChat: (chatId: string) => void;
+  flushPendingDeletes: () => Promise<void>;
   refreshChats: () => Promise<void>;
   renameChat: (chatId: string, title: string) => Promise<void>;
   setChatLoading: (chatId: string, loading: boolean) => void;
@@ -64,6 +65,11 @@ interface ChatActions {
     chat: Pick<ChatSummary, "id" | "pinnedKey">,
     pinnedKey: string | null
   ) => Promise<void>;
+}
+
+interface PendingDelete {
+  commit: () => Promise<void>;
+  sendOnUnload: () => void;
 }
 
 interface ChatListState {
@@ -208,7 +214,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     () => new Set()
   );
   const chatInputStatesRef = useRef<Map<string, ChatInputState>>(new Map());
-  const unsentDeletesRef = useRef<Set<string>>(new Set());
+  const pendingDeletesRef = useRef<Map<string, PendingDelete>>(new Map());
   const lastPinRequestRef = useRef<Map<string, Promise<Response | null>>>(
     new Map()
   );
@@ -216,14 +222,19 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   // A delete waits behind its Undo toast. If the page unloads first, send it
   // with keepalive so the chat the user saw disappear stays deleted.
   useEffect(() => {
-    const flushDeletes = () => {
-      for (const chatId of unsentDeletesRef.current) {
-        fetch(`/api/chats/${chatId}`, { method: "DELETE", keepalive: true });
+    const sendPendingDeletes = () => {
+      for (const pending of pendingDeletesRef.current.values()) {
+        pending.sendOnUnload();
       }
-      unsentDeletesRef.current.clear();
     };
-    window.addEventListener("pagehide", flushDeletes);
-    return () => window.removeEventListener("pagehide", flushDeletes);
+    window.addEventListener("pagehide", sendPendingDeletes);
+    return () => window.removeEventListener("pagehide", sendPendingDeletes);
+  }, []);
+
+  const flushPendingDeletes = useCallback(async () => {
+    await Promise.all(
+      [...pendingDeletesRef.current.values()].map((pending) => pending.commit())
+    );
   }, []);
 
   const updateCachedChats = useCallback(
@@ -284,29 +295,36 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     (chatId: string) => {
       const edit: PendingEdit = { kind: "delete" };
       setPendingEdits((edits) => withEdit(edits, chatId, edit));
-      unsentDeletesRef.current.add(chatId);
 
       let settled = false;
-      const undo = () => {
+      let toastId: string | number | undefined;
+      const settle = () => {
         if (settled) {
-          return;
+          return false;
         }
         settled = true;
-        unsentDeletesRef.current.delete(chatId);
-        setPendingEdits((edits) => withoutEdit(edits, chatId, edit));
+        pendingDeletesRef.current.delete(chatId);
+        return true;
+      };
+      const forget = () => {
+        chatInputStatesRef.current.delete(chatId);
+        return updateCachedChats((chats) =>
+          chats.filter((chat) => chat.id !== chatId)
+        );
+      };
+      const undo = () => {
+        if (settle()) {
+          setPendingEdits((edits) => withoutEdit(edits, chatId, edit));
+        }
       };
       const commit = async () => {
-        if (settled) {
+        if (!settle()) {
           return;
         }
-        settled = true;
-        unsentDeletesRef.current.delete(chatId);
+        toast.dismiss(toastId);
         const res = await sendChatRequest(chatId, { method: "DELETE" });
         if (res && (res.ok || res.status === 404)) {
-          chatInputStatesRef.current.delete(chatId);
-          await updateCachedChats((chats) =>
-            chats.filter((chat) => chat.id !== chatId)
-          );
+          await forget();
         } else {
           toast.error("Chat wasn't deleted", {
             description: "It's back in your list. Try deleting it again.",
@@ -314,8 +332,20 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         }
         setPendingEdits((edits) => withoutEdit(edits, chatId, edit));
       };
+      // After a back/forward-cache restore the page comes back as it was, so
+      // the toast must already be gone or its Undo would show a deleted chat.
+      const sendOnUnload = () => {
+        if (!settle()) {
+          return;
+        }
+        fetch(`/api/chats/${chatId}`, { method: "DELETE", keepalive: true });
+        toast.dismiss(toastId);
+        forget();
+        setPendingEdits((edits) => withoutEdit(edits, chatId, edit));
+      };
 
-      toast("Chat deleted", {
+      pendingDeletesRef.current.set(chatId, { commit, sendOnUnload });
+      toastId = toast("Chat deleted", {
         duration: UNDO_WINDOW_MS,
         action: { label: "Undo", onClick: undo },
         onAutoClose: commit,
@@ -422,6 +452,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       addOptimisticChat,
       clearChats,
       deleteChat,
+      flushPendingDeletes,
       refreshChats,
       renameChat,
       setChatLoading,
@@ -431,6 +462,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       addOptimisticChat,
       clearChats,
       deleteChat,
+      flushPendingDeletes,
       refreshChats,
       renameChat,
       setChatLoading,

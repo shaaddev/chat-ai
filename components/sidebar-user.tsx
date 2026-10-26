@@ -42,9 +42,11 @@ interface UserProps {
 export function SidebarUser({ email, avatar, name }: UserProps) {
   const { isMobile } = useSidebar();
   const router = useRouter();
-  const { clearChats } = useChat();
+  const { clearChats, flushPendingDeletes } = useChat();
 
   const handleLogout = async () => {
+    // A delete still waiting on its Undo toast needs the session to go out.
+    await flushPendingDeletes();
     await authClient.signOut({
       fetchOptions: {
         onSuccess: () => {
