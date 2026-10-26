@@ -108,7 +108,6 @@ async function until(check: () => boolean, attempts = 500): Promise<void> {
 function recordingEffects(overrides: Partial<TurnEffects> = {}) {
   const calls: string[] = [];
   const effects: TurnEffects = {
-    chatMissing: () => calls.push("chat missing"),
     chatSaved: () => calls.push("chat saved"),
     isMounted: () => true,
     refreshChats: () => undefined,

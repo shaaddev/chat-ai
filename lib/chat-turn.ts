@@ -113,8 +113,7 @@ export type TurnStatus =
   | { phase: "unsettled"; reason: SettleFailure; subject: UnsettledSubject };
 
 export interface TurnEffects {
-  // The server has the chat now, or no longer has it.
-  chatMissing: () => void;
+  // The server has the chat now, after its first saved turn.
   chatSaved: (request: TurnRequest) => void;
   isMounted: () => boolean;
   refreshChats: () => void;
@@ -258,8 +257,6 @@ export function createTurnGate({
     chatExists = exists;
     if (exists) {
       effects.chatSaved(request);
-    } else {
-      effects.chatMissing();
     }
   };
 

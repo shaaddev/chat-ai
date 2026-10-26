@@ -368,14 +368,6 @@ export function Chat({
       initialMessages,
       requestSettings: () => ({ ...requestSettingsRef.current }),
       effects: {
-        chatMissing: () => {
-          if (
-            mountedRef.current &&
-            window.location.pathname === `/chat/${id}`
-          ) {
-            window.history.replaceState({}, "", "/");
-          }
-        },
         chatSaved: (request) => {
           if (!mountedRef.current) {
             return;
