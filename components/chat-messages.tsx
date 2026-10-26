@@ -1,5 +1,5 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
-import { ArrowDown, FileText, ImageIcon, LoaderIcon } from "lucide-react";
+import { ArrowDown, FileText, ImageIcon } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { Fragment, memo, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -12,9 +12,8 @@ import {
 } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useMessages } from "@/hooks/use-message";
-import { findChatModel } from "@/lib/ai/models";
-import type { ExportFormat } from "@/lib/document-export";
-import type { ChatMessage } from "@/lib/types";
+import type { ChatMessage, DocumentDraft } from "@/lib/types";
+import { cn, hasVisibleContent } from "@/lib/utils";
 import { PreviewMessage } from "./chat-message";
 import { EmptyChatState } from "./empty-chat-state";
 import { Markdown } from "./markdown";
@@ -22,51 +21,36 @@ import { ThinkingIndicator } from "./thinking-indicator";
 
 interface MessagesProps {
   chatId: string;
-  documentDraftFormat?: ExportFormat;
-  documentDraftMarkdown?: string;
-  documentDraftTitle?: string;
-  documentSourceMessageId?: string | null;
-  isDocumentSheetOpen?: boolean;
-  isSourcesPanelOpen?: boolean;
+  documentDraft: DocumentDraft | null;
+  isImageModelSelected: boolean;
+  isNarrow: boolean;
   messages: ChatMessage[];
-  onOpenDocumentBuilder?: () => void;
-  onSuggestionClick?: (text: string) => void;
-  selectedChatModel: string;
+  onOpenDocumentBuilder: () => void;
+  onSuggestionClick: (text: string) => void;
   status: UseChatHelpers<ChatMessage>["status"];
 }
 
 const CODE_BLOCK_REGEX = /```[\s\S]*?```/;
 
-function getNarrowMaxWidth(narrow: boolean) {
-  return narrow ? "max-w-2xl" : "max-w-3xl";
-}
-
 function DocumentCard({
-  isNarrow,
-  documentDraftMarkdown,
-  documentDraftTitle,
-  documentDraftFormat,
+  draft,
   onOpenDocumentBuilder,
 }: {
-  isNarrow: boolean;
-  documentDraftMarkdown: string;
-  documentDraftTitle?: string;
-  documentDraftFormat: ExportFormat;
-  onOpenDocumentBuilder?: () => void;
+  draft: DocumentDraft;
+  onOpenDocumentBuilder: () => void;
 }) {
-  const hasCodeBlock = CODE_BLOCK_REGEX.test(documentDraftMarkdown);
+  const hasCodeBlock = CODE_BLOCK_REGEX.test(draft.markdown);
 
   return (
-    <div className={`mx-auto mt-2 mb-2 ${getNarrowMaxWidth(isNarrow)}`}>
+    <div className="mt-2 mb-2">
       <Card className="border-border bg-card">
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-foreground text-sm">
-            <FileText className="size-4" />
-            Document Draft Ready
+            <FileText aria-hidden className="size-4" />
+            Document draft ready
           </CardTitle>
           <CardDescription className="text-muted-foreground">
-            {documentDraftTitle || "chat-document"} (
-            {documentDraftFormat.toUpperCase()})
+            {draft.title} ({draft.format.toUpperCase()})
             {hasCodeBlock && (
               <span className="ml-2 text-muted-foreground/70">
                 &middot; Contains code
@@ -76,7 +60,7 @@ function DocumentCard({
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="max-h-40 overflow-auto rounded-md border border-border bg-background p-3 text-muted-foreground text-xs">
-            <Markdown>{documentDraftMarkdown}</Markdown>
+            <Markdown>{draft.markdown}</Markdown>
           </div>
           <div className="flex justify-end">
             <Button
@@ -85,11 +69,35 @@ function DocumentCard({
               size="sm"
               type="button"
             >
-              Open in Document Builder
+              Open in document builder
             </Button>
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function PendingReply({ isImage }: { isImage: boolean }) {
+  if (isImage) {
+    return (
+      <motion.div
+        animate={{ opacity: 1 }}
+        className="mt-6 flex size-72 flex-col items-center justify-center gap-3 rounded-xl border border-border bg-muted/30"
+        initial={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+      >
+        <ImageIcon aria-hidden className="size-6 text-muted-foreground" />
+        <div className="flex items-center gap-2 text-muted-foreground text-sm">
+          <span aria-hidden>Generating image</span>
+          <ThinkingIndicator label="Generating image" />
+        </div>
+      </motion.div>
+    );
+  }
+  return (
+    <div className="mt-6 flex w-full max-w-[68ch] border-foreground/8 border-l pl-5">
+      <ThinkingIndicator />
     </div>
   );
 }
@@ -125,74 +133,28 @@ function PureMessages({
   chatId,
   messages,
   status,
-  selectedChatModel,
-  isDocumentSheetOpen = false,
-  isSourcesPanelOpen = false,
-  documentDraftMarkdown,
-  documentDraftTitle,
-  documentDraftFormat = "docx",
-  documentSourceMessageId,
+  isImageModelSelected,
+  isNarrow,
+  documentDraft,
   onOpenDocumentBuilder,
   onSuggestionClick,
 }: MessagesProps) {
   const { containerRef, isAtBottom, scrollToBottom, scrollUserMessageToTop } =
     useMessages();
-  let hasAssistantVisibleText = false;
-  let hasAssistantImageAttachment = false;
-  let lastAssistantMessageId: string | null = null;
-  let lastAssistantMessageIndex = -1;
-  let latestUserMessageId: string | null = null;
-  let latestUserMessageIndex = -1;
 
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index];
-
-    if (message.role === "user" && latestUserMessageId === null) {
-      latestUserMessageId = message.id;
-      latestUserMessageIndex = index;
-    }
-
-    if (message.role !== "assistant") {
-      continue;
-    }
-
-    if (lastAssistantMessageId === null) {
-      lastAssistantMessageId = message.id;
-      lastAssistantMessageIndex = index;
-      for (const part of message.parts) {
-        if (
-          !hasAssistantVisibleText &&
-          part.type === "text" &&
-          part.text.trim().length > 0
-        ) {
-          hasAssistantVisibleText = true;
-        }
-        if (!hasAssistantImageAttachment && part.type === "file") {
-          hasAssistantImageAttachment = true;
-        }
-      }
-    }
-
-    if (latestUserMessageId !== null && lastAssistantMessageId !== null) {
-      break;
-    }
-  }
-
-  // If the most recent user message comes AFTER the most recent assistant
-  // message in the array, the assistant text we found belongs to the
-  // *previous* exchange (the one we already finished). For the current
-  // in-flight exchange the assistant hasn't said anything yet — so the
-  // thinking dots should still show. Without this guard the dots would
-  // never appear on follow-up messages because the prior assistant's
-  // text would mask them.
-  if (latestUserMessageIndex > lastAssistantMessageIndex) {
-    hasAssistantVisibleText = false;
-    hasAssistantImageAttachment = false;
-    lastAssistantMessageId = null;
-  }
-
-  const isImageModelSelected =
-    findChatModel(selectedChatModel)?.kind === "image";
+  const isBusy = status === "submitted" || status === "streaming";
+  const lastMessage = messages.at(-1);
+  const streamingMessageId =
+    status === "streaming" && lastMessage?.role === "assistant"
+      ? lastMessage.id
+      : null;
+  const isAwaitingContent =
+    isBusy &&
+    lastMessage !== undefined &&
+    (lastMessage.role === "user" || !hasVisibleContent(lastMessage));
+  const visibleMessages = messages.filter(hasVisibleContent);
+  const latestUserMessageId =
+    messages.findLast((message) => message.role === "user")?.id ?? null;
 
   // Scroll the just-sent user message to the top of the viewport once per
   // submission. Tracked by ref so we don't re-fire on every re-render.
@@ -231,8 +193,6 @@ function PureMessages({
     if (!exchangeAnchorId) {
       return;
     }
-    // Two-phase pin: once now, once after the next paint, to catch the
-    // moment the assistant text finishes its smooth-reveal animation.
     scrollUserMessageToTop(exchangeAnchorId);
   }, [status, exchangeAnchorId, scrollUserMessageToTop]);
 
@@ -258,19 +218,6 @@ function PureMessages({
     requestAnimationFrame(() => scrollToBottom("instant"));
   }, [chatId, messages.length, scrollToBottom]);
 
-  const showThinking =
-    (status === "submitted" || status === "streaming") &&
-    !hasAssistantVisibleText &&
-    !isImageModelSelected;
-
-  const isGeneratingImage =
-    (status === "submitted" || status === "streaming") &&
-    isImageModelSelected &&
-    !hasAssistantImageAttachment;
-
-  const isNarrow = isDocumentSheetOpen || isSourcesPanelOpen;
-  const widthClass = getNarrowMaxWidth(isNarrow);
-
   // Reserve viewport room beneath the latest message for the duration of
   // the active exchange. This keeps the just-sent user message pinned
   // near the top of the viewport even when the assistant response is
@@ -285,72 +232,43 @@ function PureMessages({
     <div className="relative w-full flex-1 overflow-hidden">
       <ScrollArea className="h-full w-full" ref={containerRef}>
         <div className="p-4">
-          {messages.length === 0 && !showThinking && !isGeneratingImage ? (
+          {visibleMessages.length === 0 && !isBusy ? (
             <EmptyChatState onSuggestionClick={onSuggestionClick} />
           ) : (
-            messages.map((message, index) => {
-              const isLast = index === messages.length - 1;
-              const wrapForScroll = isLast && hasActiveExchange;
+            <div
+              className={cn("mx-auto", isNarrow ? "max-w-2xl" : "max-w-3xl")}
+            >
+              {visibleMessages.map((message, index) => {
+                const isLast = index === visibleMessages.length - 1;
 
-              return (
-                <Fragment key={message.id}>
-                  <div
-                    className={index > 0 ? "mt-6" : ""}
-                    style={
-                      wrapForScroll
-                        ? { minHeight: "calc(100dvh - 14rem)" }
-                        : undefined
-                    }
-                  >
-                    <PreviewMessage
-                      isDocumentSheetOpen={isDocumentSheetOpen}
-                      isSourcesPanelOpen={isSourcesPanelOpen}
-                      isStreaming={
-                        status === "streaming" &&
-                        message.role === "assistant" &&
-                        message.id === lastAssistantMessageId
+                return (
+                  <Fragment key={message.id}>
+                    <div
+                      className={index > 0 ? "mt-6" : ""}
+                      style={
+                        isLast && hasActiveExchange
+                          ? { minHeight: "calc(100dvh - 14rem)" }
+                          : undefined
                       }
-                      message={message}
-                    />
-                    {showThinking && isLast && message.role === "user" ? (
-                      <div className={`mx-auto mt-6 ${widthClass}`}>
-                        <div className="flex w-full max-w-[68ch] border-foreground/8 border-l pl-5">
-                          <ThinkingIndicator />
-                        </div>
-                      </div>
+                    >
+                      <PreviewMessage
+                        isStreaming={message.id === streamingMessageId}
+                        message={message}
+                      />
+                      {isLast && isAwaitingContent ? (
+                        <PendingReply isImage={isImageModelSelected} />
+                      ) : null}
+                    </div>
+                    {documentDraft?.messageId === message.id &&
+                    documentDraft.markdown ? (
+                      <DocumentCard
+                        draft={documentDraft}
+                        onOpenDocumentBuilder={onOpenDocumentBuilder}
+                      />
                     ) : null}
-                  </div>
-                  {documentDraftMarkdown &&
-                  documentSourceMessageId === message.id ? (
-                    <DocumentCard
-                      documentDraftFormat={documentDraftFormat}
-                      documentDraftMarkdown={documentDraftMarkdown}
-                      documentDraftTitle={documentDraftTitle}
-                      isNarrow={isNarrow}
-                      onOpenDocumentBuilder={onOpenDocumentBuilder}
-                    />
-                  ) : null}
-                </Fragment>
-              );
-            })
-          )}
-          {isGeneratingImage && (
-            <div className={`mx-auto mt-4 ${widthClass}`}>
-              <motion.div
-                animate={{ opacity: 1 }}
-                className="relative size-72 overflow-hidden rounded-xl border border-border bg-muted/30"
-                initial={{ opacity: 0 }}
-              >
-                <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-muted/40 via-transparent to-muted/40" />
-                <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-foreground/[0.02] to-transparent" />
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-                  <ImageIcon className="size-6 text-muted-foreground/40" />
-                  <div className="flex items-center gap-2 text-muted-foreground/60">
-                    <LoaderIcon className="size-3.5 animate-spin" />
-                    <span className="text-sm">Generating...</span>
-                  </div>
-                </div>
-              </motion.div>
+                  </Fragment>
+                );
+              })}
             </div>
           )}
         </div>
@@ -363,62 +281,4 @@ function PureMessages({
   );
 }
 
-export const Messages = memo(PureMessages, (prevProps, nextProps) => {
-  // Always re-render during streaming so streamed text appears in real time
-  if (nextProps.status === "streaming" || prevProps.status === "streaming") {
-    return false;
-  }
-  if (prevProps.chatId !== nextProps.chatId) {
-    return false;
-  }
-  if (prevProps.status !== nextProps.status) {
-    return false;
-  }
-  if (prevProps.selectedChatModel !== nextProps.selectedChatModel) {
-    return false;
-  }
-  if (prevProps.isDocumentSheetOpen !== nextProps.isDocumentSheetOpen) {
-    return false;
-  }
-  if (prevProps.isSourcesPanelOpen !== nextProps.isSourcesPanelOpen) {
-    return false;
-  }
-  if (prevProps.documentDraftMarkdown !== nextProps.documentDraftMarkdown) {
-    return false;
-  }
-  if (prevProps.documentDraftTitle !== nextProps.documentDraftTitle) {
-    return false;
-  }
-  if (prevProps.documentDraftFormat !== nextProps.documentDraftFormat) {
-    return false;
-  }
-  if (prevProps.documentSourceMessageId !== nextProps.documentSourceMessageId) {
-    return false;
-  }
-  if (prevProps.onOpenDocumentBuilder !== nextProps.onOpenDocumentBuilder) {
-    return false;
-  }
-  if (prevProps.onSuggestionClick !== nextProps.onSuggestionClick) {
-    return false;
-  }
-  if (prevProps.messages.length !== nextProps.messages.length) {
-    return false;
-  }
-  const [prevFirstMessage] = prevProps.messages;
-  const [nextFirstMessage] = nextProps.messages;
-  if (prevFirstMessage?.id !== nextFirstMessage?.id) {
-    return false;
-  }
-  const prevLastMessage = prevProps.messages.at(-1);
-  const nextLastMessage = nextProps.messages.at(-1);
-  if (prevLastMessage?.id !== nextLastMessage?.id) {
-    return false;
-  }
-  if (prevLastMessage?.parts !== nextLastMessage?.parts) {
-    return false;
-  }
-  if (prevLastMessage?.metadata !== nextLastMessage?.metadata) {
-    return false;
-  }
-  return true;
-});
+export const Messages = memo(PureMessages);

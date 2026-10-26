@@ -2,19 +2,17 @@
 
 import { Check, Copy, Globe } from "lucide-react";
 import { memo, useState } from "react";
-import { useSmoothText } from "@/hooks/use-smooth-text";
 import { findChatModel } from "@/lib/ai/models";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { cn, sanitizeText } from "@/lib/utils";
 import { Markdown } from "./markdown";
 import { MessageContent } from "./message-content";
 import { PreviewAttachment } from "./preview-attachment";
-import { ThinkingIndicator } from "./thinking-indicator";
 
-export interface messageProps {
-  isDocumentSheetOpen?: boolean;
-  isSourcesPanelOpen?: boolean;
-  isStreaming?: boolean;
+const COPIED_FEEDBACK_MS = 2000;
+
+interface MessageProps {
+  isStreaming: boolean;
   message: ChatMessage;
 }
 
@@ -56,216 +54,112 @@ function getAttachmentsFromMessage(message: ChatMessage): Attachment[] {
   return attachments;
 }
 
-function getMessageMaxWidthClass(
-  isDocumentSheetOpen: boolean,
-  isSourcesPanelOpen: boolean
-) {
-  if (isDocumentSheetOpen || isSourcesPanelOpen) {
-    return "max-w-2xl";
-  }
-  return "max-w-3xl";
+function getMessageText(message: ChatMessage) {
+  return message.parts
+    .filter((part) => part.type === "text")
+    .map((part) => part.text)
+    .join("\n")
+    .trim();
 }
 
-/**
- * Renders the actively streaming assistant text via `useSmoothText` so the
- * reveal cadence stays steady instead of flickering with network bursts.
- * Historical / non-streaming messages skip the hook entirely.
- */
-function AssistantText({
-  isStreaming,
-  text,
-}: {
-  isStreaming: boolean;
-  text: string;
-}) {
-  const sanitized = sanitizeText(text);
-  const smoothed = useSmoothText(sanitized, isStreaming);
-  return <Markdown>{smoothed}</Markdown>;
-}
-
-const PureChatMessage = ({
-  message,
-  isDocumentSheetOpen = false,
-  isSourcesPanelOpen = false,
-  isStreaming = false,
-}: messageProps) => {
+function PureChatMessage({ message, isStreaming }: MessageProps) {
   const [copied, setCopied] = useState(false);
-  const attachmentsFromMessage = getAttachmentsFromMessage(message);
+  const attachments = getAttachmentsFromMessage(message);
   const isAssistant = message.role === "assistant";
-  const widthClass = getMessageMaxWidthClass(
-    isDocumentSheetOpen,
-    isSourcesPanelOpen
-  );
+  const lastPartIndex = message.parts.length - 1;
+  const text = getMessageText(message);
+  const modelName = getModelName(message.metadata?.model);
+  const usedSearch = message.metadata?.useSearch === true;
 
   const handleCopyMessage = async () => {
-    const textContent = message.parts
-      .filter((part) => part.type === "text")
-      .map((part) => ("text" in part ? part.text : ""))
-      .join("\n");
-
-    await navigator.clipboard.writeText(textContent);
+    await navigator.clipboard.writeText(text);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setTimeout(() => setCopied(false), COPIED_FEEDBACK_MS);
   };
 
   return (
-    <div
-      className={`mx-auto ${widthClass}`}
-      data-message-id={message.id}
-      data-role={message.role}
-    >
+    <div data-message-id={message.id} data-role={message.role}>
       <div
         className={cn(
-          "flex",
-          message.role === "user" ? "justify-end" : "justify-start",
+          "flex w-full flex-col gap-4",
           isAssistant && "group/message"
         )}
-        key={message.id}
       >
-        <div className="flex w-full flex-col gap-4">
-          {attachmentsFromMessage.length > 0 && (
-            <div
-              className={cn(
-                "mt-3 flex flex-wrap gap-3",
-                message.role === "user" ? "justify-end" : "justify-start"
-              )}
-              data-testid="message-attachments"
-            >
-              {attachmentsFromMessage.map((attachment) => (
-                <PreviewAttachment
-                  attachment={attachment}
-                  className="size-80"
-                  key={attachment.url}
-                />
-              ))}
-            </div>
-          )}
-          {message.parts?.map((part, index) => {
-            const { type } = part;
-            const key = `message-${message.id}-part-${index}`;
-
-            if (type === "text") {
-              return (
-                <div
-                  className={cn(
-                    "flex w-full",
-                    message.role === "user" ? "justify-end" : "justify-start"
-                  )}
-                  key={key}
-                >
-                  <MessageContent
-                    className={cn(
-                      message.role === "user" &&
-                        "w-fit max-w-[92%] break-words rounded-2xl bg-muted px-4 py-2.5 sm:max-w-[80%]",
-                      isAssistant &&
-                        "w-full max-w-[68ch] border-foreground/8 border-l py-0 pr-0 pl-5 text-left"
-                    )}
-                    data-testid="message-content"
-                  >
-                    {(() => {
-                      if (!isAssistant) {
-                        return <Markdown>{sanitizeText(part.text)}</Markdown>;
-                      }
-                      // Empty assistant message that's still streaming →
-                      // show animated dots in the assistant slot. Once
-                      // any visible text arrives the dots are replaced
-                      // by the smoothly-revealed text.
-                      const hasVisibleText = part.text.trim().length > 0;
-                      if (isStreaming && !hasVisibleText) {
-                        return <ThinkingIndicator />;
-                      }
-                      return (
-                        <div
-                          className={cn(
-                            isStreaming && "streaming-cursor streaming-text"
-                          )}
-                        >
-                          <AssistantText
-                            isStreaming={isStreaming}
-                            text={part.text}
-                          />
-                        </div>
-                      );
-                    })()}
-                  </MessageContent>
-                </div>
-              );
-            }
-
+        {attachments.length > 0 && (
+          <div
+            className={cn(
+              "mt-3 flex flex-wrap gap-3",
+              isAssistant ? "justify-start" : "justify-end"
+            )}
+            data-testid="message-attachments"
+          >
+            {attachments.map((attachment) => (
+              <PreviewAttachment
+                attachment={attachment}
+                className="size-80"
+                key={attachment.url}
+              />
+            ))}
+          </div>
+        )}
+        {message.parts.map((part, index) => {
+          if (part.type !== "text" || part.text.trim().length === 0) {
             return null;
-          })}
-          {isAssistant && (
+          }
+          return (
             <div
               className={cn(
-                "flex w-full items-center gap-2 text-xs transition-opacity duration-200",
-                "justify-start opacity-0 group-hover/message:opacity-100"
+                "flex w-full",
+                isAssistant ? "justify-start" : "justify-end"
               )}
+              key={`message-${message.id}-part-${index}`}
             >
-              {typeof message.metadata === "object" &&
-                message.metadata &&
-                (() => {
-                  const m = message.metadata as Record<string, unknown>;
-                  const modelId = m.model as string | null | undefined;
-                  const modelName = getModelName(modelId);
-                  const usedSearch = Boolean(m.useSearch);
-
-                  return (
-                    <div className="flex items-center gap-2 pl-5">
-                      <button
-                        className="flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                        onClick={handleCopyMessage}
-                        title="Copy message"
-                        type="button"
-                      >
-                        {copied ? (
-                          <Check className="size-3 text-green-500" />
-                        ) : (
-                          <Copy className="size-3" />
-                        )}
-                      </button>
-                      {modelName && (
-                        <span className="text-[11px] text-muted-foreground/60">
-                          {modelName}
-                        </span>
-                      )}
-                      {usedSearch && (
-                        <span title="Used web search">
-                          <Globe className="size-3 text-muted-foreground/60" />
-                        </span>
-                      )}
-                    </div>
-                  );
-                })()}
+              <MessageContent
+                className={cn(
+                  isAssistant
+                    ? "w-full max-w-[68ch] border-foreground/8 border-l py-0 pr-0 pl-5 text-left"
+                    : "w-fit max-w-[92%] break-words rounded-2xl bg-muted px-4 py-2.5 sm:max-w-[80%]"
+                )}
+                data-testid="message-content"
+              >
+                <Markdown isStreaming={isStreaming && index === lastPartIndex}>
+                  {sanitizeText(part.text)}
+                </Markdown>
+              </MessageContent>
             </div>
-          )}
-        </div>
+          );
+        })}
+        {isAssistant && !isStreaming && (
+          <div className="flex items-center gap-2 pl-5 opacity-0 transition-opacity duration-200 focus-within:opacity-100 group-hover/message:opacity-100">
+            {text.length > 0 && (
+              <button
+                aria-label={copied ? "Copied" : "Copy message"}
+                className="flex cursor-pointer items-center rounded-lg p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={handleCopyMessage}
+                type="button"
+              >
+                {copied ? (
+                  <Check aria-hidden className="size-4" />
+                ) : (
+                  <Copy aria-hidden className="size-4" />
+                )}
+              </button>
+            )}
+            {modelName && (
+              <span className="text-muted-foreground text-xs">{modelName}</span>
+            )}
+            {usedSearch && (
+              <Globe
+                aria-label="Used web search"
+                className="size-3 text-muted-foreground"
+                role="img"
+              />
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
-};
+}
 
-export const PreviewMessage = memo(PureChatMessage, (prevProps, nextProps) => {
-  // Always re-render the actively streaming message
-  if (nextProps.isStreaming || prevProps.isStreaming) {
-    return false;
-  }
-  if (prevProps.isDocumentSheetOpen !== nextProps.isDocumentSheetOpen) {
-    return false;
-  }
-  if (prevProps.isSourcesPanelOpen !== nextProps.isSourcesPanelOpen) {
-    return false;
-  }
-  if (prevProps.message.id !== nextProps.message.id) {
-    return false;
-  }
-  if (prevProps.message.role !== nextProps.message.role) {
-    return false;
-  }
-  if (prevProps.message.parts !== nextProps.message.parts) {
-    return false;
-  }
-  if (prevProps.message.metadata !== nextProps.message.metadata) {
-    return false;
-  }
-  return true;
-});
+export const PreviewMessage = memo(PureChatMessage);

@@ -1,29 +1,17 @@
-"use client";
-
-import { motion } from "motion/react";
-
-export function ThinkingIndicator() {
+export function ThinkingIndicator({
+  label = "Generating response",
+}: {
+  label?: string;
+}) {
   return (
-    <motion.div
-      animate={{ opacity: 1 }}
-      aria-label="Generating response"
-      className="flex items-center gap-1.5 py-2"
-      initial={{ opacity: 0 }}
-      role="status"
-    >
-      {[0, 1, 2].map((i) => (
-        <motion.span
-          animate={{ opacity: [0.3, 0.95, 0.3], y: [0, -2, 0] }}
-          className="size-[6px] rounded-full bg-muted-foreground"
-          key={i}
-          transition={{
-            delay: i * 0.16,
-            duration: 1.3,
-            ease: "easeInOut",
-            repeat: Number.POSITIVE_INFINITY,
-          }}
-        />
-      ))}
-    </motion.div>
+    <span className="inline-flex items-center gap-2 py-2" role="status">
+      <span
+        aria-hidden
+        className="animate-[blink-cursor_1.1s_ease-in-out_infinite] text-accent leading-none motion-reduce:animate-none"
+      >
+        {"▋"}
+      </span>
+      <span className="sr-only">{label}</span>
+    </span>
   );
 }

@@ -3,7 +3,7 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { PanelLeft } from "lucide-react";
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   useChat as useChatContext,
@@ -18,15 +18,16 @@ import {
   getChatModel,
 } from "@/lib/ai/models";
 import type { Session } from "@/lib/auth";
-import type { ExportFormat } from "@/lib/document-export";
 import { extractSources } from "@/lib/sources";
-import type { Attachment, ChatMessage } from "@/lib/types";
+import type { Attachment, ChatMessage, DocumentDraft } from "@/lib/types";
 import { fetchWithErrorHandlers, generateUUID } from "@/lib/utils";
 import { ChatHistory } from "./chat-history";
 import { ChatInput } from "./chat-input";
 import { Messages } from "./chat-messages";
 
 const DRAFT_SAVE_DELAY_MS = 200;
+const DOCUMENT_TITLE_MAX_LENGTH = 80;
+const MemoizedChatInput = memo(ChatInput);
 const LazyDocumentSheet = dynamic(
   () => import("./document-sheet").then((module) => module.DocumentSheet),
   {
@@ -108,6 +109,32 @@ function getLatestConversationMessages(messages: ChatMessage[]) {
   return { latestAssistantMessage, latestUserMessage };
 }
 
+function deriveDocumentDraft(
+  messages: ChatMessage[],
+  messageId: string | null
+): DocumentDraft | null {
+  const index = messages.findIndex((candidate) => candidate.id === messageId);
+  if (!messageId || index === -1) {
+    return null;
+  }
+  const source = messages[index];
+  const userText = extractMessageText(
+    messages.findLast(
+      (candidate, candidateIndex) =>
+        candidateIndex < index && candidate.role === "user"
+    )
+  );
+  const isPdf =
+    source.metadata?.suggestedFormat === "pdf" ||
+    userText.toLowerCase().includes("pdf");
+  return {
+    format: isPdf ? "pdf" : "docx",
+    markdown: extractMessageText(source),
+    messageId,
+    title: userText.slice(0, DOCUMENT_TITLE_MAX_LENGTH) || "chat-document",
+  };
+}
+
 // The cookie only seeds the next page load. A server action could set it
 // too, but its response re-renders the whole page, message list included.
 function persistChatModel(modelId: ChatModelId) {
@@ -157,9 +184,6 @@ export function Chat({
     string | undefined
   >(initialSystemPrompt);
   const [isDocumentSheetOpen, setIsDocumentSheetOpen] = useState(false);
-  const [documentMarkdown, setDocumentMarkdown] = useState("");
-  const [documentTitle, setDocumentTitle] = useState("chat-document");
-  const [documentFormat, setDocumentFormat] = useState<ExportFormat>("docx");
   const [documentSourceMessageId, setDocumentSourceMessageId] = useState<
     string | null
   >(null);
@@ -172,7 +196,6 @@ export function Chat({
     Set<string>
   >(() => new Set());
 
-  const lastHandledAssistantIdRef = useRef<string | null>(null);
   const openDocumentBuilder = useCallback(() => {
     setIsDocumentSheetOpen(true);
     // Document and sources panels share the right slot — close sources.
@@ -227,6 +250,7 @@ export function Chat({
       messages: initialMessages,
       generateId: generateUUID,
       transport,
+      throttle: 50,
       onFinish: () => refreshChats(),
       onError: (err) => {
         toast.error("Error", {
@@ -236,6 +260,8 @@ export function Chat({
     });
   const { latestAssistantMessage, latestUserMessage } =
     getLatestConversationMessages(messages);
+
+  const latestAssistantId = latestAssistantMessage?.id;
 
   const latestSources = useMemo(
     () => extractSources(latestAssistantMessage),
@@ -304,7 +330,8 @@ export function Chat({
   ]);
 
   const prevStatusRef = useRef(status);
-  const isImageModel = getChatModel(selectedModelId).kind === "image";
+  const selectedModel = getChatModel(selectedModelId);
+  const isImageModel = selectedModel.kind === "image";
 
   useEffect(() => {
     if (status === "streaming" || status === "ready" || status === "error") {
@@ -317,72 +344,31 @@ export function Chat({
         prevStatusRef.current === "streaming") &&
       status === "ready"
     ) {
-      toast.success("Image generated!", {
-        description: "Your image has been created successfully.",
-      });
+      toast.success("Image generated");
     }
 
     prevStatusRef.current = status;
   }, [status, id, setChatLoading, isImageModel]);
 
+  // The draft follows the source message as it streams, so only the choice
+  // of source message is state. It changes at most once per reply.
+  const latestAssistantIsDocument =
+    latestAssistantMessage !== undefined &&
+    extractMessageText(latestAssistantMessage).length > 0 &&
+    (latestAssistantMessage.metadata?.documentCandidate === true ||
+      (autoDocumentGeneration &&
+        hasDocumentIntent(extractMessageText(latestUserMessage))));
+
   useEffect(() => {
-    const latestAssistant = latestAssistantMessage;
-
-    if (!latestAssistant) {
-      return;
+    if (latestAssistantIsDocument && latestAssistantId) {
+      setDocumentSourceMessageId(latestAssistantId);
     }
+  }, [latestAssistantIsDocument, latestAssistantId]);
 
-    const metadata =
-      typeof latestAssistant.metadata === "object" && latestAssistant.metadata
-        ? (latestAssistant.metadata as Record<string, unknown>)
-        : null;
-    const userText = extractMessageText(latestUserMessage);
-    const assistantText = extractMessageText(latestAssistant);
-
-    if (!assistantText) {
-      return;
-    }
-
-    const isAlreadyTracked = documentSourceMessageId === latestAssistant.id;
-
-    if (!isAlreadyTracked) {
-      if (lastHandledAssistantIdRef.current === latestAssistant.id) {
-        return;
-      }
-
-      const metadataCandidate = metadata?.documentCandidate === true;
-      const fallbackCandidate =
-        autoDocumentGeneration &&
-        hasDocumentIntent(userText) &&
-        !!assistantText;
-      if (!(metadataCandidate || fallbackCandidate)) {
-        return;
-      }
-
-      lastHandledAssistantIdRef.current = latestAssistant.id;
-      setDocumentSourceMessageId(latestAssistant.id);
-
-      const suggestedFormat = metadata?.suggestedFormat;
-      const format: ExportFormat =
-        suggestedFormat === "pdf" || userText.toLowerCase().includes("pdf")
-          ? "pdf"
-          : "docx";
-      setDocumentTitle(userText.slice(0, 80) || "chat-document");
-      setDocumentFormat(format);
-    }
-
-    if (
-      isAlreadyTracked ||
-      lastHandledAssistantIdRef.current === latestAssistant.id
-    ) {
-      setDocumentMarkdown(assistantText);
-    }
-  }, [
-    autoDocumentGeneration,
-    documentSourceMessageId,
-    latestAssistantMessage,
-    latestUserMessage,
-  ]);
+  const documentDraft = useMemo(
+    () => deriveDocumentDraft(messages, documentSourceMessageId),
+    [messages, documentSourceMessageId]
+  );
 
   const isRightPanelOpen = isDocumentSheetOpen || isSourcesPanelOpen;
   const messageWidthClass = isRightPanelOpen ? "max-w-2xl" : "max-w-3xl";
@@ -408,23 +394,19 @@ export function Chat({
           <div className="flex w-full flex-1 flex-col overflow-hidden">
             <Messages
               chatId={id}
-              documentDraftFormat={documentFormat}
-              documentDraftMarkdown={documentMarkdown}
-              documentDraftTitle={documentTitle}
-              documentSourceMessageId={documentSourceMessageId}
-              isDocumentSheetOpen={isDocumentSheetOpen}
-              isSourcesPanelOpen={isSourcesPanelOpen}
+              documentDraft={documentDraft}
+              isImageModelSelected={isImageModel}
+              isNarrow={isRightPanelOpen}
               messages={messages}
               onOpenDocumentBuilder={openDocumentBuilder}
               onSuggestionClick={handleSuggestionClick}
-              selectedChatModel={selectedModelId}
               status={status}
             />
 
             <div
               className={`mx-auto w-full px-4 pt-2 pb-5 ${messageWidthClass}`}
             >
-              <ChatInput
+              <MemoizedChatInput
                 attachments={attachments}
                 autoDocumentGeneration={autoDocumentGeneration}
                 chatId={id}
@@ -445,19 +427,19 @@ export function Chat({
                 stop={stop}
                 useSearch={useSearch}
               />
-              <p className="mt-2 select-none text-center font-mono text-[10px] text-muted-foreground/40 uppercase tracking-[0.18em]">
-                AI can be wrong &middot; verify important info
+              <p className="mt-2 select-none text-center text-muted-foreground text-xs">
+                AI can be wrong. Verify important info.
               </p>
             </div>
           </div>
         </div>
         {isDocumentSheetOpen ? (
           <LazyDocumentSheet
-            initialMarkdown={documentMarkdown}
-            initialTitle={documentTitle}
+            initialMarkdown={documentDraft?.markdown}
+            initialTitle={documentDraft?.title}
             onOpenChange={setIsDocumentSheetOpen}
             open={isDocumentSheetOpen}
-            suggestedFormat={documentFormat}
+            suggestedFormat={documentDraft?.format ?? "docx"}
           />
         ) : null}
         {!isDocumentSheetOpen && isSourcesPanelOpen ? (
