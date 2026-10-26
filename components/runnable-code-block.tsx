@@ -104,9 +104,7 @@ function RunButton({
       ref={ref}
       type="button"
     >
-      {/* The icons are CSS shapes because an SVG icon in each of 200 Run
-          buttons pushed time to interactive back by about 190 ms. Forced
-          colors would paint their background as Canvas, so they opt out
+      {/* Forced colors paint backgrounds as Canvas, so the icons opt out
           and take the button's text color. */}
       {active ? (
         <span

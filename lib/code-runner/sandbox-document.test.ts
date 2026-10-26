@@ -393,15 +393,11 @@ interface PythonError {
 }
 
 // HTML reports an unhandled rejection in a task from a different source than
-// timers, and a browser may run either source first. Chromium runs the timer.
-// Bun's Worker never fires unhandledrejection, so the worker script runs in a
-// child process whose timers and rejection reports are explicit queues. Like
-// a browser, it drops the report for a rejection handled before the report
-// runs. Host work, such as a WebAssembly compile, a Blob read, or a port
-// message, resolves from a third queue that always runs last. An uncaught
-// throw reaches the error listener the way WebKit reports one from compiled
-// code: as "Script error." with no error object. A fake Pyodide raises the
-// given Python error from a host task. For SystemExit it also leaves a
+// timers, and a browser may run either source first. Bun's Worker never fires
+// unhandledrejection, so the worker script runs in a child process whose
+// timers and rejection reports are explicit queues. An uncaught throw reaches
+// the error listener the way WebKit reports one from compiled code: as
+// "Script error." with no error object. For SystemExit, Pyodide also leaves a
 // rejected promise of its own, which WebKit reports first.
 const workerProcess = (
   code: string,

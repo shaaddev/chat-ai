@@ -184,10 +184,7 @@ async function runJavaScript(code) {
     }, 0);
   };
   // Host work resolves from tasks the worker cannot see, so the run counts
-  // these APIs the way it counts timers. Other sources, such as MessageChannel
-  // or FileReader, end with the run unless the program awaits them. The
-  // program gets the derived promise, so a rejection it handles stays handled
-  // and one it ignores is still reported.
+  // these APIs the way it counts timers.
   const track = (result) => {
     if (!(result instanceof NativePromise)) return result;
     pending += 1;
