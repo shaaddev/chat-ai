@@ -14,9 +14,6 @@ const WEB_SEARCH_MAX_RESULTS = 5;
 
 export const CHAT_TITLE_MAX_LENGTH = 80;
 
-// Native provider search tools do not search when routed through OpenRouter.
-// Only the `web` plugin (or the `:online` suffix) does.
-// https://openrouter.ai/docs/features/web-search
 export function getLanguageModel(
   slug: string,
   { useWebSearch }: { useWebSearch: boolean }

@@ -235,7 +235,6 @@ export function findChatModel(
   return CHAT_MODELS.find((model) => model.id === id);
 }
 
-// Replies saved before a model left the picker still carry its id.
 const RETIRED_MODEL_NAMES: Record<string, string> = {
   "google-model-3-flash": "Gemini 3 Flash",
 };

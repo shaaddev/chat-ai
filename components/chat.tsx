@@ -147,9 +147,16 @@ function deriveDocumentDraft(
   };
 }
 
-// The cookie only seeds the next page load. A server action could set it
-// too, but its response re-renders the whole page, message list included.
-function persistChatModel(modelId: ChatModelId) {
+function useStableSources(message: ChatMessage | undefined): Source[] {
+  const next = useMemo(() => extractSources(message), [message]);
+  const [sources, setSources] = useState(next);
+  if (!haveSameSources(sources, next)) {
+    setSources(next);
+  }
+  return sources;
+}
+
+function seedChatModelCookie(modelId: ChatModelId) {
   if (!("cookieStore" in window)) {
     return;
   }
@@ -227,7 +234,7 @@ export function Chat({
 
   const handleSelectModel = useCallback((modelId: ChatModelId) => {
     setSelectedModelId(modelId);
-    persistChatModel(modelId);
+    seedChatModelCookie(modelId);
   }, []);
 
   const requestSettings: ChatRequestSettings = {
@@ -275,16 +282,7 @@ export function Chat({
 
   const latestAssistantId = latestAssistantMessage?.id;
 
-  // Every chunk produces a new message object, so the open sources panel
-  // keeps the previous list until the sources themselves change.
-  const nextSources = useMemo(
-    () => extractSources(latestAssistantMessage),
-    [latestAssistantMessage]
-  );
-  const [latestSources, setLatestSources] = useState(nextSources);
-  if (!haveSameSources(latestSources, nextSources)) {
-    setLatestSources(nextSources);
-  }
+  const latestSources = useStableSources(latestAssistantMessage);
 
   // Auto-open the sources panel when fresh sources arrive for the latest
   // assistant message and the user hasn't dismissed it. Don't fight an
@@ -365,8 +363,6 @@ export function Chat({
     prevStatusRef.current = status;
   }, [status, id, setChatLoading, isImageModel]);
 
-  // The draft follows the source message as it streams, so only the choice
-  // of source message is state. It changes at most once per reply.
   const latestAssistantIsDocument =
     latestAssistantMessage !== undefined &&
     extractMessageText(latestAssistantMessage).length > 0 &&

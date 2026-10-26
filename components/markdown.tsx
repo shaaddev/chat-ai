@@ -22,8 +22,6 @@ const components: Partial<Components> = {
   },
 };
 
-// Module constants keep Streamdown's plugin and theme props stable, so a new
-// chunk re-parses only the block that changed.
 const plugins: StreamdownProps["plugins"] = { code };
 const shikiTheme: StreamdownProps["shikiTheme"] = ["houston", "houston"];
 
