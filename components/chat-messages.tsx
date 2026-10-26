@@ -39,6 +39,7 @@ interface MessagesProps {
   selectedModelId: ChatModelId;
   sourcesMessageId: string | null;
   status: UseChatHelpers<ChatMessage>["status"];
+  turnWasRefused: boolean;
 }
 
 const CODE_BLOCK_REGEX = /```[\s\S]*?```/;
@@ -144,6 +145,7 @@ function PureMessages({
   chatId,
   messages,
   status,
+  turnWasRefused,
   isImageModelSelected,
   isNarrow,
   documentDraft,
@@ -168,7 +170,8 @@ function PureMessages({
     lastMessage !== undefined &&
     (lastMessage.role === "user" || !isShownInThread(lastMessage));
   const visibleMessages = messages.filter(isShownInThread);
-  const isMissingReply = !isBusy && endsWithoutReply(messages);
+  const isMissingReply =
+    !(isBusy || turnWasRefused) && endsWithoutReply(messages);
   const latestUserMessageId =
     messages.findLast((message) => message.role === "user")?.id ?? null;
 

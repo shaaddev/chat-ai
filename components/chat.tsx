@@ -310,41 +310,48 @@ export function Chat({
   // otherwise keeps the old one, so the thread puts the old one back to match.
   const replacedReplyRef = useRef<ChatMessage | undefined>(undefined);
 
-  const { messages, regenerate, sendMessage, status, setMessages, stop } =
-    useChat<ChatMessage>({
-      id,
-      messages: initialMessages,
-      generateId: generateUUID,
-      transport,
-      throttle: 50,
-      onFinish: ({ message, isAbort, isError }) => {
-        const replacedReply = replacedReplyRef.current;
-        replacedReplyRef.current = undefined;
-        if (!(isAbort || isError) && message.parts.some(isFileUIPart)) {
-          toast.success("Image generated");
+  const {
+    error,
+    messages,
+    regenerate,
+    sendMessage,
+    status,
+    setMessages,
+    stop,
+  } = useChat<ChatMessage>({
+    id,
+    messages: initialMessages,
+    generateId: generateUUID,
+    transport,
+    throttle: 50,
+    onFinish: ({ message, isAbort, isError }) => {
+      const replacedReply = replacedReplyRef.current;
+      replacedReplyRef.current = undefined;
+      if (!(isAbort || isError) && message.parts.some(isFileUIPart)) {
+        toast.success("Image generated");
+      }
+      if (replacedReply && !hasVisibleContent(message)) {
+        setMessages((current) => [
+          ...current.filter(({ id: messageId }) => messageId !== message.id),
+          replacedReply,
+        ]);
+        if (!(isAbort || isError)) {
+          toast("Kept the previous reply", {
+            description: "The regenerated reply came back empty.",
+          });
         }
-        if (replacedReply && !hasVisibleContent(message)) {
-          setMessages((current) => [
-            ...current.filter(({ id: messageId }) => messageId !== message.id),
-            replacedReply,
-          ]);
-          if (!(isAbort || isError)) {
-            toast("Kept the previous reply", {
-              description: "The regenerated reply came back empty.",
-            });
-          }
-        }
-        refreshChats();
-      },
-      onError: (err) => {
-        toast.error("Error", {
-          description:
-            err instanceof ChatSDKError && typeof err.cause === "string"
-              ? err.cause
-              : err.message,
-        });
-      },
-    });
+      }
+      refreshChats();
+    },
+    onError: (err) => {
+      toast.error("Error", {
+        description:
+          err instanceof ChatSDKError && typeof err.cause === "string"
+            ? err.cause
+            : err.message,
+      });
+    },
+  });
   const { latestAssistantMessage, latestUserMessage } =
     getLatestConversationMessages(messages);
 
@@ -427,6 +434,10 @@ export function Chat({
 
   const isSourcesPanelOpen = !isDocumentSheetOpen && panelSources.length > 0;
   const isRightPanelOpen = isDocumentSheetOpen || isSourcesPanelOpen;
+  // The server answers with an HTTP error only before it saves a turn, and
+  // fetchWithErrorHandlers turns those into ChatSDKErrors, so nothing to
+  // regenerate was saved.
+  const turnWasRefused = status === "error" && error instanceof ChatSDKError;
   const isEmpty = messages.length === 0;
 
   return (
@@ -452,6 +463,7 @@ export function Chat({
             selectedModelId={selectedModelId}
             sourcesMessageId={isSourcesPanelOpen ? sourcesMessageId : null}
             status={status}
+            turnWasRefused={turnWasRefused}
           />
 
           <div
