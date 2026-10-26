@@ -388,6 +388,8 @@ describe("sandbox frame", () => {
 type TaskOrder = "timer first" | "rejection first";
 
 interface PythonError {
+  // The program calls js.close() before it raises.
+  closesFirst?: boolean;
   // What the worker's SystemExit.code query returns: None as 0, a bool as
   // its int, and any other non-int as its str.
   code?: number | string;
@@ -511,6 +513,7 @@ globalThis.importScripts = () => {
     setStdin() {},
     runPython: () => PYTHON_ERROR.code,
     runPythonAsync: () => {
+      if (PYTHON_ERROR.closesFirst) close();
       const error = Object.assign(new Error(PYTHON_ERROR.message), { type: PYTHON_ERROR.type });
       if (error.type === "SystemExit") Promise.reject(error);
       return new Promise((resolve, reject) => {
@@ -861,4 +864,18 @@ describe("sandbox worker running Python", () => {
       expect(exit).toEqual({ type: "exit", ...ending });
     }
   );
+
+  test("ends a program that calls js.close() the way close() ends JavaScript", () => {
+    const { exit } = runInWorker(
+      "import js\njs.close()\nraise ValueError('late')",
+      {
+        pythonError: {
+          type: "ValueError",
+          closesFirst: true,
+          message: `Traceback (most recent call last):\n  File "<snippet>", line 3, in <module>\nValueError: late\n`,
+        },
+      }
+    );
+    expect(exit).toEqual({ type: "exit", exit: "done", detail: null });
+  });
 });
