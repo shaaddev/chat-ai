@@ -15,7 +15,6 @@ import { useMessages } from "@/hooks/use-message";
 import type { ChatMessage, DocumentDraft } from "@/lib/types";
 import { cn, hasVisibleContent } from "@/lib/utils";
 import { PreviewMessage } from "./chat-message";
-import { EmptyChatState } from "./empty-chat-state";
 import { Markdown } from "./markdown";
 import { ThinkingIndicator } from "./thinking-indicator";
 
@@ -26,7 +25,6 @@ interface MessagesProps {
   isNarrow: boolean;
   messages: ChatMessage[];
   onOpenDocumentBuilder: () => void;
-  onSuggestionClick: (text: string) => void;
   status: UseChatHelpers<ChatMessage>["status"];
 }
 
@@ -43,7 +41,7 @@ function DocumentCard({
 
   return (
     <div className="mt-2 mb-2">
-      <Card className="border-border bg-card">
+      <Card className="gap-4 border-0 bg-secondary py-5 shadow-none">
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-foreground text-sm">
             <FileText aria-hidden className="size-4" />
@@ -59,12 +57,12 @@ function DocumentCard({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="max-h-40 overflow-auto rounded-md border border-border bg-background p-3 text-muted-foreground text-xs">
+          <div className="max-h-40 overflow-auto rounded-lg bg-card p-3 text-muted-foreground text-xs">
             <Markdown>{draft.markdown}</Markdown>
           </div>
           <div className="flex justify-end">
             <Button
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
+              className="rounded-lg"
               onClick={onOpenDocumentBuilder}
               size="sm"
               type="button"
@@ -83,7 +81,7 @@ function PendingReply({ isImage }: { isImage: boolean }) {
     return (
       <motion.div
         animate={{ opacity: 1 }}
-        className="mt-6 flex size-72 flex-col items-center justify-center gap-3 rounded-xl border border-border bg-muted/30"
+        className="mt-5 flex size-72 flex-col items-center justify-center gap-3 rounded-xl bg-secondary"
         initial={{ opacity: 0 }}
         transition={{ duration: 0.2 }}
       >
@@ -96,7 +94,7 @@ function PendingReply({ isImage }: { isImage: boolean }) {
     );
   }
   return (
-    <div className="mt-6 flex w-full max-w-[68ch] border-foreground/8 border-l pl-5">
+    <div className="mt-5 flex w-full">
       <ThinkingIndicator />
     </div>
   );
@@ -115,14 +113,14 @@ function ScrollToBottomButton({
         <motion.button
           animate={{ opacity: 1, y: 0 }}
           aria-label="Scroll to latest message"
-          className="absolute bottom-4 left-1/2 z-20 inline-flex size-9 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border border-foreground/10 bg-background/90 text-foreground/80 shadow-md backdrop-blur transition-colors hover:border-foreground/25 hover:text-foreground"
+          className="absolute bottom-4 left-1/2 z-20 inline-flex size-9 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full bg-popover text-muted-foreground shadow-md transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           exit={{ opacity: 0, y: 8 }}
           initial={{ opacity: 0, y: 8 }}
           onClick={onClick}
           transition={{ duration: 0.18, ease: "easeOut" }}
           type="button"
         >
-          <ArrowDown className="size-4" />
+          <ArrowDown aria-hidden className="size-4" />
         </motion.button>
       ) : null}
     </AnimatePresence>
@@ -137,7 +135,6 @@ function PureMessages({
   isNarrow,
   documentDraft,
   onOpenDocumentBuilder,
-  onSuggestionClick,
 }: MessagesProps) {
   const { containerRef, isAtBottom, scrollToBottom, scrollUserMessageToTop } =
     useMessages();
@@ -230,13 +227,17 @@ function PureMessages({
 
   return (
     <div className="relative w-full flex-1 overflow-hidden">
-      <ScrollArea className="h-full w-full" ref={containerRef}>
-        <div className="p-4">
-          {visibleMessages.length === 0 && !isBusy ? (
-            <EmptyChatState onSuggestionClick={onSuggestionClick} />
-          ) : (
+      <ScrollArea
+        className="h-full w-full [mask-image:linear-gradient(to_bottom,black_calc(100%-48px),transparent)]"
+        ref={containerRef}
+      >
+        <div className="px-4 pt-1 pb-12 md:px-6">
+          {visibleMessages.length === 0 && !isBusy ? null : (
             <div
-              className={cn("mx-auto", isNarrow ? "max-w-2xl" : "max-w-3xl")}
+              className={cn(
+                "mx-auto",
+                isNarrow ? "max-w-2xl" : "max-w-[720px]"
+              )}
             >
               {visibleMessages.map((message, index) => {
                 const isLast = index === visibleMessages.length - 1;
@@ -244,7 +245,10 @@ function PureMessages({
                 return (
                   <Fragment key={message.id}>
                     <div
-                      className={index > 0 ? "mt-6" : ""}
+                      className={cn(
+                        index > 0 && message.role === "assistant" && "mt-5",
+                        index > 0 && message.role !== "assistant" && "mt-7"
+                      )}
                       style={
                         isLast && hasActiveExchange
                           ? { minHeight: "calc(100dvh - 14rem)" }
