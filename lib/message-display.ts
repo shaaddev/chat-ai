@@ -18,8 +18,6 @@ export function getReasoningText(message: ChatMessage) {
     .trim();
 }
 
-// A reply that finished streaming with nothing to show. The server does not
-// save these, so the finish reason only exists in this session.
 export function getEmptyReplyReason(
   message: ChatMessage
 ): EmptyReplyReason | null {
