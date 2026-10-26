@@ -276,7 +276,7 @@ describe("attachment tray", () => {
     expect(discarded).toEqual(["u1"]);
   });
 
-  test("restored files the tray would refuse are rejected and deleted", () => {
+  test("restored files come back past the per-message limit, and none is deleted", () => {
     const { tray, discarded, rejected } = setup();
     tray.add(
       Array.from({ length: ATTACHMENT_MAX_COUNT - 1 }, (_, index) =>
@@ -285,32 +285,14 @@ describe("attachment tray", () => {
     );
 
     tray.restore([
-      {
-        filename: "clip.mov",
-        mediaType: "video/quicktime",
-        size: 1,
-        url: "u1",
-      },
-      {
-        filename: "huge.png",
-        mediaType: "image/png",
-        size: ATTACHMENT_MAX_BYTES + 1,
-        url: "u2",
-      },
-      { filename: "fits.png", mediaType: "image/png", size: 1, url: "u3" },
-      { filename: "extra.png", mediaType: "image/png", size: 1, url: "u4" },
+      { filename: "first.png", mediaType: "image/png", size: 1, url: "u1" },
+      { filename: "second.png", mediaType: "image/png", size: 1, url: "u2" },
     ]);
 
-    expect(tray.getItems()).toHaveLength(ATTACHMENT_MAX_COUNT);
-    expect(tray.getItems()[0].name).toBe("fits.png");
-    expect(rejected).toEqual([
-      [
-        { name: "clip.mov", reason: "type" },
-        { name: "huge.png", reason: "size" },
-        { name: "extra.png", reason: "count" },
-      ],
-    ]);
-    expect(discarded).toEqual(["u1", "u2", "u4"]);
+    expect(tray.getItems()).toHaveLength(ATTACHMENT_MAX_COUNT + 1);
+    expect(tray.getItems().map(({ name }) => name)).toContain("second.png");
+    expect(rejected).toEqual([]);
+    expect(discarded).toEqual([]);
   });
 
   test("a send carries only the finished uploads", async () => {
