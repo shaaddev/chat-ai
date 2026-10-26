@@ -24,6 +24,7 @@ import {
   PreviewMessage,
   type ReplyControls,
   UnsettledNotice,
+  unsettledText,
 } from "./chat-message";
 import { Markdown } from "./markdown";
 import { ThinkingIndicator } from "./thinking-indicator";
@@ -131,8 +132,8 @@ const turnActivity = (status: TurnStatus): string | null => {
   }
   if (status.phase === "settling") {
     return status.held
-      ? "Saving this chat. Your message will send next."
-      : "Saving this chat…";
+      ? "Syncing this chat. Your message will send next."
+      : "Syncing this chat…";
   }
   return null;
 };
@@ -196,6 +197,8 @@ function PureMessages({
   const isBusy = status === "submitted" || status === "streaming";
   const isIdle = !isBusy && turnStatus.phase === "idle";
   const activity = turnActivity(turnStatus);
+  const announcement =
+    turnStatus.phase === "unsettled" ? unsettledText(turnStatus) : activity;
   const lastMessage = messages.at(-1);
   const streamingMessageId =
     status === "streaming" && lastMessage?.role === "assistant"
@@ -415,7 +418,7 @@ function PureMessages({
         show={showScrollButton}
       />
       <p className="sr-only" role="status">
-        {activity}
+        {announcement}
       </p>
     </div>
   );

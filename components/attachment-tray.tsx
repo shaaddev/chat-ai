@@ -108,6 +108,11 @@ export function getAttachmentTray(chatId: string): AttachmentTray {
   return tray;
 }
 
+export const ATTACHMENT_LIMIT_HINT_ID = "attachment-limit-hint";
+
+export const overLimitHint = (count: number) =>
+  `Remove ${count} ${count === 1 ? "file" : "files"} to send. A message can carry up to ${ATTACHMENT_MAX_COUNT} files.`;
+
 const NO_ITEMS: readonly TrayItem[] = [];
 
 export function useTrayReadiness(tray: AttachmentTray): TrayReadiness {
@@ -166,10 +171,10 @@ export function AttachmentTrayList({ tray }: { tray: AttachmentTray }) {
           {overLimit > 0 ? (
             <p
               className="px-1 pb-1.5 text-muted-foreground text-xs"
+              id={ATTACHMENT_LIMIT_HINT_ID}
               role="status"
             >
-              Remove {overLimit} {overLimit === 1 ? "file" : "files"} to send. A
-              message can carry up to {ATTACHMENT_MAX_COUNT} files.
+              {overLimitHint(overLimit)}
             </p>
           ) : null}
         </motion.div>

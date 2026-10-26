@@ -33,7 +33,7 @@ import {
   type TurnRequest,
 } from "@/lib/chat-turn";
 import { openCommandPalette } from "@/lib/command-palette";
-import { focusComposer } from "@/lib/composer";
+import { returnFocusToComposer } from "@/lib/composer";
 import { ChatSDKError } from "@/lib/errors";
 import { extractSources, type Source } from "@/lib/sources";
 import type { ChatMessage, DocumentDraft } from "@/lib/types";
@@ -377,7 +377,7 @@ export function Chat({
         isMounted: () => mountedRef.current,
         refreshChats,
         sendBlocked: (reason) => {
-          toast.error("Your message wasn't sent", {
+          toast.error("Couldn't send yet", {
             description: SETTLE_FAILURE_HINT[reason],
           });
         },
@@ -430,7 +430,7 @@ export function Chat({
 
   const retrySettle = useCallback(() => {
     turns.retry();
-    focusComposer();
+    returnFocusToComposer();
   }, [turns]);
 
   useEffect(() => {
@@ -464,7 +464,7 @@ export function Chat({
 
   const handleRegenerate = useCallback(() => {
     turns.start(() => ({ kind: "regenerate" }));
-    focusComposer();
+    returnFocusToComposer();
   }, [turns]);
 
   const handleEditMessage = useCallback(

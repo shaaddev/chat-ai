@@ -35,10 +35,13 @@ import { Switch } from "@/components/ui/switch";
 import { type ChatModelId, getChatModel } from "@/lib/ai/models";
 import type { TurnStatus } from "@/lib/chat-turn";
 import type { ChatMessage } from "@/lib/types";
+import { filesOverLimit } from "@/lib/uploadthing/tray";
 import { cn } from "@/lib/utils";
 import {
+  ATTACHMENT_LIMIT_HINT_ID,
   AttachmentTrayList,
   getAttachmentTray,
+  overLimitHint,
   useTrayReadiness,
 } from "./attachment-tray";
 import { LoginContent } from "./auth/login-content";
@@ -128,6 +131,12 @@ export function ChatInput({
   );
 
   const submitForm = useCallback(() => {
+    if (trayReadiness === "over-limit") {
+      toast.error("Too many files to send", {
+        description: overLimitHint(filesOverLimit(tray.getItems())),
+      });
+      return;
+    }
     if (!canSend) {
       return;
     }
@@ -136,7 +145,7 @@ export function ChatInput({
       return;
     }
     sendTurn(hasText ? input : "");
-  }, [canSend, isAuthenticated, sendTurn, hasText, input]);
+  }, [canSend, isAuthenticated, sendTurn, hasText, input, tray, trayReadiness]);
 
   const isBusy = status === "submitted" || status === "streaming";
 
@@ -212,7 +221,11 @@ export function ChatInput({
               !e.nativeEvent.isComposing
             ) {
               e.preventDefault();
-              if (isBusy) {
+              if (isStopping) {
+                toast("Still stopping", {
+                  description: "Send your message in a moment.",
+                });
+              } else if (isBusy) {
                 toast.error(
                   "Please wait for the model to finish its response!"
                 );
@@ -348,6 +361,11 @@ export function ChatInput({
 
           <ComposerAction
             canSend={canSend}
+            describedBy={
+              trayReadiness === "over-limit"
+                ? ATTACHMENT_LIMIT_HINT_ID
+                : undefined
+            }
             isBusy={isBusy}
             isSendHeld={isSendHeld}
             isStopping={isStopping}
@@ -424,6 +442,7 @@ export function ChatInput({
 // a stop ends or a reply finishes. aria-disabled keeps it focusable.
 function PureComposerAction({
   canSend,
+  describedBy,
   isBusy,
   isSendHeld,
   isStopping,
@@ -432,6 +451,7 @@ function PureComposerAction({
   submitForm,
 }: {
   canSend: boolean;
+  describedBy: string | undefined;
   isBusy: boolean;
   isSendHeld: boolean;
   isStopping: boolean;
@@ -453,9 +473,11 @@ function PureComposerAction({
   }
   return (
     <button
+      aria-describedby={describedBy}
       aria-disabled={isInert}
       aria-label={label}
       className="touch-hitbox relative flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-primary text-primary-foreground transition-[background-color,opacity] hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-secondary aria-disabled:cursor-default aria-disabled:opacity-45 aria-disabled:hover:bg-primary"
+      data-composer-action=""
       data-testid={isBusy && !isStopping ? "stop-button" : "send-button"}
       onClick={(e) => {
         e.preventDefault();

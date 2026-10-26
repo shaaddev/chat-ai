@@ -558,6 +558,26 @@ describe("a settle that fails", () => {
     expect(whileChecking).toEqual({ phase: "settling", held: true });
   });
 
+  test("names an edit it could not confirm", async () => {
+    const { gate, server } = openChat();
+    await gate.start(() => ({
+      kind: "edit",
+      messageId: "u0",
+      text: "Edited question",
+    }));
+    await until(() => server.chat.length === 1);
+    server.chat[0].fail(new TypeError("Failed to fetch"));
+    await until(() => server.settle.length === 1);
+    server.settle[0].fail(new TypeError("Failed to fetch"));
+    await until(() => gate.getStatus().phase === "unsettled");
+
+    expect(gate.getStatus()).toEqual({
+      phase: "unsettled",
+      reason: "offline",
+      subject: "edit",
+    });
+  });
+
   test("offline names the message it could not confirm", async () => {
     const { gate } = await failSettle();
 

@@ -136,16 +136,18 @@ const EMPTY_REPLY_SUMMARY: Record<ReplyNoticeReason, string> = {
 function ThreadNotice({
   action,
   hint,
+  isLive = true,
   summary,
 }: {
   action?: { label: string; onClick: () => void };
   hint: string;
+  isLive?: boolean;
   summary: string;
 }) {
   return (
     <div
       className="flex flex-wrap items-center gap-x-4 gap-y-2.5 rounded-xl bg-secondary py-3 pr-3 pl-4 text-sm"
-      role="status"
+      role={isLive ? "status" : undefined}
     >
       <p className="min-w-0 flex-1 leading-normal">
         <span className="font-medium">{summary}</span>{" "}
@@ -190,6 +192,7 @@ export function EmptyReplyNotice({
 }
 
 const UNSETTLED_SUMMARY: Record<UnsettledSubject, string> = {
+  edit: "Couldn't confirm your edit was saved.",
   message: "Couldn't confirm your message was sent.",
   regeneration: "Couldn't confirm the reply was regenerated.",
   reply: "Couldn't confirm this reply was saved.",
@@ -200,19 +203,26 @@ export const SETTLE_FAILURE_HINT: Record<SettleFailure, string> = {
   server: "Try again in a moment.",
 };
 
+interface Unsettled {
+  reason: SettleFailure;
+  subject: UnsettledSubject;
+}
+
+export const unsettledText = ({ reason, subject }: Unsettled) =>
+  `${UNSETTLED_SUMMARY[subject]} ${SETTLE_FAILURE_HINT[reason]}`;
+
+// The thread's live region announces this notice, so the notice itself is
+// not a live region.
 export function UnsettledNotice({
   onRetry,
   reason,
   subject,
-}: {
-  onRetry: () => void;
-  reason: SettleFailure;
-  subject: UnsettledSubject;
-}) {
+}: Unsettled & { onRetry: () => void }) {
   return (
     <ThreadNotice
       action={{ label: "Try again", onClick: onRetry }}
       hint={SETTLE_FAILURE_HINT[reason]}
+      isLive={false}
       summary={UNSETTLED_SUMMARY[subject]}
     />
   );

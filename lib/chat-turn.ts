@@ -103,9 +103,9 @@ export type TurnRequest =
 
 export type SettleFailure = "offline" | "server";
 
-// What an unsettled turn could not confirm: the reply on screen, the user's
-// message, or a regenerate that showed no text yet.
-export type UnsettledSubject = "message" | "regeneration" | "reply";
+// What an unsettled turn could not confirm: the reply on screen, or the
+// user's message, edit, or regenerate when no reply text showed yet.
+export type UnsettledSubject = "edit" | "message" | "regeneration" | "reply";
 
 export type TurnStatus =
   | { phase: "idle" }
@@ -176,12 +176,14 @@ const settleFailure = (error: unknown): SettleFailure =>
     ? "offline"
     : "server";
 
-const subjectOf = ({ expectReply, turn }: Ended): UnsettledSubject => {
-  if (expectReply) {
-    return "reply";
-  }
-  return turn.request.kind === "regenerate" ? "regeneration" : "message";
+const SUBJECT_BY_KIND: Record<TurnRequest["kind"], UnsettledSubject> = {
+  append: "message",
+  edit: "edit",
+  regenerate: "regeneration",
 };
+
+const subjectOf = ({ expectReply, turn }: Ended): UnsettledSubject =>
+  expectReply ? "reply" : SUBJECT_BY_KIND[turn.request.kind];
 
 function statusOf(phase: Phase, held: boolean): TurnStatus {
   switch (phase.phase) {
