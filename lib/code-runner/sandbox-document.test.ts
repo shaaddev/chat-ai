@@ -688,14 +688,19 @@ describe.each(["timer first", "rejection first"] as const)(
         "caught\n",
       ],
       [
-        "a MessageChannel round trip",
-        "const { port1, port2 } = new MessageChannel();\nport1.onmessage = (event) => { console.log('got', event.data); port1.close(); };\nport2.postMessage('ping');",
+        "an awaited MessageChannel round trip",
+        "const { port1, port2 } = new MessageChannel();\nconst got = new Promise((resolve) => { port1.onmessage = (event) => resolve(event.data); });\nport2.postMessage('ping');\nconsole.log('got', await got);",
         "got ping\n",
       ],
       [
-        "a message to a port started later",
-        "const { port1, port2 } = new MessageChannel();\nport1.postMessage('early');\nsetTimeout(() => { port2.onmessage = (event) => console.log(event.data); }, 20);",
-        "early\n",
+        "a message posted after the receiving port closed",
+        "const { port1, port2 } = new MessageChannel();\nport2.onmessage = () => {};\nport2.close();\nport1.postMessage(1);\nconsole.log('posted');",
+        "posted\n",
+      ],
+      [
+        "a message posted on a closed port",
+        "const { port1, port2 } = new MessageChannel();\nport2.onmessage = () => {};\nport1.close();\nport1.postMessage(1);\nconsole.log('posted');",
+        "posted\n",
       ],
       [
         "a message to a port that never starts",
