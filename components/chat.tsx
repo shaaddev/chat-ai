@@ -1,9 +1,17 @@
 "use client";
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport, isFileUIPart } from "ai";
+import { isFileUIPart } from "ai";
 import { Search } from "lucide-react";
 import dynamic from "next/dynamic";
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { toast } from "sonner";
 import {
   useChat as useChatContext,
@@ -20,62 +28,25 @@ import {
 } from "@/lib/ai/models";
 import type { Session } from "@/lib/auth";
 import {
-  adoptThread,
+  createTurnGate,
   joinDraftText,
-  requestSettle,
-  type SettledThread,
-  turnFailure,
-  turnOutcome,
+  type TurnRequest,
 } from "@/lib/chat-turn";
 import { openCommandPalette } from "@/lib/command-palette";
 import { ChatSDKError } from "@/lib/errors";
 import { extractSources, type Source } from "@/lib/sources";
 import type { ChatMessage, DocumentDraft } from "@/lib/types";
-import { readiness, type SentFile, sentFiles } from "@/lib/uploadthing/tray";
-import {
-  cn,
-  fetchWithErrorHandlers,
-  generateUUID,
-  hasVisibleContent,
-} from "@/lib/utils";
+import { readiness, sentFiles } from "@/lib/uploadthing/tray";
+import { cn } from "@/lib/utils";
 import { getAttachmentTray } from "./attachment-tray";
 import { ChatInput } from "./chat-input";
-import { Messages, type SettleStatus, type UnsavedEdit } from "./chat-messages";
+import { Messages, type UnsavedEdit } from "./chat-messages";
 import { AttachmentDropZone } from "./drop-overlay";
 import { EmptyGreeting, SuggestionChips } from "./empty-chat-state";
 
 const DRAFT_SAVE_DELAY_MS = 200;
 const DOCUMENT_TITLE_MAX_LENGTH = 80;
 const CHAT_TITLE_MAX_LENGTH = 80;
-const STOP_WAIT_MS = 10_000;
-
-type TurnRequest =
-  | { kind: "append"; files: SentFile[]; text: string }
-  | { kind: "edit"; messageId: string; text: string }
-  | { kind: "regenerate"; replacedReply: ChatMessage | undefined };
-
-interface Turn {
-  id: string;
-  request: TurnRequest;
-}
-
-interface PreparedTurn {
-  request: TurnRequest;
-  send: () => Promise<void>;
-}
-
-type SettleResult = "settled" | "handed-back" | "failed";
-
-interface Ended {
-  expectReply: boolean;
-  shown: ChatMessage[];
-  turn: Turn;
-}
-
-type PendingTurn =
-  | { phase: "running"; turn: Turn; error?: unknown }
-  | ({ phase: "settling"; result: Promise<SettleResult> } & Ended)
-  | ({ phase: "unsettled" } & Ended);
 
 const TURN_NOT_SAVED: Record<
   TurnRequest["kind"],
@@ -95,52 +66,13 @@ const TURN_NOT_SAVED: Record<
   },
 };
 
-const chatTitle = ({ request }: Turn) =>
+const chatTitle = (request: TurnRequest) =>
   (request.kind === "append"
     ? request.text
         .replaceAll("\u0000", "")
         .trim()
         .slice(0, CHAT_TITLE_MAX_LENGTH)
     : "") || "New chat";
-
-// A Stop before the response starts waits for it, because the server answers
-// only after it saves or refuses the turn. A settle sent sooner could reach the
-// server before that save, and a new chat has no row yet for it to claim.
-async function fetchTurn(
-  input: RequestInfo | URL,
-  init: RequestInit | undefined,
-  onAccepted: () => void
-): Promise<Response> {
-  const stopped = init?.signal;
-  const request = new AbortController();
-  let accepted = false;
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const stop = () => {
-    if (accepted) {
-      request.abort();
-    } else {
-      timer ??= setTimeout(() => request.abort(), STOP_WAIT_MS);
-    }
-  };
-  if (stopped?.aborted) {
-    stop();
-  }
-  stopped?.addEventListener("abort", stop, { once: true });
-  try {
-    const response = await fetchWithErrorHandlers(input, {
-      ...init,
-      signal: request.signal,
-    });
-    accepted = true;
-    onAccepted();
-    if (stopped?.aborted) {
-      request.abort();
-    }
-    return response;
-  } finally {
-    clearTimeout(timer);
-  }
-}
 
 const MemoizedChatInput = memo(ChatInput);
 const LazyDocumentSheet = dynamic(
@@ -392,10 +324,6 @@ export function Chat({
     requestSettingsRef.current = requestSettings;
   });
 
-  const savedThreadRef = useRef(initialMessages);
-  const isNewChatRef = useRef(initialMessages.length === 0);
-  const pendingRef = useRef<PendingTurn | undefined>(undefined);
-  const [settleStatus, setSettleStatus] = useState<SettleStatus | null>(null);
   const [unsavedEdit, setUnsavedEdit] = useState<UnsavedEdit | null>(null);
   const mountedRef = useRef(false);
   useEffect(() => {
@@ -405,142 +333,17 @@ export function Chat({
     };
   }, []);
 
-  const setPending = useCallback((pending: PendingTurn | undefined) => {
-    pendingRef.current = pending;
-    setSettleStatus(
-      pending?.phase === "settling" || pending?.phase === "unsettled"
-        ? pending.phase
-        : null
-    );
-  }, []);
-
-  const showChatSaved = useCallback(
-    (turn: Turn) => {
-      if (!(isNewChatRef.current && mountedRef.current)) {
-        return;
-      }
-      isNewChatRef.current = false;
-      window.history.replaceState({}, "", `/chat/${id}`);
-      addOptimisticChat({ id, title: chatTitle(turn) });
-    },
-    [addOptimisticChat, id]
-  );
-
-  const [transport] = useState(
-    () =>
-      new DefaultChatTransport<ChatMessage>({
-        api: "/api/chat",
-        fetch: (url, init) =>
-          fetchTurn(url, init, () => {
-            const pending = pendingRef.current;
-            if (pending) {
-              showChatSaved(pending.turn);
-            }
-          }),
-        prepareSendMessagesRequest: ({
-          messages: outgoing,
-          id: chatId,
-          trigger,
-          messageId,
-        }) => ({
-          body: {
-            id: chatId,
-            message: outgoing.at(-1),
-            trigger,
-            messageId,
-            turnId: pendingRef.current?.turn.id,
-            ...requestSettingsRef.current,
-          },
-        }),
-      })
-  );
-
-  const { messages, regenerate, sendMessage, status, setMessages, stop } =
-    useChat<ChatMessage>({
-      id,
-      messages: initialMessages,
-      generateId: generateUUID,
-      transport,
-      throttle: 50,
-      onFinish: ({ message, messages: thread, isAbort, isError }) => {
-        const pending = pendingRef.current;
-        if (pending?.phase !== "running") {
-          refreshChats();
-          return;
-        }
-        // Leaving a chat mid-turn skips the settle, so the reply the server is
-        // still saving lands.
-        if (!mountedRef.current) {
-          pendingRef.current = undefined;
-          refreshChats();
-          return;
-        }
-        const { turn, error } = pending;
-        const outcome = turnOutcome({ isAbort, isError, error });
-        if (outcome === "finished") {
-          finishTurn(turn, message, thread);
-        } else if (outcome === "refused") {
-          restoreInput(turn, showSaved(turn, thread, savedThreadRef.current));
-        } else {
-          settle({
-            turn,
-            shown: thread,
-            expectReply: hasVisibleContent(message),
-          });
-        }
-      },
-      onError: (err) => {
-        const pending = pendingRef.current;
-        if (pending?.phase === "running") {
-          setPending({ ...pending, error: err });
-        }
-        if (turnFailure(err) === "lost") {
-          return;
-        }
-        toast.error("Error", {
-          description:
-            err instanceof ChatSDKError && typeof err.cause === "string"
-              ? err.cause
-              : err.message,
-        });
-      },
-    });
-  const { latestAssistantMessage, latestUserMessage } =
-    getLatestConversationMessages(messages);
-
-  const showChatMissing = useCallback(() => {
-    isNewChatRef.current = true;
-    if (mountedRef.current && window.location.pathname === `/chat/${id}`) {
-      window.history.replaceState({}, "", "/");
-    }
-  }, [id]);
-
-  const showSaved = useCallback(
-    (turn: Turn, shown: ChatMessage[], saved: ChatMessage[]) => {
-      const thread = adoptThread(shown, saved);
-      savedThreadRef.current = thread;
-      setMessages(thread);
-      setPending(undefined);
-      if (thread.length > 0) {
-        showChatSaved(turn);
-      } else {
-        showChatMissing();
-      }
-      refreshChats();
-      return thread;
-    },
-    [refreshChats, setMessages, setPending, showChatMissing, showChatSaved]
-  );
-
-  const restoreInput = useCallback(
-    ({ request }: Turn, thread: ChatMessage[]) => {
+  // The context callbacks, setters, and draft store are stable, so the
+  // effects read them once.
+  const [turns] = useState(() => {
+    const restoreInput = (
+      request: TurnRequest,
+      { editShown }: { editShown: boolean }
+    ) => {
       if (request.kind === "regenerate") {
         return false;
       }
-      const isEditShown =
-        request.kind === "edit" &&
-        thread.some(({ id: messageId }) => messageId === request.messageId);
-      if (isEditShown && mountedRef.current) {
+      if (request.kind === "edit" && editShown && mountedRef.current) {
         setUnsavedEdit({ messageId: request.messageId, text: request.text });
         return true;
       }
@@ -556,116 +359,92 @@ export function Chat({
         getAttachmentTray(id).restore(request.files);
       }
       return true;
-    },
-    [getChatInputState, id, setChatInputState]
-  );
+    };
 
-  const settle = useCallback(
-    ({ expectReply, shown, turn }: Ended) => {
-      const result = requestSettle(id, turn.id, expectReply).then(
-        ({ messages: saved, turnSaved }: SettledThread): SettleResult => {
-          const thread = showSaved(turn, shown, saved);
-          if (turnSaved) {
-            return "settled";
+    return createTurnGate({
+      chatId: id,
+      initialMessages,
+      requestSettings: () => ({ ...requestSettingsRef.current }),
+      effects: {
+        chatMissing: () => {
+          if (
+            mountedRef.current &&
+            window.location.pathname === `/chat/${id}`
+          ) {
+            window.history.replaceState({}, "", "/");
           }
-          if (mountedRef.current) {
-            const notice = TURN_NOT_SAVED[turn.request.kind];
+        },
+        chatSaved: (request) => {
+          if (!mountedRef.current) {
+            return;
+          }
+          window.history.replaceState({}, "", `/chat/${id}`);
+          addOptimisticChat({ id, title: chatTitle(request) });
+        },
+        isMounted: () => mountedRef.current,
+        refreshChats,
+        showError: (error) => {
+          toast.error("Error", {
+            description:
+              error instanceof ChatSDKError && typeof error.cause === "string"
+                ? error.cause
+                : error.message,
+          });
+        },
+        turnFinished: (reply, keptPrevious) => {
+          if (reply.parts.some(isFileUIPart)) {
+            toast.success("Image generated");
+          }
+          if (keptPrevious) {
+            toast("Kept the previous reply", {
+              description: "The regenerated reply came back empty.",
+            });
+          }
+        },
+        turnNotSaved: (request, { editShown, notify }) => {
+          if (notify && mountedRef.current) {
+            const notice = TURN_NOT_SAVED[request.kind];
             toast(notice.title, { description: notice.description });
           }
-          return restoreInput(turn, thread) ? "handed-back" : "settled";
+          return restoreInput(request, { editShown });
         },
-        (): SettleResult => {
-          setPending({ phase: "unsettled", expectReply, shown, turn });
-          return "failed";
-        }
-      );
-      setPending({ phase: "settling", expectReply, result, shown, turn });
-      return result;
-    },
-    [id, restoreInput, setPending, showSaved]
+      },
+    });
+  });
+  const turnStatus = useSyncExternalStore(
+    turns.subscribe,
+    turns.getStatus,
+    turns.getStatus
   );
 
-  const finishTurn = useCallback(
-    (turn: Turn, reply: ChatMessage, thread: ChatMessage[]) => {
-      if (reply.parts.some(isFileUIPart)) {
-        toast.success("Image generated");
-      }
-      const { request } = turn;
-      // The server keeps the old reply when a regenerated one comes back empty.
-      const keptReply =
-        request.kind === "regenerate" && !hasVisibleContent(reply)
-          ? request.replacedReply
-          : undefined;
-      const saved = keptReply
-        ? [
-            ...thread.filter(({ id: messageId }) => messageId !== reply.id),
-            keptReply,
-          ]
-        : thread;
-      if (keptReply) {
-        setMessages(saved);
-        toast("Kept the previous reply", {
-          description: "The regenerated reply came back empty.",
-        });
-      }
-      savedThreadRef.current = saved;
-      setPending(undefined);
-      refreshChats();
+  const { messages, status, setMessages, stop } = useChat<ChatMessage>({
+    chat: turns.chat,
+    throttle: 50,
+  });
+  useEffect(
+    () => () => {
+      turns.chat.stop();
     },
-    [refreshChats, setMessages, setPending]
+    [turns]
   );
+  const { latestAssistantMessage, latestUserMessage } =
+    getLatestConversationMessages(messages);
 
-  const startTurn = useCallback(
-    async (prepare: () => PreparedTurn | undefined) => {
-      const pending = pendingRef.current;
-      if (pending?.phase === "running") {
-        return;
-      }
-      if (pending) {
-        const result = await (pending.phase === "settling"
-          ? pending.result
-          : settle(pending));
-        if (result !== "settled" || pendingRef.current) {
-          return;
-        }
-      }
-      const prepared = prepare();
-      if (!prepared) {
-        return;
-      }
-      const turn: Turn = { id: generateUUID(), request: prepared.request };
-      setPending({ phase: "running", turn });
-      setChatLoading(id, true);
-      prepared.send().catch(() => {
-        if (pendingRef.current?.turn === turn) {
-          setPending(undefined);
-          setChatLoading(id, false);
-        }
-      });
-    },
-    [id, setChatLoading, setPending, settle]
-  );
-
-  const retrySettle = useCallback(() => {
-    const pending = pendingRef.current;
-    if (pending?.phase === "unsettled") {
-      settle(pending);
-    }
-  }, [settle]);
+  const retrySettle = useCallback(() => turns.retry(), [turns]);
 
   useEffect(() => {
-    if (settleStatus !== "unsettled") {
+    if (turnStatus.phase !== "unsettled") {
       return;
     }
     window.addEventListener("online", retrySettle);
     return () => window.removeEventListener("online", retrySettle);
-  }, [retrySettle, settleStatus]);
+  }, [retrySettle, turnStatus.phase]);
 
   // The attachments are read when the turn starts, which can be after a
   // settle the send waited on.
   const sendTurn = useCallback(
     (text: string) =>
-      startTurn(() => {
+      turns.start(() => {
         const tray = getAttachmentTray(id);
         const items = tray.getItems();
         const trayState = readiness(items);
@@ -677,53 +456,23 @@ export function Chat({
         ) {
           return;
         }
-        return {
-          request: { kind: "append", files, text },
-          send: () => {
-            clearChatInputState(id);
-            tray.clearAfterSend();
-            setInput("");
-            return sendMessage({
-              role: "user",
-              parts: [
-                ...files.map((file) => ({ type: "file" as const, ...file })),
-                ...(text ? [{ type: "text" as const, text }] : []),
-              ],
-            });
-          },
-        };
+        clearChatInputState(id);
+        tray.clearAfterSend();
+        setInput("");
+        return { kind: "append", files, text };
       }),
-    [clearChatInputState, id, sendMessage, startTurn]
+    [clearChatInputState, id, turns]
   );
 
-  const replyToRegenerate = messages.at(-1);
   const handleRegenerate = useCallback(() => {
-    startTurn(() => ({
-      request: {
-        kind: "regenerate",
-        replacedReply:
-          replyToRegenerate?.role === "assistant" &&
-          hasVisibleContent(replyToRegenerate)
-            ? replyToRegenerate
-            : undefined,
-      },
-      send: () => regenerate(),
-    }));
-  }, [regenerate, replyToRegenerate, startTurn]);
+    turns.start(() => ({ kind: "regenerate" }));
+  }, [turns]);
 
   const handleEditMessage = useCallback(
     (message: ChatMessage, text: string) => {
-      startTurn(() => ({
-        request: { kind: "edit", messageId: message.id, text },
-        send: () =>
-          sendMessage({
-            text,
-            files: message.parts.filter(isFileUIPart),
-            messageId: message.id,
-          }),
-      }));
+      turns.start(() => ({ kind: "edit", messageId: message.id, text }));
     },
-    [sendMessage, startTurn]
+    [turns]
   );
 
   const latestAssistantId = latestAssistantMessage?.id;
@@ -757,9 +506,7 @@ export function Chat({
   const isImageModel = getChatModel(selectedModelId).kind === "image";
 
   useEffect(() => {
-    if (status === "streaming" || status === "ready" || status === "error") {
-      setChatLoading(id, false);
-    }
+    setChatLoading(id, status === "submitted");
   }, [status, id, setChatLoading]);
 
   const latestAssistantIsDocument =
@@ -811,7 +558,12 @@ export function Chat({
             onRetrySettle={retrySettle}
             onToggleSources={toggleSources}
             selectedModelId={selectedModelId}
-            settleStatus={settleStatus}
+            settleStatus={
+              turnStatus.phase === "settling" ||
+              turnStatus.phase === "unsettled"
+                ? turnStatus.phase
+                : null
+            }
             sourcesMessageId={isSourcesPanelOpen ? sourcesMessageId : null}
             status={status}
             unsavedEdit={unsavedEdit}

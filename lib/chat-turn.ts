@@ -1,9 +1,17 @@
+import { Chat } from "@ai-sdk/react";
+import { DefaultChatTransport, isFileUIPart } from "ai";
 import { ChatSDKError } from "@/lib/errors";
 import type { ChatMessage } from "@/lib/types";
-import { fetchWithErrorHandlers } from "@/lib/utils";
+import type { SentFile } from "@/lib/uploadthing/tray";
+import {
+  fetchWithErrorHandlers,
+  generateUUID,
+  hasVisibleContent,
+} from "@/lib/utils";
 
 // Longer than the server's wait for a reply, so only a hung request times out.
 const SETTLE_TIMEOUT_MS = 10_000;
+const STOP_WAIT_MS = 10_000;
 
 export type TurnFailure = "refused" | "lost" | "stream";
 
@@ -15,26 +23,6 @@ export function turnFailure(error: unknown): TurnFailure {
     return error.statusCode < 500 ? "refused" : "lost";
   }
   return error instanceof TypeError ? "lost" : "stream";
-}
-
-export type TurnOutcome = "finished" | "refused" | "unknown";
-
-export function turnOutcome({
-  isAbort,
-  isError,
-  error,
-}: {
-  isAbort: boolean;
-  isError: boolean;
-  error: unknown;
-}): TurnOutcome {
-  if (isAbort) {
-    return "unknown";
-  }
-  if (!isError) {
-    return "finished";
-  }
-  return turnFailure(error) === "refused" ? "refused" : "unknown";
 }
 
 export interface SettledThread {
@@ -106,4 +94,363 @@ export function joinDraftText(restored: string, typed: string): string {
     return typed;
   }
   return `${restored}\n\n${typed}`;
+}
+
+export type TurnRequest =
+  | { kind: "append"; files: SentFile[]; text: string }
+  | { kind: "edit"; messageId: string; text: string }
+  | { kind: "regenerate" };
+
+export type TurnStatus =
+  | { phase: "idle" }
+  | { phase: "running" }
+  | { phase: "settling" }
+  | { phase: "unsettled" };
+
+export interface TurnEffects {
+  // The server has the chat now, or no longer has it.
+  chatMissing: () => void;
+  chatSaved: (request: TurnRequest) => void;
+  isMounted: () => boolean;
+  refreshChats: () => void;
+  showError: (error: Error) => void;
+  turnFinished: (reply: ChatMessage, keptPrevious: boolean) => void;
+  // Returns whether the request's text went back to where the user typed it.
+  turnNotSaved: (
+    request: TurnRequest,
+    options: { editShown: boolean; notify: boolean }
+  ) => boolean;
+}
+
+export interface TurnGate {
+  chat: Chat<ChatMessage>;
+  getStatus: () => TurnStatus;
+  retry: () => void;
+  // `prepare` runs once any earlier turn is settled, so it reads the composer
+  // as it is then. It returns nothing when there is nothing to send.
+  start: (prepare: () => TurnRequest | undefined) => Promise<void>;
+  subscribe: (listener: () => void) => () => void;
+}
+
+interface Turn {
+  id: string;
+  // The reply a regenerate replaces, which the server keeps if the new one
+  // comes back empty.
+  replacedReply: ChatMessage | undefined;
+  request: TurnRequest;
+}
+
+interface Ended {
+  // The screen showed reply text, so the turn's request may still be saving it.
+  expectReply: boolean;
+  shown: ChatMessage[];
+  turn: Turn;
+}
+
+type SettleResult = "settled" | "handed-back" | "failed";
+
+type Phase =
+  | { phase: "idle" }
+  | { phase: "running"; turn: Turn; refused: boolean }
+  | ({ phase: "settling"; result: Promise<SettleResult> } & Ended)
+  | ({ phase: "unsettled" } & Ended);
+
+const IDLE: Phase = { phase: "idle" };
+
+const statusOf = (phase: Phase): TurnStatus => ({ phase: phase.phase });
+
+const sameStatus = (a: TurnStatus, b: TurnStatus) =>
+  JSON.stringify(a) === JSON.stringify(b);
+
+function userMessage({ files, text }: { files: SentFile[]; text: string }) {
+  return {
+    role: "user" as const,
+    parts: [
+      ...files.map((file) => ({ type: "file" as const, ...file })),
+      ...(text ? [{ type: "text" as const, text }] : []),
+    ],
+  };
+}
+
+export function createTurnGate({
+  chatId,
+  initialMessages,
+  requestSettings,
+  effects,
+}: {
+  chatId: string;
+  initialMessages: ChatMessage[];
+  requestSettings: () => Record<string, unknown>;
+  effects: TurnEffects;
+}): TurnGate {
+  let phase: Phase = IDLE;
+  let status = statusOf(phase);
+  let chatExists = initialMessages.length > 0;
+  // The thread as the server last saved it.
+  let savedThread = initialMessages;
+  const listeners = new Set<() => void>();
+
+  const commit = (next: Phase) => {
+    phase = next;
+    const nextStatus = statusOf(phase);
+    if (sameStatus(status, nextStatus)) {
+      return;
+    }
+    status = nextStatus;
+    for (const listener of listeners) {
+      listener();
+    }
+  };
+
+  const isRunning = (turn: Turn) =>
+    phase.phase === "running" && phase.turn === turn;
+
+  const setChatExists = (exists: boolean, request: TurnRequest) => {
+    if (exists === chatExists) {
+      return;
+    }
+    chatExists = exists;
+    if (exists) {
+      effects.chatSaved(request);
+    } else {
+      effects.chatMissing();
+    }
+  };
+
+  // A Stop before the response starts waits for it, because the server
+  // answers only after it saves or refuses the turn. A settle sent sooner
+  // could reach the server before that save, and a new chat has no row yet
+  // for it to claim.
+  const fetchTurn = async (
+    input: RequestInfo | URL,
+    init: RequestInit | undefined
+  ): Promise<Response> => {
+    const turn = phase.phase === "running" ? phase.turn : undefined;
+    const stopped = init?.signal;
+    const request = new AbortController();
+    let answered = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const stop = () => {
+      if (answered) {
+        request.abort();
+      } else {
+        timer ??= setTimeout(() => request.abort(), STOP_WAIT_MS);
+      }
+    };
+    if (stopped?.aborted) {
+      stop();
+    }
+    stopped?.addEventListener("abort", stop, { once: true });
+    try {
+      const response = await fetchWithErrorHandlers(input, {
+        ...init,
+        signal: request.signal,
+      });
+      answered = true;
+      if (turn && isRunning(turn)) {
+        setChatExists(true, turn.request);
+      }
+      if (stopped?.aborted) {
+        request.abort();
+      }
+      return response;
+    } catch (error) {
+      if (turn && isRunning(turn) && turnFailure(error) === "refused") {
+        commit({ phase: "running", turn, refused: true });
+      }
+      throw error;
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
+  const showSaved = (thread: ChatMessage[], request: TurnRequest) => {
+    savedThread = thread;
+    chat.messages = thread;
+    setChatExists(thread.length > 0, request);
+    commit(IDLE);
+    effects.refreshChats();
+  };
+
+  const handBack = (turn: Turn, thread: ChatMessage[], notify: boolean) => {
+    const { request } = turn;
+    const editShown =
+      request.kind === "edit" &&
+      thread.some(({ id }) => id === request.messageId);
+    return effects.turnNotSaved(request, { editShown, notify });
+  };
+
+  const settle = (ended: Ended): Promise<SettleResult> => {
+    const { expectReply, shown, turn } = ended;
+    const result = requestSettle(chatId, turn.id, expectReply).then(
+      ({ messages, turnSaved }): SettleResult => {
+        const thread = adoptThread(shown, messages);
+        showSaved(thread, turn.request);
+        if (turnSaved) {
+          return "settled";
+        }
+        return handBack(turn, thread, true) ? "handed-back" : "settled";
+      },
+      (): SettleResult => {
+        commit({ phase: "unsettled", ...ended });
+        return "failed";
+      }
+    );
+    commit({ phase: "settling", ...ended, result });
+    return result;
+  };
+
+  const finish = (turn: Turn, reply: ChatMessage, shown: ChatMessage[]) => {
+    // The server keeps the old reply when a regenerated one comes back empty.
+    const kept = hasVisibleContent(reply) ? undefined : turn.replacedReply;
+    const thread = kept
+      ? [...shown.filter(({ id }) => id !== reply.id), kept]
+      : shown;
+    savedThread = thread;
+    if (kept) {
+      chat.messages = thread;
+    }
+    commit(IDLE);
+    effects.turnFinished(reply, kept !== undefined);
+    effects.refreshChats();
+  };
+
+  const turnEnded = ({
+    message: reply,
+    messages: shown,
+    isAbort,
+    isError,
+  }: {
+    message: ChatMessage;
+    messages: ChatMessage[];
+    isAbort: boolean;
+    isError: boolean;
+  }) => {
+    if (phase.phase !== "running") {
+      effects.refreshChats();
+      return;
+    }
+    const { turn, refused } = phase;
+    // Leaving a chat mid-turn skips the settle, so the reply the server is
+    // still saving lands.
+    if (!effects.isMounted()) {
+      commit(IDLE);
+      effects.refreshChats();
+      return;
+    }
+    if (isAbort || (isError && !refused)) {
+      settle({ turn, shown, expectReply: hasVisibleContent(reply) });
+    } else if (refused) {
+      const thread = adoptThread(shown, savedThread);
+      showSaved(thread, turn.request);
+      handBack(turn, thread, false);
+    } else {
+      finish(turn, reply, shown);
+    }
+  };
+
+  const send = (turn: Turn) => {
+    const body = { turnId: turn.id };
+    const { request } = turn;
+    if (request.kind === "regenerate") {
+      return chat.regenerate({ body });
+    }
+    if (request.kind === "edit") {
+      const edited = chat.messages.find(({ id }) => id === request.messageId);
+      return chat.sendMessage(
+        {
+          text: request.text,
+          files: edited?.parts.filter(isFileUIPart) ?? [],
+          messageId: request.messageId,
+        },
+        { body }
+      );
+    }
+    return chat.sendMessage(userMessage(request), { body });
+  };
+
+  const chat: Chat<ChatMessage> = new Chat<ChatMessage>({
+    id: chatId,
+    messages: initialMessages,
+    generateId: generateUUID,
+    transport: new DefaultChatTransport<ChatMessage>({
+      api: "/api/chat",
+      fetch: fetchTurn,
+      prepareSendMessagesRequest: ({
+        body,
+        id,
+        messageId,
+        messages,
+        trigger,
+      }) => ({
+        body: {
+          ...body,
+          id,
+          message: messages.at(-1),
+          trigger,
+          messageId,
+          ...requestSettings(),
+        },
+      }),
+    }),
+    onError: (error) => {
+      if (turnFailure(error) !== "lost") {
+        effects.showError(error);
+      }
+    },
+    onFinish: turnEnded,
+  });
+
+  const start = async (prepare: () => TurnRequest | undefined) => {
+    const pending = phase;
+    if (pending.phase === "running") {
+      return;
+    }
+    if (pending.phase !== "idle") {
+      const result = await (pending.phase === "settling"
+        ? pending.result
+        : settle(pending));
+      if (result !== "settled" || phase.phase !== "idle") {
+        return;
+      }
+    }
+    const request = prepare();
+    if (!request) {
+      return;
+    }
+    const last = chat.messages.at(-1);
+    const turn: Turn = {
+      id: generateUUID(),
+      request,
+      replacedReply:
+        request.kind === "regenerate" &&
+        last?.role === "assistant" &&
+        hasVisibleContent(last)
+          ? last
+          : undefined,
+    };
+    commit({ phase: "running", turn, refused: false });
+    send(turn).catch(() => {
+      if (isRunning(turn)) {
+        commit(IDLE);
+      }
+    });
+  };
+
+  return {
+    chat,
+    getStatus: () => status,
+    retry: () => {
+      if (phase.phase === "unsettled") {
+        settle(phase);
+      }
+    },
+    start,
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+  };
 }
