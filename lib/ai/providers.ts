@@ -26,11 +26,23 @@ export function getLanguageModel(
   });
 }
 
+const TITLE_EDGE_PUNCTUATION = /^["'“”‘’]+|["'“”‘’.!?:]+$/g;
+
+function messageText(message: ChatMessage) {
+  return message.parts
+    .flatMap((part) => (part.type === "text" ? [part.text] : []))
+    .join("\n")
+    .slice(0, 2000);
+}
+
 export async function generateChatTitle(message: ChatMessage) {
   const { text } = await generateText({
     model: openrouter(TITLE_MODEL_SLUG),
     instructions: titlePrompt,
-    prompt: JSON.stringify(message),
+    prompt: `<message>${messageText(message)}</message>`,
   });
-  return text.trim().slice(0, CHAT_TITLE_MAX_LENGTH);
+  return text
+    .trim()
+    .replace(TITLE_EDGE_PUNCTUATION, "")
+    .slice(0, CHAT_TITLE_MAX_LENGTH);
 }

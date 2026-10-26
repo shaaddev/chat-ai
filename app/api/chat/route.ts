@@ -352,6 +352,7 @@ export async function POST(req: Request) {
       return new Response("Unauthorized", { status: 401 });
     }
 
+    let titleSaved: Promise<void> | undefined;
     if (!existingChat) {
       await saveChat({
         id,
@@ -362,7 +363,10 @@ export async function POST(req: Request) {
       // A promise, not a callback: a callback would only start once the
       // reply has finished streaming, so the title would land after the
       // client's end-of-stream refresh.
-      after(saveGeneratedTitle({ chatId: id, userId, message }));
+      titleSaved = saveGeneratedTitle({ chatId: id, userId, message }).catch(
+        (error) => console.error("Failed to save the chat title", error)
+      );
+      after(titleSaved);
     }
 
     const history = existingChat
@@ -395,6 +399,7 @@ export async function POST(req: Request) {
             prompt: latestUserText,
             metadata,
           });
+          await titleSaved;
           return;
         }
 
@@ -420,6 +425,9 @@ export async function POST(req: Request) {
               part.type === "start" ? metadata : undefined,
           })
         );
+        // The client refreshes the sidebar when the stream ends, so a new
+        // chat's stream stays open until its generated title is saved.
+        await titleSaved;
       },
       generateId: generateUUID,
       onEnd: async ({ responseMessage }) => {
