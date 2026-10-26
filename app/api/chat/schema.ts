@@ -40,6 +40,8 @@ const messageIdSchema = z.string().min(1).max(128);
 
 const settingsShape = {
   id: z.string().uuid(),
+  // Optional only for tabs loaded before turnId shipped.
+  turnId: z.string().uuid().optional(),
   selectedChatModel: z.enum(CHAT_MODEL_IDS),
   useSearch: z.boolean().optional().default(false),
   autoDocumentGeneration: z.boolean().optional().default(false),

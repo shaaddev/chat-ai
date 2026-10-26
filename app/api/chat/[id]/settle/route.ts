@@ -1,0 +1,59 @@
+import { z } from "zod";
+import { auth } from "@/app/auth";
+import { isReplyPending, settleTurn } from "@/lib/db/queries";
+import { ChatSDKError } from "@/lib/errors";
+import { convertToUIMessages } from "@/lib/utils";
+
+const REPLY_WAIT_MS = 3000;
+const REPLY_POLL_MS = 100;
+
+const settleRequestBodySchema = z.object({
+  turnId: z.string().uuid(),
+  expectReply: z.boolean().optional().default(false),
+});
+
+export async function POST(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const body = settleRequestBodySchema.safeParse(
+    await req.json().catch(() => null)
+  );
+  if (!body.success) {
+    return new ChatSDKError("bad_request:api").toResponse();
+  }
+
+  const session = await auth();
+  if (!session) {
+    return new ChatSDKError("unauthorized:chat").toResponse();
+  }
+
+  const turn = {
+    chatId: id,
+    userId: session.user.id,
+    turnId: body.data.turnId,
+  };
+  // The client showed reply text, so the turn's own request is saving that
+  // reply. Past the deadline that request has likely died.
+  const waitForReply = async (deadline: number): Promise<void> => {
+    if (Date.now() >= deadline || !(await isReplyPending(turn))) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, REPLY_POLL_MS));
+    await waitForReply(deadline);
+  };
+  if (body.data.expectReply) {
+    await waitForReply(Date.now() + REPLY_WAIT_MS);
+  }
+
+  const settled = await settleTurn(turn);
+  if (!settled) {
+    return new ChatSDKError("not_found:chat").toResponse();
+  }
+
+  return Response.json({
+    messages: convertToUIMessages(settled.messages),
+    turnSaved: settled.turnSaved,
+  });
+}
