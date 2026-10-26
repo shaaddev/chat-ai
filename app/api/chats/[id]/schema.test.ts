@@ -55,3 +55,18 @@ describe("PATCH /api/chats/[id] pinnedKey", () => {
     expect(patchRequestBodySchema.safeParse({}).success).toBe(false);
   });
 });
+
+describe("PATCH /api/chats/[id] title", () => {
+  test("drops NUL characters, which Postgres text rejects", () => {
+    const result = patchRequestBodySchema.safeParse({
+      title: "Lisbon\u0000 trip",
+    });
+    expect(result.data?.title).toBe("Lisbon trip");
+  });
+
+  test("rejects a title that is empty once NUL characters are dropped", () => {
+    expect(
+      patchRequestBodySchema.safeParse({ title: " \u0000\u0000 " }).success
+    ).toBe(false);
+  });
+});

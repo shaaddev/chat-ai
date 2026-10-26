@@ -162,6 +162,23 @@ describe.skipIf(!hasTestDatabase)("POST /api/chat against Postgres", () => {
     expect((await getChatById(chatId))?.title).toBe("Weekend in Lisbon");
   });
 
+  test("a first message of only NUL characters starts as a new chat", async () => {
+    const userId = await testDatabase.createUser();
+    const chatId = crypto.randomUUID();
+    signInAs(userId);
+    pendingTitle = Promise.withResolvers();
+
+    const response = await post(
+      firstTurn(chatId, crypto.randomUUID(), "\u0000")
+    );
+    const provisionalTitle = (await getChatById(chatId))?.title;
+    pendingTitle.resolve("Empty message");
+    await Promise.all(backgroundTasks);
+    await response.text();
+
+    expect(provisionalTitle).toBe("New chat");
+  });
+
   test("the generated title replaces the provisional one", async () => {
     const userId = await testDatabase.createUser();
     const chatId = crypto.randomUUID();
