@@ -345,13 +345,13 @@ export async function POST(req: Request) {
 
     const session = await auth();
     if (!session) {
-      return new Response("Unauthorized", { status: 401 });
+      return new ChatSDKError("unauthorized:chat").toResponse();
     }
     const userId = session.user.id;
 
     const existingChat = await getChatById(id);
     if (existingChat && existingChat.userId !== userId) {
-      return new Response("Unauthorized", { status: 401 });
+      return new ChatSDKError("forbidden:chat").toResponse();
     }
 
     // The schema checks a new message. A regenerate reuses a saved one, so
