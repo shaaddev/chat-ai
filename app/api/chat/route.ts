@@ -369,25 +369,6 @@ export async function POST(req: Request) {
       return new ChatSDKError("forbidden:chat").toResponse();
     }
 
-    // The schema checks a new message. A regenerate reuses a saved one, so
-    // check it here, before the turn is saved.
-    if (turn.type === "regenerate" && model.kind === "image") {
-      const target = await getUserMessage({
-        chatId: id,
-        messageId: turn.userMessageId,
-      });
-      if (!target) {
-        return staleTurnResponse();
-      }
-      const [{ parts }] = convertToUIMessages([target]);
-      if (!getUserText(parts)) {
-        return new ChatSDKError(
-          "bad_request:api",
-          "Image models need a text prompt. Describe the image you want."
-        ).toResponse();
-      }
-    }
-
     if (turn.type !== "regenerate") {
       const fileUrls = turn.message.parts.flatMap((part) =>
         part.type === "file" ? [part.url] : []
@@ -409,6 +390,25 @@ export async function POST(req: Request) {
           getUserText(message.parts).slice(0, CHAT_TITLE_MAX_LENGTH) ||
           "New chat",
       };
+    }
+
+    // The schema checks a new message. A regenerate reuses a saved one, so
+    // check it here, before the turn is saved.
+    if (turn.type === "regenerate" && model.kind === "image") {
+      const target = await getUserMessage({
+        chatId: id,
+        messageId: turn.userMessageId,
+      });
+      if (!target) {
+        return staleTurnResponse();
+      }
+      const [{ parts }] = convertToUIMessages([target]);
+      if (!getUserText(parts)) {
+        return new ChatSDKError(
+          "bad_request:api",
+          "Image models need a text prompt. Describe the image you want."
+        ).toResponse();
+      }
     }
 
     const streamId = generateUUID();
