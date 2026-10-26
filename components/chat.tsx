@@ -284,6 +284,9 @@ export function Chat({
     requestSettingsRef.current = requestSettings;
   });
 
+  const [lastTrigger, setLastTrigger] = useState<
+    "submit-message" | "regenerate-message"
+  >("submit-message");
   const [transport] = useState(
     () =>
       new DefaultChatTransport<ChatMessage>({
@@ -294,15 +297,18 @@ export function Chat({
           id: chatId,
           trigger,
           messageId,
-        }) => ({
-          body: {
-            id: chatId,
-            message: outgoing.at(-1),
-            trigger,
-            messageId,
-            ...requestSettingsRef.current,
-          },
-        }),
+        }) => {
+          setLastTrigger(trigger);
+          return {
+            body: {
+              id: chatId,
+              message: outgoing.at(-1),
+              trigger,
+              messageId,
+              ...requestSettingsRef.current,
+            },
+          };
+        },
       })
   );
 
@@ -435,9 +441,13 @@ export function Chat({
   const isSourcesPanelOpen = !isDocumentSheetOpen && panelSources.length > 0;
   const isRightPanelOpen = isDocumentSheetOpen || isSourcesPanelOpen;
   // The server answers with an HTTP error only before it saves a turn, and
-  // fetchWithErrorHandlers turns every HTTP error into a ChatSDKError, so
-  // nothing to regenerate was saved.
-  const turnWasRefused = status === "error" && error instanceof ChatSDKError;
+  // fetchWithErrorHandlers turns every HTTP error into a ChatSDKError. So a
+  // refused send or edit saved no message to regenerate. A refused
+  // regenerate leaves its saved message, which can still be regenerated.
+  const sendWasRefused =
+    status === "error" &&
+    error instanceof ChatSDKError &&
+    lastTrigger === "submit-message";
   const isEmpty = messages.length === 0;
 
   return (
@@ -461,9 +471,9 @@ export function Chat({
             onRegenerate={handleRegenerate}
             onToggleSources={toggleSources}
             selectedModelId={selectedModelId}
+            sendWasRefused={sendWasRefused}
             sourcesMessageId={isSourcesPanelOpen ? sourcesMessageId : null}
             status={status}
-            turnWasRefused={turnWasRefused}
           />
 
           <div

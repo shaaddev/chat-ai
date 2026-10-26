@@ -37,9 +37,9 @@ interface MessagesProps {
   onRegenerate: () => void;
   onToggleSources: (messageId: string) => void;
   selectedModelId: ChatModelId;
+  sendWasRefused: boolean;
   sourcesMessageId: string | null;
   status: UseChatHelpers<ChatMessage>["status"];
-  turnWasRefused: boolean;
 }
 
 const CODE_BLOCK_REGEX = /```[\s\S]*?```/;
@@ -145,7 +145,7 @@ function PureMessages({
   chatId,
   messages,
   status,
-  turnWasRefused,
+  sendWasRefused,
   isImageModelSelected,
   isNarrow,
   documentDraft,
@@ -171,7 +171,7 @@ function PureMessages({
     (lastMessage.role === "user" || !isShownInThread(lastMessage));
   const visibleMessages = messages.filter(isShownInThread);
   const isMissingReply =
-    !(isBusy || turnWasRefused) && endsWithoutReply(messages);
+    !(isBusy || sendWasRefused) && endsWithoutReply(messages);
   const latestUserMessageId =
     messages.findLast((message) => message.role === "user")?.id ?? null;
 
