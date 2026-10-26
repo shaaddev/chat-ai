@@ -39,7 +39,14 @@ type PendingEdit =
   | { kind: "pin"; pinnedKey: string | null }
   | { kind: "rename"; title: string };
 
-type PendingEdits = ReadonlyMap<string, PendingEdit>;
+type PendingEditKind = PendingEdit["kind"];
+
+// Each chat can have one unconfirmed edit of each kind, so a pin and a rename
+// in flight together both show, and each settles on its own.
+type PendingEdits = ReadonlyMap<
+  string,
+  ReadonlyMap<PendingEditKind, PendingEdit>
+>;
 
 interface ChatInputState {
   attachments: Attachment[];
@@ -141,15 +148,23 @@ async function sendChatRequest(
 }
 
 function withEdit(edits: PendingEdits, chatId: string, edit: PendingEdit) {
-  return new Map(edits).set(chatId, edit);
+  const forChat = new Map(edits.get(chatId)).set(edit.kind, edit);
+  return new Map(edits).set(chatId, forChat);
 }
 
 function withoutEdit(edits: PendingEdits, chatId: string, edit: PendingEdit) {
-  if (edits.get(chatId) !== edit) {
+  const forChat = edits.get(chatId);
+  if (forChat?.get(edit.kind) !== edit) {
     return edits;
   }
+  const remaining = new Map(forChat);
+  remaining.delete(edit.kind);
   const next = new Map(edits);
-  next.delete(chatId);
+  if (remaining.size === 0) {
+    next.delete(chatId);
+  } else {
+    next.set(chatId, remaining);
+  }
   return next;
 }
 
@@ -161,17 +176,22 @@ function applyPendingEdits(
     return chats;
   }
   return chats.flatMap((chat) => {
-    const edit = edits.get(chat.id);
-    if (!edit) {
+    const forChat = edits.get(chat.id);
+    if (!forChat) {
       return [chat];
     }
-    if (edit.kind === "delete") {
+    if (forChat.has("delete")) {
       return [];
     }
-    if (edit.kind === "pin") {
-      return [{ ...chat, pinnedKey: edit.pinnedKey }];
-    }
-    return [{ ...chat, title: edit.title }];
+    const pin = forChat.get("pin");
+    const rename = forChat.get("rename");
+    return [
+      {
+        ...chat,
+        ...(pin?.kind === "pin" ? { pinnedKey: pin.pinnedKey } : {}),
+        ...(rename?.kind === "rename" ? { title: rename.title } : {}),
+      },
+    ];
   });
 }
 
@@ -491,12 +511,13 @@ export function useChatTitle(chatId: string): string | undefined {
     revalidateOnMount: false,
     revalidateOnFocus: false,
   });
-  const edit = context.pendingEdits.get(chatId);
-  if (edit?.kind === "rename") {
-    return edit.title;
-  }
-  if (edit?.kind === "delete") {
+  const forChat = context.pendingEdits.get(chatId);
+  if (forChat?.has("delete")) {
     return;
+  }
+  const rename = forChat?.get("rename");
+  if (rename?.kind === "rename") {
+    return rename.title;
   }
   return data?.find((chat) => chat.id === chatId)?.title;
 }
