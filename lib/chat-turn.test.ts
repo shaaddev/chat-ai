@@ -112,6 +112,7 @@ function recordingEffects(overrides: Partial<TurnEffects> = {}) {
     chatSaved: () => calls.push("chat saved"),
     isMounted: () => true,
     refreshChats: () => undefined,
+    sendBlocked: (reason) => calls.push(`send blocked: ${reason}`),
     showError: () => calls.push("error shown"),
     turnFinished: (_, keptPrevious) =>
       calls.push(keptPrevious ? "finished, kept the old reply" : "finished"),
@@ -360,6 +361,27 @@ describe("a send while a turn settles", () => {
     });
   });
 
+  test("shows that it is held, and a second send meanwhile is ignored", async () => {
+    const { gate, server } = openChat();
+    await stopBeforeText(gate, server);
+    const [userTurn] = gate.chat.messages.slice(-1);
+    let prepared = 0;
+    const prepare = () => {
+      prepared += 1;
+      return { kind: "append" as const, files: [], text: "A short one" };
+    };
+
+    const followUp = gate.start(prepare);
+    const whileHeld = gate.getStatus();
+    await gate.start(prepare);
+    server.settle[0].respond(settled([QUESTION, ANSWER, userTurn], true));
+    await followUp;
+
+    expect(whileHeld).toEqual({ phase: "settling", held: true });
+    expect(prepared).toBe(1);
+    expect(gate.getStatus()).toEqual({ phase: "running", stopping: false });
+  });
+
   test("never goes out when the earlier text comes back to the composer", async () => {
     const { calls, gate, server } = openChat();
     await stopBeforeText(gate, server);
@@ -413,6 +435,51 @@ describe("a settle that fails", () => {
     server.settle[1].respond(settled([QUESTION, ANSWER, userTurn], true));
     await followUp;
     await until(() => server.chat.length === 2);
+  });
+
+  test("offline names the message it could not confirm", async () => {
+    const { gate } = await failSettle();
+
+    expect(gate.getStatus()).toEqual({
+      phase: "unsettled",
+      reason: "offline",
+      subject: "message",
+    });
+  });
+
+  test("on the server's side names the reply it could not confirm", async () => {
+    const { gate, server } = openChat();
+    await ask(gate, "Tell me a story");
+    await until(() => server.chat.length === 1);
+    streamReply(server.chat[0], { text: "Once upon", finish: false });
+    await until(() => shown(gate).at(-1) === "assistant: Once upon");
+    gate.chat.stop();
+    await until(() => server.settle.length === 1);
+    server.settle[0].respond(errorResponse(500, "server:api"));
+    await until(() => gate.getStatus().phase === "unsettled");
+
+    expect(gate.getStatus()).toEqual({
+      phase: "unsettled",
+      reason: "server",
+      subject: "reply",
+    });
+  });
+
+  test("again when a send checks it says why the send didn't go out", async () => {
+    const { calls, gate, server } = await failSettle();
+    let prepared = false;
+
+    const followUp = gate.start(() => {
+      prepared = true;
+      return { kind: "append", files: [], text: "A short one" };
+    });
+    await until(() => server.settle.length === 2);
+    server.settle[1].fail(new TypeError("Failed to fetch"));
+    await followUp;
+
+    expect(prepared).toBe(false);
+    expect(calls).toEqual(["send blocked: offline"]);
+    expect(gate.getStatus().phase).toBe("unsettled");
   });
 });
 
