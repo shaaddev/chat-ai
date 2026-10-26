@@ -152,22 +152,23 @@ self.addEventListener("error", (event) => {
   exit("error", error === null || error === undefined ? event.message : "Uncaught " + describe(error));
 });
 
-self.addEventListener("unhandledrejection", (event) => {
-  event.preventDefault();
-  if (event.reason === IDLE) {
-    event.stopImmediatePropagation();
-    exit("done");
-    return;
-  }
-  exit("error", "Uncaught (in promise) " + describe(event.reason));
-});
-
 self.addEventListener("securitypolicyviolation", (event) => {
   write("stderr", "The sandbox blocked " + (event.blockedURI || event.effectiveDirective) + ". " + NO_NETWORK + "\n");
 });
 
 async function runJavaScript(code) {
   begin();
+  // Pyodide leaves a rejected promise of its own when Python exits, so only
+  // a JavaScript run treats an unhandled rejection as the program's.
+  self.addEventListener("unhandledrejection", (event) => {
+    event.preventDefault();
+    if (event.reason === IDLE) {
+      event.stopImmediatePropagation();
+      exit("done");
+      return;
+    }
+    exit("error", "Uncaught (in promise) " + describe(event.reason));
+  });
   const timers = new Set();
   let pending = 0;
   let mainSettled = false;
