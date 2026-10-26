@@ -42,12 +42,14 @@ export async function updateChat({
   // `updatedAt` orders the sidebar by activity. Renaming is not activity.
   const updated = await getDb()
     .update(chat)
-    .set({ ...changes, updatedAt: sql`${chat.updatedAt}` })
+    .set({ ...stripNul(changes), updatedAt: sql`${chat.updatedAt}` })
     .where(
       and(
         eq(chat.id, id),
         eq(chat.userId, userId),
-        onlyIfTitle === undefined ? undefined : eq(chat.title, onlyIfTitle)
+        onlyIfTitle === undefined
+          ? undefined
+          : eq(chat.title, stripNul(onlyIfTitle))
       )
     )
     .returning({ id: chat.id });
@@ -233,8 +235,8 @@ async function saveUserTurnOrThrow({
       await tx.insert(chat).values({
         id: chatId,
         userId,
-        title: newChat.title,
-        systemPrompt: newChat.systemPrompt ?? null,
+        title: stripNul(newChat.title),
+        systemPrompt: stripNul(newChat.systemPrompt ?? null),
       });
     }
     if (!(await lockOwnedChat(tx, chatId, userId))) {
