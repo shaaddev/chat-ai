@@ -40,6 +40,7 @@ export async function generateChatTitle(message: ChatMessage) {
     model: openrouter(TITLE_MODEL_SLUG),
     instructions: titlePrompt,
     prompt: `<message>${messageText(message)}</message>`,
+    temperature: 0,
   });
   return text
     .trim()
