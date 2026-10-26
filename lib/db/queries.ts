@@ -189,6 +189,30 @@ export async function saveUserTurn({
   streamId: string;
   turn: UserTurn;
 }): Promise<Message[] | null> {
+  try {
+    return await saveUserTurnOrThrow({ chatId, userId, streamId, turn });
+  } catch (error) {
+    if (error instanceof MessageIdTakenError) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+// Thrown inside the transaction so the deletes roll back with the insert.
+class MessageIdTakenError extends Error {}
+
+async function saveUserTurnOrThrow({
+  chatId,
+  userId,
+  streamId,
+  turn,
+}: {
+  chatId: string;
+  userId: string;
+  streamId: string;
+  turn: UserTurn;
+}): Promise<Message[] | null> {
   return await getDb().transaction(async (tx) => {
     if (!(await lockOwnedChat(tx, chatId, userId))) {
       return null;
@@ -217,7 +241,7 @@ export async function saveUserTurn({
     }
     const now = new Date();
     if (turn.type !== "regenerate") {
-      await tx
+      const inserted = await tx
         .insert(message)
         .values({
           id: turn.message.id,
@@ -226,7 +250,11 @@ export async function saveUserTurn({
           parts: stripNul(turn.message.parts),
           createdAt: now,
         })
-        .onConflictDoNothing({ target: message.id });
+        .onConflictDoNothing({ target: message.id })
+        .returning({ id: message.id });
+      if (inserted.length === 0) {
+        throw new MessageIdTakenError();
+      }
     }
     await tx.insert(stream).values({ id: streamId, chatId, createdAt: now });
     await tx.update(chat).set({ updatedAt: now }).where(eq(chat.id, chatId));

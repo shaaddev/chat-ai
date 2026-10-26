@@ -390,7 +390,7 @@ export async function POST(req: Request) {
     if (!saved) {
       return new ChatSDKError(
         "bad_request:api",
-        "Only a user message in this chat can be edited or regenerated."
+        "That message could not be saved. Only a user message in this chat can be edited or regenerated, and a new message needs an unused id."
       ).toResponse();
     }
     const history = convertToUIMessages(saved);
