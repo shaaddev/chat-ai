@@ -317,14 +317,17 @@ function missingModuleDetail(text) {
 }
 
 // CPython exits with 0 for None and with the number for an int, which
-// includes the bools. Any other value is printed, and the exit code is 1.
-const EXIT_CODES = new Map([[undefined, "0"], ["None", "0"], ["False", "0"], ["True", "1"]]);
+// includes the bools. Any other value is printed, and the exit code is 1,
+// even when printing it raises.
+const EXIT_STATUS = "import sys\ncode = sys.last_exc.code\n0 if code is None else int(code) if isinstance(code, int) else str(code)";
 
-function systemExitDetail(text) {
-  const value = /^SystemExit(?:: (.*))?$/.exec(text.trim().split("\n").pop() || "")?.[1];
-  const code = EXIT_CODES.get(value) ?? value;
-  if (code === "0") return null;
-  return /^-?\d+$/.test(code) ? "Exited with code " + code : code;
+function systemExitDetail() {
+  let status = 1;
+  try {
+    status = pyodide.runPython(EXIT_STATUS);
+  } catch (error) {}
+  if (typeof status === "string") return status;
+  return status === 0 ? null : "Exited with code " + status;
 }
 
 async function runPython(code) {
@@ -334,14 +337,15 @@ async function runPython(code) {
     flushPython();
     exit("done");
   } catch (error) {
-    flushPython();
-    const text = error instanceof Error ? error.message : String(error);
     if (error && error.type === "SystemExit") {
-      const detail = systemExitDetail(text);
+      const detail = systemExitDetail();
+      flushPython();
       if (detail === null) exit("done");
       else exit("error", detail);
       return;
     }
+    flushPython();
+    const text = error instanceof Error ? error.message : String(error);
     const traceback = trimTraceback(text);
     exit("error", error && error.type === "ModuleNotFoundError" ? missingModuleDetail(traceback) : traceback);
   }
