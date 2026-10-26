@@ -85,7 +85,7 @@ function useStartNewChat() {
 }
 
 const ITEM_CLASS =
-  "flex h-9 cursor-pointer select-none items-center gap-2.5 rounded-lg px-2.5 text-sm outline-none data-[selected=true]:bg-foreground/[0.06] [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground";
+  "flex h-9 cursor-pointer select-none items-center gap-2.5 rounded-lg px-2.5 text-sm outline-none data-[selected=true]:bg-foreground/[0.06] keyboard:data-[selected=true]:ring-2 keyboard:data-[selected=true]:ring-ring [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground";
 
 function PaletteContent({ onRun }: { onRun: RunAction }) {
   const router = useRouter();

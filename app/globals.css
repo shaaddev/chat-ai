@@ -5,6 +5,9 @@
 @source "../node_modules/@streamdown/code/dist/*.js";
 
 @custom-variant dark (&:is(.dark *));
+/* Radix menu items take DOM focus on hover too, and :focus-visible inherits
+   from a focused text field, so menu rings key off InputModality instead. */
+@custom-variant keyboard (:where([data-input-modality="keyboard"]) &);
 
 /* === THEME REGISTRATION (Tailwind v4) === */
 @theme inline {
