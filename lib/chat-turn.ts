@@ -150,6 +150,7 @@ type Phase =
   | {
       phase: "running";
       turn: Turn;
+      answered: boolean;
       refusal: ChatSDKError | undefined;
       stopping: boolean;
     }
@@ -257,7 +258,11 @@ export function createTurnGate({
 
   const updateRunning = (
     turn: Turn,
-    change: Partial<{ refusal: ChatSDKError; stopping: boolean }>
+    change: Partial<{
+      answered: boolean;
+      refusal: ChatSDKError;
+      stopping: boolean;
+    }>
   ) => {
     if (phase.phase === "running" && phase.turn === turn) {
       commit({ ...phase, ...change });
@@ -272,9 +277,9 @@ export function createTurnGate({
     const stopped = init?.signal;
     const request = new AbortController();
     let answered = false;
-    const settleCanClaimTurn = () => answered || chatExists;
+    const canStopAtOnce = () => answered || chatExists;
     const stop = () => {
-      if (settleCanClaimTurn()) {
+      if (canStopAtOnce()) {
         request.abort();
       } else if (turn) {
         updateRunning(turn, { stopping: true });
@@ -291,6 +296,7 @@ export function createTurnGate({
       });
       answered = true;
       if (turn && isRunning(turn)) {
+        updateRunning(turn, { answered: true });
         setChatExists(true, turn.request);
       }
       if (stopped?.aborted) {
@@ -390,7 +396,7 @@ export function createTurnGate({
       effects.refreshChats();
       return;
     }
-    const { turn, refusal } = phase;
+    const { answered, turn, refusal } = phase;
     // AI SDK's Chat skips onError for an aborted request, so a refusal that
     // lands after a stop shows here.
     if (refusal) {
@@ -400,6 +406,9 @@ export function createTurnGate({
       const thread = adoptThread(shown, savedThread);
       showSaved(thread, turn.request);
       handBack(turn, thread, { maybeSaved: false, notify: false });
+    } else if (answered && !effects.isMounted()) {
+      commit(IDLE);
+      effects.refreshChats();
     } else if (isAbort || isError) {
       settle({ turn, shown, expectReply: hasVisibleContent(reply) });
     } else {
@@ -495,7 +504,13 @@ export function createTurnGate({
           ? last
           : undefined,
     };
-    commit({ phase: "running", turn, refusal: undefined, stopping: false });
+    commit({
+      phase: "running",
+      turn,
+      answered: false,
+      refusal: undefined,
+      stopping: false,
+    });
     send(turn).catch(() => {
       if (isRunning(turn)) {
         commit(IDLE);
