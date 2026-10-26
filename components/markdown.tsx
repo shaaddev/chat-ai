@@ -7,6 +7,8 @@ import {
   type ThemeRegistrationAny,
 } from "streamdown";
 import "streamdown/styles.css";
+import { RUNNABLE_FENCES } from "@/lib/code-runner/languages";
+import { RunnableCodeBlock } from "./runnable-code-block";
 
 type Components = StreamdownProps["components"];
 
@@ -27,6 +29,11 @@ const components: Partial<Components> = {
 };
 
 const plugins: StreamdownProps["plugins"] = { code };
+
+const runnablePlugins: StreamdownProps["plugins"] = {
+  code,
+  renderers: [{ language: [...RUNNABLE_FENCES], component: RunnableCodeBlock }],
+};
 
 const controls: StreamdownProps["controls"] = { code: { download: false } };
 
@@ -113,9 +120,11 @@ const PROSE_CLASSES = [
 function NonMemoizedMarkdown({
   children,
   isStreaming = false,
+  runnable = false,
 }: {
   children: string;
   isStreaming?: boolean;
+  runnable?: boolean;
 }) {
   return (
     <Streamdown
@@ -127,7 +136,7 @@ function NonMemoizedMarkdown({
       isAnimating={isStreaming}
       lineNumbers={false}
       parseIncompleteMarkdown={isStreaming}
-      plugins={plugins}
+      plugins={runnable ? runnablePlugins : plugins}
       shikiTheme={shikiTheme}
     >
       {children}

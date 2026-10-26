@@ -192,6 +192,12 @@
   background: transparent;
 }
 
+[data-code-runner][data-output-open] > [data-streamdown="code-block"] {
+  margin-bottom: 0;
+  border-bottom-right-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
 /* === ANIMATIONS === */
 
 @keyframes blink-cursor {

@@ -222,7 +222,9 @@ export function DocumentSheet({
           />
 
           <div className="min-h-0 flex-1 overflow-auto rounded-xl bg-secondary p-4 text-sm leading-6">
-            <Markdown isStreaming={isStreaming}>{markdown}</Markdown>
+            <Markdown isStreaming={isStreaming} runnable>
+              {markdown}
+            </Markdown>
           </div>
         </div>
 
