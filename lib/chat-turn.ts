@@ -122,11 +122,11 @@ export interface TurnEffects {
   sendBlocked: (reason: SettleFailure) => void;
   showError: (error: Error) => void;
   turnFinished: (reply: ChatMessage, keptPrevious: boolean) => void;
-  // Returns whether the request's text went back to where the user typed it.
+  // Give the request's text back to where the user typed it.
   turnNotSaved: (
     request: TurnRequest,
     options: { editShown: boolean; notify: boolean }
-  ) => boolean;
+  ) => void;
 }
 
 export interface TurnGate {
@@ -338,7 +338,9 @@ export function createTurnGate({
     const editShown =
       request.kind === "edit" &&
       thread.some(({ id }) => id === request.messageId);
-    return effects.turnNotSaved(request, { editShown, notify });
+    effects.turnNotSaved(request, { editShown, notify });
+    // A regenerate has no text to give back.
+    return request.kind !== "regenerate";
   };
 
   const settle = (ended: Ended): Promise<SettleResult> => {

@@ -117,7 +117,6 @@ function recordingEffects(overrides: Partial<TurnEffects> = {}) {
       calls.push(keptPrevious ? "finished, kept the old reply" : "finished"),
     turnNotSaved: (request, { notify }) => {
       calls.push(`handed back ${request.kind}${notify ? ", told" : ""}`);
-      return request.kind !== "regenerate";
     },
     ...overrides,
   };

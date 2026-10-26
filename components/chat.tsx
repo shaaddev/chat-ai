@@ -343,11 +343,11 @@ export function Chat({
       { editShown }: { editShown: boolean }
     ) => {
       if (request.kind === "regenerate") {
-        return false;
+        return;
       }
       if (request.kind === "edit" && editShown && mountedRef.current) {
         setUnsavedEdit({ messageId: request.messageId, text: request.text });
-        return true;
+        return;
       }
       if (mountedRef.current) {
         setInput((typed) => joinDraftText(request.text, typed));
@@ -360,7 +360,6 @@ export function Chat({
       if (request.kind === "append") {
         getAttachmentTray(id).restore(request.files);
       }
-      return true;
     };
 
     return createTurnGate({
@@ -405,7 +404,7 @@ export function Chat({
             const notice = TURN_NOT_SAVED[request.kind];
             toast(notice.title, { description: notice.description });
           }
-          return restoreInput(request, { editShown });
+          restoreInput(request, { editShown });
         },
       },
     });
