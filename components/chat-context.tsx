@@ -5,6 +5,7 @@ import {
   type ReactNode,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -167,6 +168,20 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     () => new Set()
   );
   const chatInputStatesRef = useRef<Map<string, ChatInputState>>(new Map());
+  const unsentDeletesRef = useRef<Set<string>>(new Set());
+
+  // A delete waits behind its Undo toast. If the page unloads first, send it
+  // with keepalive so the chat the user saw disappear stays deleted.
+  useEffect(() => {
+    const flushDeletes = () => {
+      for (const chatId of unsentDeletesRef.current) {
+        fetch(`/api/chats/${chatId}`, { method: "DELETE", keepalive: true });
+      }
+      unsentDeletesRef.current.clear();
+    };
+    window.addEventListener("pagehide", flushDeletes);
+    return () => window.removeEventListener("pagehide", flushDeletes);
+  }, []);
 
   const updateCachedChats = useCallback(
     (update: (chats: ChatSummary[]) => ChatSummary[]) =>
@@ -226,6 +241,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     (chatId: string) => {
       const edit: PendingEdit = { kind: "delete" };
       setPendingEdits((edits) => withEdit(edits, chatId, edit));
+      unsentDeletesRef.current.add(chatId);
 
       let settled = false;
       const undo = () => {
@@ -233,6 +249,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           return;
         }
         settled = true;
+        unsentDeletesRef.current.delete(chatId);
         setPendingEdits((edits) => withoutEdit(edits, chatId, edit));
       };
       const commit = async () => {
@@ -240,6 +257,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           return;
         }
         settled = true;
+        unsentDeletesRef.current.delete(chatId);
         const res = await sendChatRequest(chatId, { method: "DELETE" });
         if (res && (res.ok || res.status === 404)) {
           chatInputStatesRef.current.delete(chatId);
