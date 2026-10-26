@@ -14,6 +14,7 @@ import {
   WORKER_SCRIPT,
 } from "./sandbox-document";
 
+const NO_NETWORK = /^Uncaught TypeError: This sandbox has no network access\./;
 const SCRIPT_TAG = /<script\b[^>]*>/g;
 const SCRIPT_END = /<\/script>/g;
 const PARENT_ORIGIN = "https://chat.example";
@@ -527,6 +528,23 @@ console.error("careful");`
     const { exit } = runInWorker(`throw new Error("x".repeat(10000));`);
     expect(String(exit?.detail)).toHaveLength(DETAIL_LIMIT);
   });
+
+  test.each([
+    ["fetch", "await fetch('https://example.com');"],
+    ["XMLHttpRequest", "new XMLHttpRequest();"],
+    ["WebSocket", "new WebSocket('wss://example.com');"],
+    ["importScripts", "importScripts('https://example.com/a.js');"],
+  ])(
+    "says the sandbox has no network access when the program calls %s",
+    (_, code) => {
+      const { exit } = runInWorker(code);
+      expect(exit).toEqual({
+        type: "exit",
+        exit: "error",
+        detail: expect.stringMatching(NO_NETWORK),
+      });
+    }
+  );
 
   test("gives the program no way to message the frame or spawn workers", () => {
     const { stdout } = runInWorker(

@@ -49,9 +49,19 @@ function write(stream, text) {
   post({ type: "output", stream, text: kept });
 }
 
+const NO_NETWORK = "This sandbox has no network access.";
+
+function refuseNetwork() {
+  throw new TypeError(NO_NETWORK);
+}
+
 function begin() {
   budget = OUTPUT_LIMIT_WITH_OVERFLOW_SENTINEL;
   finished = false;
+  self.fetch = () => Promise.reject(new TypeError(NO_NETWORK));
+  for (const name of ["XMLHttpRequest", "WebSocket", "EventSource", "importScripts"]) {
+    self[name] = refuseNetwork;
+  }
 }
 
 function exit(status, detail) {
@@ -150,7 +160,7 @@ self.addEventListener("unhandledrejection", (event) => {
 });
 
 self.addEventListener("securitypolicyviolation", (event) => {
-  write("stderr", "Blocked by the sandbox: " + (event.blockedURI || event.effectiveDirective) + "\n");
+  write("stderr", "The sandbox blocked " + (event.blockedURI || event.effectiveDirective) + ". " + NO_NETWORK + "\n");
 });
 
 async function runJavaScript(code) {
@@ -241,6 +251,7 @@ async function bootPython({ indexURL, loaderUrl, moduleUrl, lock, wasm, stdlib }
     pyodide.setStdout(stdoutOptions);
     pyodide.setStderr(stderrOptions);
     pyodide.setStdin({ stdin: () => null });
+    pyodide.runPython("def _cut():\n    import socket\n    def refuse(*args, **kwargs):\n        raise OSError(" + JSON.stringify(NO_NETWORK) + ")\n    socket.create_connection = socket.socket.connect = refuse\n_cut()\ndel _cut");
     flushPython = () => {
       try {
         pyodide.runPython("import sys\nsys.stdout.flush()\nsys.stderr.flush()");
@@ -258,6 +269,14 @@ function trimTraceback(text) {
   const lines = text.replace(/\n+$/, "").split("\n");
   const first = lines.findIndex((line) => line.startsWith('  File "<snippet>"'));
   return lines[0].startsWith("Traceback") && first > 1 ? [lines[0]].concat(lines.slice(first)).join("\n") : lines.join("\n");
+}
+
+function missingModuleDetail(text) {
+  const lines = text.split("\n");
+  const at = lines.findLastIndex((line) => line.startsWith("ModuleNotFoundError:"));
+  const name = at === -1 ? undefined : /'([^']+)'/.exec(lines[at])?.[1];
+  if (name === undefined) return text;
+  return lines.slice(0, at).concat("ModuleNotFoundError: No module named '" + name + "'. Packages aren't available in this sandbox.").join("\n");
 }
 
 function systemExitDetail(text) {
@@ -281,7 +300,8 @@ async function runPython(code) {
       else exit("error", detail);
       return;
     }
-    exit("error", trimTraceback(text));
+    const traceback = trimTraceback(text);
+    exit("error", error && error.type === "ModuleNotFoundError" ? missingModuleDetail(traceback) : traceback);
   }
 }
 

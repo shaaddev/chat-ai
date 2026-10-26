@@ -48,13 +48,20 @@ const STATUS_TEXT: Record<
 const formatDuration = (ms: number) =>
   ms < 1000
     ? `${Math.max(1, Math.round(ms))} ms`
-    : `${(ms / 1000).toFixed(1)} s`;
+    : `${Number((ms / 1000).toFixed(1))} s`;
 
 function statusText(status: RunStatus): string {
   const { label, preposition } = STATUS_TEXT[status.kind];
-  return "durationMs" in status && status.durationMs !== null
-    ? `${label} ${preposition} ${formatDuration(status.durationMs)}`
-    : label;
+  if (!("durationMs" in status) || status.durationMs === null) {
+    return label;
+  }
+  // A timeout fires at a whole-second limit. The extra milliseconds are
+  // only the time the message took to arrive.
+  const ms =
+    status.kind === "timed-out"
+      ? Math.round(status.durationMs / 1000) * 1000
+      : status.durationMs;
+  return `${label} ${preposition} ${formatDuration(ms)}`;
 }
 
 const announcement = (status: RunStatus) =>
