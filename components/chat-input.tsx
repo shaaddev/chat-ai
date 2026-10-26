@@ -253,7 +253,7 @@ export function ChatInput({
               !e.nativeEvent.isComposing
             ) {
               e.preventDefault();
-              if (status !== "ready") {
+              if (isBusy) {
                 toast.error(
                   "Please wait for the model to finish its response!"
                 );

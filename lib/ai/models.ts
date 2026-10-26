@@ -147,29 +147,29 @@ const MODEL_SPECS = [
     capabilities: ["reasoning", "vision", "tool-use", "code"],
   },
   {
-    id: "xai-grok-4-1",
-    slug: "x-ai/grok-4.1-fast",
+    id: "xai-grok-4-3",
+    slug: "x-ai/grok-4.3",
     kind: "text",
-    name: "Grok 4.1 Fast",
+    name: "Grok 4.3",
     provider: "xai",
     description:
-      "xAI's best agentic tool-calling model for customer support and deep research. Optional reasoning with a 2M context window.",
-    contextWindow: "2M",
-    inputPrice: "$0.20",
-    outputPrice: "$0.50",
+      "Reasoning model for agentic workflows and instruction following, with text and image input and a 1M context window.",
+    contextWindow: "1M",
+    inputPrice: "$1.25",
+    outputPrice: "$2.50",
     capabilities: ["reasoning", "vision", "tool-use", "code"],
   },
   {
-    id: "xai-grok-4",
-    slug: "x-ai/grok-4-fast",
+    id: "xai-grok-4-7",
+    slug: "x-ai/grok-4.7",
     kind: "text",
-    name: "Grok 4 Fast",
+    name: "Grok 4.7",
     provider: "xai",
     description:
-      "Multimodal model with SOTA cost-efficiency and 2M context. Available in reasoning and non-reasoning flavors.",
-    contextWindow: "2M",
-    inputPrice: "$0.20",
-    outputPrice: "$0.50",
+      "xAI's flagship for coding, agentic tasks, and knowledge work, strong at long software engineering tasks.",
+    contextWindow: "500K",
+    inputPrice: "$2.00",
+    outputPrice: "$6.00",
     capabilities: ["reasoning", "vision", "tool-use", "code"],
   },
   {
@@ -237,6 +237,8 @@ export function findChatModel(
 
 const RETIRED_MODEL_NAMES: Record<string, string> = {
   "google-model-3-flash": "Gemini 3 Flash",
+  "xai-grok-4-1": "Grok 4.1 Fast",
+  "xai-grok-4": "Grok 4 Fast",
 };
 
 export function getModelLabel(id: string): string {
