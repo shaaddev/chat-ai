@@ -2,13 +2,13 @@
 
 import { ExternalLink, X } from "lucide-react";
 import { motion } from "motion/react";
+import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { getFaviconUrl, type Source } from "@/lib/sources";
+import { getFaviconUrl, SOURCES_PANEL_ID, type Source } from "@/lib/sources";
 
 interface SourcesPanelProps {
-  onOpenChange: (open: boolean) => void;
-  open: boolean;
+  onClose: () => void;
   sources: Source[];
 }
 
@@ -56,22 +56,40 @@ function SourceCard({ source, index }: { source: Source; index: number }) {
   );
 }
 
-export function SourcesPanel({
-  onOpenChange,
-  open,
-  sources,
-}: SourcesPanelProps) {
-  if (!open) {
-    return null;
-  }
+export function SourcesPanel({ onClose, sources }: SourcesPanelProps) {
+  const panelRef = useRef<HTMLElement>(null);
+  const openerRef = useRef<Element | null>(null);
+
+  useEffect(() => {
+    openerRef.current ??= document.activeElement;
+    panelRef.current?.focus();
+  }, []);
+
+  const close = () => {
+    onClose();
+    if (
+      openerRef.current instanceof HTMLElement &&
+      openerRef.current.isConnected
+    ) {
+      openerRef.current.focus();
+    }
+  };
 
   return (
     <motion.aside
       animate={{ x: 0, opacity: 1 }}
       aria-label="Sources"
-      className="fixed inset-x-0 top-[50px] bottom-0 z-40 flex flex-col rounded-t-2xl bg-popover text-popover-foreground shadow-md md:top-2 md:right-2 md:bottom-2 md:left-auto md:w-full md:max-w-sm md:rounded-2xl"
-      exit={{ x: 24, opacity: 0 }}
+      className="fixed inset-x-0 top-[50px] bottom-0 z-40 flex flex-col rounded-t-2xl bg-popover text-popover-foreground shadow-md outline-none md:static md:my-2 md:mr-2 md:w-sm md:shrink-0 md:rounded-2xl"
+      id={SOURCES_PANEL_ID}
       initial={{ x: 24, opacity: 0 }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          close();
+        }
+      }}
+      ref={panelRef}
+      tabIndex={-1}
       transition={{ duration: 0.2, ease: "easeOut" }}
     >
       <div className="flex h-12 shrink-0 items-center justify-between pr-2 pl-4">
@@ -84,7 +102,7 @@ export function SourcesPanel({
         <Button
           aria-label="Close sources"
           className="size-9 rounded-[10px] text-muted-foreground"
-          onClick={() => onOpenChange(false)}
+          onClick={close}
           size="icon"
           variant="ghost"
         >
@@ -93,15 +111,9 @@ export function SourcesPanel({
       </div>
       <ScrollArea className="min-h-0 flex-1">
         <div className="flex flex-col gap-2 px-3 pb-3">
-          {sources.length === 0 ? (
-            <p className="px-2 py-6 text-muted-foreground text-sm">
-              No sources for this response.
-            </p>
-          ) : (
-            sources.map((source, index) => (
-              <SourceCard index={index} key={source.id} source={source} />
-            ))
-          )}
+          {sources.map((source, index) => (
+            <SourceCard index={index} key={source.id} source={source} />
+          ))}
         </div>
       </ScrollArea>
     </motion.aside>

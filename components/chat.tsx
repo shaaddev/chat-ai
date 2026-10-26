@@ -232,18 +232,17 @@ export function Chat({
     string | null
   >(null);
 
-  // Sources panel state — auto-opens when sources arrive for the latest
-  // assistant response, but stays closed if the user dismissed it for that
-  // specific response.
-  const [isSourcesPanelOpen, setIsSourcesPanelOpen] = useState(false);
-  const [sourcesPanelDismissedFor, setSourcesPanelDismissedFor] = useState<
-    Set<string>
-  >(() => new Set());
+  const [sourcesMessageId, setSourcesMessageId] = useState<string | null>(null);
+  const toggleSources = useCallback((messageId: string) => {
+    setSourcesMessageId((current) =>
+      current === messageId ? null : messageId
+    );
+  }, []);
+  const closeSources = useCallback(() => setSourcesMessageId(null), []);
 
   const openDocumentBuilder = useCallback(() => {
     setIsDocumentSheetOpen(true);
-    // Document and sources panels share the right slot — close sources.
-    setIsSourcesPanelOpen(false);
+    setSourcesMessageId(null);
   }, []);
   const handleSuggestionClick = useCallback((text: string) => {
     setInput(text);
@@ -355,44 +354,18 @@ export function Chat({
 
   const latestAssistantId = latestAssistantMessage?.id;
 
-  const latestSources = useStableSources(latestAssistantMessage);
+  // A new latest reply, from a send, a regenerate, or an edit, closes the
+  // panel so it never lingers over a reply it doesn't describe.
+  const [sourcesLatestId, setSourcesLatestId] = useState(latestAssistantId);
+  if (sourcesLatestId !== latestAssistantId) {
+    setSourcesLatestId(latestAssistantId);
+    setSourcesMessageId(null);
+  }
 
-  // Auto-open the sources panel when fresh sources arrive for the latest
-  // assistant message and the user hasn't dismissed it. Don't fight an
-  // already-open document sheet: sources only opens if doc sheet is closed.
-  useEffect(() => {
-    if (!latestAssistantId) {
-      return;
-    }
-    if (latestSources.length === 0) {
-      return;
-    }
-    if (sourcesPanelDismissedFor.has(latestAssistantId)) {
-      return;
-    }
-    if (isDocumentSheetOpen) {
-      return;
-    }
-    setIsSourcesPanelOpen(true);
-  }, [
-    isDocumentSheetOpen,
-    latestAssistantId,
-    latestSources.length,
-    sourcesPanelDismissedFor,
-  ]);
-
-  const handleSourcesPanelOpenChange = useCallback(
-    (open: boolean) => {
-      setIsSourcesPanelOpen(open);
-      if (!open && latestAssistantId) {
-        setSourcesPanelDismissedFor((prev) => {
-          const next = new Set(prev);
-          next.add(latestAssistantId);
-          return next;
-        });
-      }
-    },
-    [latestAssistantId]
+  const panelSources = useStableSources(
+    sourcesMessageId === null
+      ? undefined
+      : messages.find(({ id: messageId }) => messageId === sourcesMessageId)
   );
 
   useEffect(() => {
@@ -446,6 +419,7 @@ export function Chat({
     [messages, documentSourceMessageId]
   );
 
+  const isSourcesPanelOpen = !isDocumentSheetOpen && panelSources.length > 0;
   const isRightPanelOpen = isDocumentSheetOpen || isSourcesPanelOpen;
   const isEmpty = messages.length === 0;
 
@@ -468,7 +442,9 @@ export function Chat({
             onEditMessage={handleEditMessage}
             onOpenDocumentBuilder={openDocumentBuilder}
             onRegenerate={handleRegenerate}
+            onToggleSources={toggleSources}
             selectedModelId={selectedModelId}
+            sourcesMessageId={isSourcesPanelOpen ? sourcesMessageId : null}
             status={status}
           />
 
@@ -516,12 +492,8 @@ export function Chat({
           suggestedFormat={documentDraft?.format ?? "docx"}
         />
       ) : null}
-      {!isDocumentSheetOpen && isSourcesPanelOpen ? (
-        <LazySourcesPanel
-          onOpenChange={handleSourcesPanelOpenChange}
-          open={isSourcesPanelOpen}
-          sources={latestSources}
-        />
+      {isSourcesPanelOpen ? (
+        <LazySourcesPanel onClose={closeSources} sources={panelSources} />
       ) : null}
     </div>
   );

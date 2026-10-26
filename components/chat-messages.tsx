@@ -34,7 +34,9 @@ interface MessagesProps {
   onEditMessage: (message: ChatMessage, text: string) => void;
   onOpenDocumentBuilder: () => void;
   onRegenerate: () => void;
+  onToggleSources: (messageId: string) => void;
   selectedModelId: ChatModelId;
+  sourcesMessageId: string | null;
   status: UseChatHelpers<ChatMessage>["status"];
 }
 
@@ -147,7 +149,9 @@ function PureMessages({
   onEditMessage,
   onOpenDocumentBuilder,
   onRegenerate,
+  onToggleSources,
   selectedModelId,
+  sourcesMessageId,
 }: MessagesProps) {
   const { containerRef, isAtBottom, scrollToBottom, scrollUserMessageToTop } =
     useMessages();
@@ -303,8 +307,10 @@ function PureMessages({
                       <PreviewMessage
                         edit={isBusy ? undefined : editControls}
                         isEditing={message.id === editingMessageId}
+                        isSourcesOpen={message.id === sourcesMessageId}
                         isStreaming={message.id === streamingMessageId}
                         message={message}
+                        onToggleSources={onToggleSources}
                         reply={
                           message.id === latestReplyId
                             ? replyControls
