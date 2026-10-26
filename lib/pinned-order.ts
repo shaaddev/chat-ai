@@ -76,7 +76,6 @@ export function currentTargetOf(
   return index === -1 ? UNPINNED : { zone: "pinned", index };
 }
 
-/** The rail with one chat moved to `target`, as it looks once the drop saves. */
 // Two devices can pin chats with the same key, and no key sorts strictly
 // between equal keys. A drop inside such a run lands after it, so the preview
 // and the saved order agree.
@@ -92,6 +91,7 @@ function landingIndex(others: readonly Pinnable[], index: number): number {
   return landing;
 }
 
+/** The rail with one chat moved to `target`, as it looks once the drop saves. */
 export function placeChat<T extends Pinnable>(
   chats: readonly T[],
   chatId: string,
