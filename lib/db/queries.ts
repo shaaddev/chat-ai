@@ -32,28 +32,47 @@ export async function updateChat({
   id,
   userId,
   changes,
-  onlyIfTitle,
 }: {
   id: string;
   userId: string;
   changes: Partial<Pick<Chat, "title" | "systemPrompt" | "pinnedKey">>;
-  onlyIfTitle?: string;
 }): Promise<boolean> {
   // `updatedAt` orders the sidebar by activity. Renaming is not activity.
   const updated = await getDb()
     .update(chat)
-    .set({ ...stripNul(changes), updatedAt: sql`${chat.updatedAt}` })
+    .set({
+      ...stripNul(changes),
+      titleSource: changes.title === undefined ? undefined : "user",
+      updatedAt: sql`${chat.updatedAt}`,
+    })
+    .where(and(eq(chat.id, id), eq(chat.userId, userId)))
+    .returning({ id: chat.id });
+  return updated.length > 0;
+}
+
+export async function replaceProvisionalTitle({
+  id,
+  userId,
+  title,
+}: {
+  id: string;
+  userId: string;
+  title: string;
+}): Promise<void> {
+  await getDb()
+    .update(chat)
+    .set({
+      title: stripNul(title),
+      titleSource: "generated",
+      updatedAt: sql`${chat.updatedAt}`,
+    })
     .where(
       and(
         eq(chat.id, id),
         eq(chat.userId, userId),
-        onlyIfTitle === undefined
-          ? undefined
-          : eq(chat.title, stripNul(onlyIfTitle))
+        eq(chat.titleSource, "provisional")
       )
-    )
-    .returning({ id: chat.id });
-  return updated.length > 0;
+    );
 }
 
 type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
@@ -256,6 +275,7 @@ async function saveUserTurnOrThrow({
         id: chatId,
         userId,
         title: stripNul(newChat.title),
+        titleSource: "provisional",
         systemPrompt: stripNul(newChat.systemPrompt ?? null),
       });
     }

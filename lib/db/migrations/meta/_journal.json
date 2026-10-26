@@ -29,6 +29,13 @@
       "when": 1792984189880,
       "tag": "0003_backfill_uploads",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793031389748,
+      "tag": "0004_chat_title_source",
+      "breakpoints": true
     }
   ]
 }

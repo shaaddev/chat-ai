@@ -26,10 +26,10 @@ import {
   getChatById,
   getUserMessage,
   ownsUploads,
+  replaceProvisionalTitle,
   saveReplyIfLatestTurn,
   saveUpload,
   saveUserTurn,
-  updateChat,
 } from "@/lib/db/queries";
 import { ChatSDKError } from "@/lib/errors";
 import type { ChatMessage, ChatMessageMetadata } from "@/lib/types";
@@ -301,22 +301,14 @@ async function saveGeneratedTitle({
   chatId,
   userId,
   message,
-  provisionalTitle,
 }: {
   chatId: string;
   userId: string;
   message: ChatMessage;
-  provisionalTitle: string;
 }) {
   const title = await generateChatTitle(message);
   if (title) {
-    // A rename while the model was naming the chat wins.
-    await updateChat({
-      id: chatId,
-      userId,
-      changes: { title },
-      onlyIfTitle: provisionalTitle,
-    });
+    await replaceProvisionalTitle({ id: chatId, userId, title });
   }
 }
 
@@ -434,7 +426,7 @@ export async function POST(req: Request) {
       titleSaved = saveGeneratedTitle({
         chatId: id,
         userId,
-        ...newChat,
+        message: newChat.message,
       }).catch((error) =>
         console.error("Failed to save the chat title", error)
       );
