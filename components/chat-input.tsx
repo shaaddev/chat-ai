@@ -1,5 +1,11 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
-import { ArrowUp, CircleStop, Globe, Settings2 } from "lucide-react";
+import {
+  ArrowUp,
+  CircleStop,
+  Globe,
+  LoaderCircle,
+  Settings2,
+} from "lucide-react";
 import {
   type Dispatch,
   memo,
@@ -27,6 +33,7 @@ import {
 } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import { type ChatModelId, getChatModel } from "@/lib/ai/models";
+import type { TurnStatus } from "@/lib/chat-turn";
 import type { ChatMessage } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
@@ -58,7 +65,7 @@ interface ChatInputProps {
   isAuthenticated?: boolean;
   onSelectModel: (modelId: ChatModelId) => void;
   selectedModelId: ChatModelId;
-  sendTurn: (text: string) => Promise<void>;
+  sendTurn: (text: string) => void;
   setAutoDocumentGeneration: Dispatch<SetStateAction<boolean>>;
   setCustomSystemPrompt: Dispatch<SetStateAction<string | undefined>>;
   setInput: Dispatch<SetStateAction<string>>;
@@ -66,6 +73,7 @@ interface ChatInputProps {
   setUseSearch: Dispatch<SetStateAction<boolean>>;
   status: UseChatHelpers<ChatMessage>["status"];
   stop: () => void;
+  turnStatus: TurnStatus;
   useSearch: boolean;
 }
 
@@ -75,6 +83,7 @@ export function ChatInput({
   sendTurn,
   stop,
   status,
+  turnStatus,
   chatId,
   onSelectModel,
   selectedModelId,
@@ -96,12 +105,14 @@ export function ChatInput({
   const [systemPromptDraft, setSystemPromptDraft] = useState(
     customSystemPrompt ?? ""
   );
-  const [isSendWaiting, setIsSendWaiting] = useState(false);
+  const isSendHeld = turnStatus.phase === "settling" && turnStatus.held;
+  const isStopping = turnStatus.phase === "running" && turnStatus.stopping;
   const tray = getAttachmentTray(chatId);
   const trayReadiness = useTrayReadiness(tray);
   const hasText = input.trim().length > 0;
   const needsText = getChatModel(selectedModelId).kind === "image";
   const canSend =
+    !isSendHeld &&
     trayReadiness !== "uploading" &&
     trayReadiness !== "failed" &&
     (hasText || (trayReadiness === "ready" && !needsText));
@@ -117,22 +128,16 @@ export function ChatInput({
     [isAuthenticated, tray]
   );
 
-  const submitForm = useCallback(async () => {
-    if (!canSend || isSendWaiting) {
+  const submitForm = useCallback(() => {
+    if (!canSend) {
       return;
     }
     if (!isAuthenticated) {
       setShowLoginDialog(true);
       return;
     }
-
-    setIsSendWaiting(true);
-    try {
-      await sendTurn(hasText ? input : "");
-    } finally {
-      setIsSendWaiting(false);
-    }
-  }, [canSend, isSendWaiting, isAuthenticated, sendTurn, hasText, input]);
+    sendTurn(hasText ? input : "");
+  }, [canSend, isAuthenticated, sendTurn, hasText, input]);
 
   const isBusy = status === "submitted" || status === "streaming";
 
@@ -223,7 +228,7 @@ export function ChatInput({
           placeholder={
             needsText ? "Describe the image you want" : "Ask anything"
           }
-          readOnly={isSendWaiting}
+          readOnly={isSendHeld}
           ref={textareaRef}
           rows={1}
           style={{ height: textareaHeight }}
@@ -342,14 +347,15 @@ export function ChatInput({
             </Popover>
           </div>
 
-          {isBusy ? (
-            <StopButton setMessages={setMessages} stop={stop} />
-          ) : (
-            <SendButton
-              canSend={canSend && !isSendWaiting}
-              submitForm={submitForm}
-            />
-          )}
+          <ComposerAction
+            canSend={canSend}
+            isBusy={isBusy}
+            isSendHeld={isSendHeld}
+            isStopping={isStopping}
+            setMessages={setMessages}
+            stop={stop}
+            submitForm={submitForm}
+          />
         </div>
       </div>
 
@@ -415,53 +421,60 @@ export function ChatInput({
   );
 }
 
-function PureStopButton({
-  stop,
+// One button that switches between Stop and Send, so focus stays on it when
+// a stop ends or a reply finishes. aria-disabled keeps it focusable.
+function PureComposerAction({
+  canSend,
+  isBusy,
+  isSendHeld,
+  isStopping,
   setMessages,
+  stop,
+  submitForm,
 }: {
-  stop: () => void;
+  canSend: boolean;
+  isBusy: boolean;
+  isSendHeld: boolean;
+  isStopping: boolean;
   setMessages: UseChatHelpers<ChatMessage>["setMessages"];
+  stop: () => void;
+  submitForm: () => void;
 }) {
+  const isInert = isBusy ? isStopping : !canSend;
+  let label = "Send message";
+  if (isBusy) {
+    label = isStopping ? "Stopping" : "Stop generating";
+  }
+  const isWaiting = isStopping || isSendHeld;
+  let icon = <ArrowUp aria-hidden className="size-[18px]" strokeWidth={2.2} />;
+  if (isWaiting) {
+    icon = <LoaderCircle aria-hidden className="size-[18px] animate-spin" />;
+  } else if (isBusy) {
+    icon = <CircleStop aria-hidden className="size-[18px]" />;
+  }
   return (
     <button
-      aria-label="Stop generating"
-      className="touch-hitbox relative flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-primary text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-secondary"
-      data-testid="stop-button"
+      aria-disabled={isInert}
+      aria-label={label}
+      className="touch-hitbox relative flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-primary text-primary-foreground transition-[background-color,opacity] hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-secondary aria-disabled:cursor-default aria-disabled:opacity-45 aria-disabled:hover:bg-primary"
+      data-testid={isBusy && !isStopping ? "stop-button" : "send-button"}
       onClick={(e) => {
         e.preventDefault();
-        stop();
-        setMessages((messages) => messages);
+        if (isInert) {
+          return;
+        }
+        if (isBusy) {
+          stop();
+          setMessages((messages) => messages);
+        } else {
+          submitForm();
+        }
       }}
       type="button"
     >
-      <CircleStop aria-hidden className="size-[18px]" />
+      {icon}
     </button>
   );
 }
 
-const StopButton = memo(PureStopButton);
-
-function PureSendButton({
-  submitForm,
-  canSend,
-}: {
-  submitForm: () => void;
-  canSend: boolean;
-}) {
-  return (
-    <button
-      aria-label="Send message"
-      className="touch-hitbox relative flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-primary text-primary-foreground transition-[background-color,opacity] hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-secondary disabled:cursor-default disabled:opacity-45"
-      disabled={!canSend}
-      onClick={(e) => {
-        e.preventDefault();
-        submitForm();
-      }}
-      type="submit"
-    >
-      <ArrowUp aria-hidden className="size-[18px]" strokeWidth={2.2} />
-    </button>
-  );
-}
-
-const SendButton = memo(PureSendButton);
+const ComposerAction = memo(PureComposerAction);

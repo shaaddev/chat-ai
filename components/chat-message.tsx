@@ -4,6 +4,7 @@ import { Globe, Pencil, RotateCw } from "lucide-react";
 import Image, { type ImageLoaderProps } from "next/image";
 import { memo, useEffect, useRef } from "react";
 import { getModelLabel, getModelProvider } from "@/lib/ai/models";
+import type { SettleFailure, UnsettledSubject } from "@/lib/chat-turn";
 import {
   type EmptyReplyReason,
   getEmptyReplyReason,
@@ -188,12 +189,31 @@ export function EmptyReplyNotice({
   );
 }
 
-export function UnsettledNotice({ onRetry }: { onRetry: () => void }) {
+const UNSETTLED_SUMMARY: Record<UnsettledSubject, string> = {
+  message: "Couldn't confirm your message was sent.",
+  regeneration: "Couldn't confirm the reply was regenerated.",
+  reply: "Couldn't confirm this reply was saved.",
+};
+
+export const SETTLE_FAILURE_HINT: Record<SettleFailure, string> = {
+  offline: "Check your connection and try again.",
+  server: "Try again in a moment.",
+};
+
+export function UnsettledNotice({
+  onRetry,
+  reason,
+  subject,
+}: {
+  onRetry: () => void;
+  reason: SettleFailure;
+  subject: UnsettledSubject;
+}) {
   return (
     <ThreadNotice
       action={{ label: "Try again", onClick: onRetry }}
-      hint="Try again in a moment."
-      summary="Couldn't check what this chat saved."
+      hint={SETTLE_FAILURE_HINT[reason]}
+      summary={UNSETTLED_SUMMARY[subject]}
     />
   );
 }

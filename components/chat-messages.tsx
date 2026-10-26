@@ -13,6 +13,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useMessages } from "@/hooks/use-message";
 import { type ChatModelId, getModelLabel } from "@/lib/ai/models";
+import type { TurnStatus } from "@/lib/chat-turn";
 import { focusComposer } from "@/lib/composer";
 import { endsWithoutReply, isShownInThread } from "@/lib/message-display";
 import type { ChatMessage, DocumentDraft } from "@/lib/types";
@@ -26,8 +27,6 @@ import {
 } from "./chat-message";
 import { Markdown } from "./markdown";
 import { ThinkingIndicator } from "./thinking-indicator";
-
-export type SettleStatus = "settling" | "unsettled";
 
 export interface UnsavedEdit {
   messageId: string;
@@ -46,9 +45,9 @@ interface MessagesProps {
   onRetrySettle: () => void;
   onToggleSources: (messageId: string) => void;
   selectedModelId: ChatModelId;
-  settleStatus: SettleStatus | null;
   sourcesMessageId: string | null;
   status: UseChatHelpers<ChatMessage>["status"];
+  turnStatus: TurnStatus;
   unsavedEdit: UnsavedEdit | null;
 }
 
@@ -126,6 +125,27 @@ function PendingReply({ isImage }: { isImage: boolean }) {
   );
 }
 
+const turnActivity = (status: TurnStatus): string | null => {
+  if (status.phase === "running") {
+    return status.stopping ? "Stopping…" : null;
+  }
+  if (status.phase === "settling") {
+    return status.held
+      ? "Saving this chat. Your message will send next."
+      : "Saving this chat…";
+  }
+  return null;
+};
+
+// The live region at the end of the thread announces this text.
+function TurnActivity({ text }: { text: string }) {
+  return (
+    <p aria-hidden className="mt-5 py-2 text-muted-foreground text-sm">
+      {text}
+    </p>
+  );
+}
+
 function ScrollToBottomButton({
   show,
   onClick,
@@ -157,7 +177,7 @@ function PureMessages({
   chatId,
   messages,
   status,
-  settleStatus,
+  turnStatus,
   isImageModelSelected,
   isNarrow,
   documentDraft,
@@ -174,7 +194,8 @@ function PureMessages({
     useMessages();
 
   const isBusy = status === "submitted" || status === "streaming";
-  const isIdle = !isBusy && settleStatus === null;
+  const isIdle = !isBusy && turnStatus.phase === "idle";
+  const activity = turnActivity(turnStatus);
   const lastMessage = messages.at(-1);
   const streamingMessageId =
     status === "streaming" && lastMessage?.role === "assistant"
@@ -351,8 +372,11 @@ function PureMessages({
                             : undefined
                         }
                       />
-                      {isLast && isAwaitingContent ? (
+                      {isLast && isAwaitingContent && !activity ? (
                         <PendingReply isImage={isImageModelSelected} />
+                      ) : null}
+                      {isLast && activity ? (
+                        <TurnActivity text={activity} />
                       ) : null}
                       {isLast && isMissingReply ? (
                         <div className="mt-5">
@@ -362,9 +386,13 @@ function PureMessages({
                           />
                         </div>
                       ) : null}
-                      {isLast && settleStatus === "unsettled" ? (
+                      {isLast && turnStatus.phase === "unsettled" ? (
                         <div className="mt-5">
-                          <UnsettledNotice onRetry={onRetrySettle} />
+                          <UnsettledNotice
+                            onRetry={onRetrySettle}
+                            reason={turnStatus.reason}
+                            subject={turnStatus.subject}
+                          />
                         </div>
                       ) : null}
                     </div>
@@ -386,6 +414,9 @@ function PureMessages({
         onClick={() => scrollToBottom("smooth")}
         show={showScrollButton}
       />
+      <p className="sr-only" role="status">
+        {activity}
+      </p>
     </div>
   );
 }

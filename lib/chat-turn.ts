@@ -100,11 +100,17 @@ export type TurnRequest =
   | { kind: "edit"; messageId: string; text: string }
   | { kind: "regenerate" };
 
+export type SettleFailure = "offline" | "server";
+
+// What an unsettled turn could not confirm: the reply on screen, the user's
+// message, or a regenerate that showed no text yet.
+export type UnsettledSubject = "message" | "regeneration" | "reply";
+
 export type TurnStatus =
   | { phase: "idle" }
   | { phase: "running"; stopping: boolean }
-  | { phase: "settling" }
-  | { phase: "unsettled" };
+  | { phase: "settling"; held: boolean }
+  | { phase: "unsettled"; reason: SettleFailure; subject: UnsettledSubject };
 
 export interface TurnEffects {
   // The server has the chat now, or no longer has it.
@@ -112,6 +118,8 @@ export interface TurnEffects {
   chatSaved: (request: TurnRequest) => void;
   isMounted: () => boolean;
   refreshChats: () => void;
+  // A send waited on a settle that failed, so it didn't go out.
+  sendBlocked: (reason: SettleFailure) => void;
   showError: (error: Error) => void;
   turnFinished: (reply: ChatMessage, keptPrevious: boolean) => void;
   // Returns whether the request's text went back to where the user typed it.
@@ -152,14 +160,39 @@ type Phase =
   | { phase: "idle" }
   | { phase: "running"; turn: Turn; refused: boolean; stopping: boolean }
   | ({ phase: "settling"; result: Promise<SettleResult> } & Ended)
-  | ({ phase: "unsettled" } & Ended);
+  | ({ phase: "unsettled"; reason: SettleFailure } & Ended);
 
 const IDLE: Phase = { phase: "idle" };
 
-const statusOf = (phase: Phase): TurnStatus =>
-  phase.phase === "running"
-    ? { phase: "running", stopping: phase.stopping }
-    : { phase: phase.phase };
+const settleFailure = (error: unknown): SettleFailure =>
+  error instanceof TypeError ||
+  (error instanceof ChatSDKError && error.type === "offline")
+    ? "offline"
+    : "server";
+
+const subjectOf = ({ expectReply, turn }: Ended): UnsettledSubject => {
+  if (expectReply) {
+    return "reply";
+  }
+  return turn.request.kind === "regenerate" ? "regeneration" : "message";
+};
+
+function statusOf(phase: Phase, held: boolean): TurnStatus {
+  switch (phase.phase) {
+    case "running":
+      return { phase: "running", stopping: phase.stopping };
+    case "settling":
+      return { phase: "settling", held };
+    case "unsettled":
+      return {
+        phase: "unsettled",
+        reason: phase.reason,
+        subject: subjectOf(phase),
+      };
+    default:
+      return { phase: "idle" };
+  }
+}
 
 const sameStatus = (a: TurnStatus, b: TurnStatus) =>
   JSON.stringify(a) === JSON.stringify(b);
@@ -186,15 +219,16 @@ export function createTurnGate({
   effects: TurnEffects;
 }): TurnGate {
   let phase: Phase = IDLE;
-  let status = statusOf(phase);
+  // A send is waiting for the settle before it goes out.
+  let held = false;
+  let status = statusOf(phase, held);
   let chatExists = initialMessages.length > 0;
   // The thread as the server last saved it.
   let savedThread = initialMessages;
   const listeners = new Set<() => void>();
 
-  const commit = (next: Phase) => {
-    phase = next;
-    const nextStatus = statusOf(phase);
+  const publish = () => {
+    const nextStatus = statusOf(phase, held);
     if (sameStatus(status, nextStatus)) {
       return;
     }
@@ -202,6 +236,16 @@ export function createTurnGate({
     for (const listener of listeners) {
       listener();
     }
+  };
+
+  const commit = (next: Phase) => {
+    phase = next;
+    publish();
+  };
+
+  const setHeld = (next: boolean) => {
+    held = next;
+    publish();
   };
 
   const isRunning = (turn: Turn) =>
@@ -300,8 +344,8 @@ export function createTurnGate({
         }
         return handBack(turn, thread, true) ? "handed-back" : "settled";
       },
-      (): SettleResult => {
-        commit({ phase: "unsettled", ...ended });
+      (error): SettleResult => {
+        commit({ phase: "unsettled", reason: settleFailure(error), ...ended });
         return "failed";
       }
     );
@@ -412,13 +456,18 @@ export function createTurnGate({
 
   const start = async (prepare: () => TurnRequest | undefined) => {
     const pending = phase;
-    if (pending.phase === "running") {
+    if (pending.phase === "running" || held) {
       return;
     }
     if (pending.phase !== "idle") {
+      setHeld(true);
       const result = await (pending.phase === "settling"
         ? pending.result
         : settle(pending));
+      setHeld(false);
+      if (phase.phase === "unsettled") {
+        effects.sendBlocked(phase.reason);
+      }
       if (result !== "settled" || phase.phase !== "idle") {
         return;
       }

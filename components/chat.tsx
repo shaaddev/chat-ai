@@ -33,6 +33,7 @@ import {
   type TurnRequest,
 } from "@/lib/chat-turn";
 import { openCommandPalette } from "@/lib/command-palette";
+import { focusComposer } from "@/lib/composer";
 import { ChatSDKError } from "@/lib/errors";
 import { extractSources, type Source } from "@/lib/sources";
 import type { ChatMessage, DocumentDraft } from "@/lib/types";
@@ -40,6 +41,7 @@ import { readiness, sentFiles } from "@/lib/uploadthing/tray";
 import { cn } from "@/lib/utils";
 import { getAttachmentTray } from "./attachment-tray";
 import { ChatInput } from "./chat-input";
+import { SETTLE_FAILURE_HINT } from "./chat-message";
 import { Messages, type UnsavedEdit } from "./chat-messages";
 import { AttachmentDropZone } from "./drop-overlay";
 import { EmptyGreeting, SuggestionChips } from "./empty-chat-state";
@@ -383,6 +385,11 @@ export function Chat({
         },
         isMounted: () => mountedRef.current,
         refreshChats,
+        sendBlocked: (reason) => {
+          toast.error("Your message wasn't sent", {
+            description: SETTLE_FAILURE_HINT[reason],
+          });
+        },
         showError: (error) => {
           toast.error("Error", {
             description:
@@ -430,15 +437,18 @@ export function Chat({
   const { latestAssistantMessage, latestUserMessage } =
     getLatestConversationMessages(messages);
 
-  const retrySettle = useCallback(() => turns.retry(), [turns]);
+  const retrySettle = useCallback(() => {
+    turns.retry();
+    focusComposer();
+  }, [turns]);
 
   useEffect(() => {
     if (turnStatus.phase !== "unsettled") {
       return;
     }
-    window.addEventListener("online", retrySettle);
-    return () => window.removeEventListener("online", retrySettle);
-  }, [retrySettle, turnStatus.phase]);
+    window.addEventListener("online", turns.retry);
+    return () => window.removeEventListener("online", turns.retry);
+  }, [turns, turnStatus.phase]);
 
   // The attachments are read when the turn starts, which can be after a
   // settle the send waited on.
@@ -466,6 +476,7 @@ export function Chat({
 
   const handleRegenerate = useCallback(() => {
     turns.start(() => ({ kind: "regenerate" }));
+    focusComposer();
   }, [turns]);
 
   const handleEditMessage = useCallback(
@@ -558,14 +569,9 @@ export function Chat({
             onRetrySettle={retrySettle}
             onToggleSources={toggleSources}
             selectedModelId={selectedModelId}
-            settleStatus={
-              turnStatus.phase === "settling" ||
-              turnStatus.phase === "unsettled"
-                ? turnStatus.phase
-                : null
-            }
             sourcesMessageId={isSourcesPanelOpen ? sourcesMessageId : null}
             status={status}
+            turnStatus={turnStatus}
             unsavedEdit={unsavedEdit}
           />
 
@@ -595,6 +601,7 @@ export function Chat({
               setUseSearch={setUseSearch}
               status={status}
               stop={stop}
+              turnStatus={turnStatus}
               useSearch={useSearch}
             />
             {isEmpty ? (
