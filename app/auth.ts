@@ -1,46 +1,14 @@
-import { api } from "@/convex/_generated/api";
-import { fetchAuthQuery, isAuthenticated } from "@/lib/auth-server";
+import { headers } from "next/headers";
+import { getAuth, type Session } from "@/lib/auth";
 
-export type Session = {
-  user: {
-    id: string;
-    email: string;
-    name: string;
-    image?: string | null;
-  };
-} | null;
+export type { Session } from "@/lib/auth";
 
-export const auth = async (): Promise<Session> => {
-  try {
-    // First check if the user is authenticated
-    const authenticated = await isAuthenticated();
-
-    if (!authenticated) {
-      return null;
-    }
-
-    const user = await fetchAuthQuery(api.auth.getCurrentUser);
-
-    if (!user) {
-      return null;
-    }
-
-    return {
-      user: {
-        id: user._id,
-        email: user.email,
-        name: user.name,
-        image: user.image,
-      },
-    };
-  } catch (error) {
-    // Gracefully handle unauthenticated or other errors
-    // Don't log errors for expected unauthenticated state
-    if (error instanceof Error && error.message?.includes("Unauthenticated")) {
-      return null;
-    }
-    // Only log unexpected errors
-    console.error("Auth error:", error);
+export async function auth(): Promise<Session | null> {
+  const requestHeaders = await headers();
+  const result = await getAuth().api.getSession({ headers: requestHeaders });
+  if (!result) {
     return null;
   }
-};
+  const { id, email, name, image } = result.user;
+  return { user: { id, email, name, image } };
+}

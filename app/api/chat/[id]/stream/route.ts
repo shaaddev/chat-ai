@@ -1,12 +1,12 @@
 import { createUIMessageStream, JsonToSseTransformStream } from "ai";
 import { differenceInSeconds } from "date-fns";
 import { auth } from "@/app/auth";
-import type { Chat } from "@/lib/convex/queries";
 import {
+  canReadChat,
   getChatById,
+  getLatestStreamId,
   getMessagesByChatId,
-  getStreamIdsByChatId,
-} from "@/lib/convex/queries";
+} from "@/lib/db/queries";
 import { ChatSDKError } from "@/lib/errors";
 import type { ChatMessage } from "@/lib/types";
 import { getStreamContext } from "../../route";
@@ -34,29 +34,17 @@ export async function GET(
     return new ChatSDKError("unauthorized:chat").toResponse();
   }
 
-  let chat: Chat | null;
-
-  try {
-    chat = await getChatById({ id: chatId });
-  } catch {
-    return new ChatSDKError("not_found:chat").toResponse();
-  }
+  const chat = await getChatById(chatId);
 
   if (!chat) {
     return new ChatSDKError("not_found:chat").toResponse();
   }
 
-  if (chat.visibility === "private" && chat.userId !== session.user.id) {
+  if (!canReadChat(chat, session.user.id)) {
     return new ChatSDKError("forbidden:chat").toResponse();
   }
 
-  const streamIds = await getStreamIdsByChatId({ chatId });
-
-  if (!streamIds.length) {
-    return new ChatSDKError("not_found:stream").toResponse();
-  }
-
-  const recentStreamId = streamIds.at(-1);
+  const recentStreamId = await getLatestStreamId(chatId);
 
   if (!recentStreamId) {
     return new ChatSDKError("not_found:stream").toResponse();
@@ -83,7 +71,7 @@ export async function GET(
    * but the resumable stream has concluded at this point.
    */
   if (!stream) {
-    const messages = await getMessagesByChatId({ id: chatId });
+    const messages = await getMessagesByChatId(chatId);
     const mostRecentMessage = messages.at(-1);
 
     if (!mostRecentMessage) {

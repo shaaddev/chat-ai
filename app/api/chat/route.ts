@@ -28,8 +28,7 @@ import {
   getMessagesByChatId,
   saveChat,
   saveMessages,
-  updateChatTitle,
-} from "@/lib/convex/queries";
+} from "@/lib/db/queries";
 import { ChatSDKError } from "@/lib/errors";
 import type { ChatMessage } from "@/lib/types";
 import { utapi } from "@/lib/uploadthing/core";
@@ -189,7 +188,7 @@ export async function POST(req: Request) {
 
     const session = await auth();
 
-    const existingChat = await getChatById({ id });
+    const existingChat = await getChatById(id);
 
     if (!existingChat && session) {
       const title = await generateTitleFromUserMessage({ message });
@@ -203,34 +202,22 @@ export async function POST(req: Request) {
       if (existingChat.userId !== session?.user.id) {
         return new Response("Unauthorized", { status: 401 });
       }
-      // Update the chat title if it's still the default "New chat" title
-      if (
-        existingChat.title === "New chat" ||
-        existingChat.title === message.parts[0].type.slice(0, 80)
-      ) {
-        const title = await generateTitleFromUserMessage({ message });
-        await updateChatTitle({ id, title });
-      }
     } else if (!session) {
       return new Response("Unauthorized", { status: 401 });
     }
 
-    const messagesFromDb = await getMessagesByChatId({ id });
+    const messagesFromDb = await getMessagesByChatId(id);
     const uiMessages = [...convertToUIMessages(messagesFromDb), message];
 
-    await saveMessages({
-      messages: [
-        {
-          chatId: id,
-          id: message.id,
-          role: "user",
-          parts: message.parts,
-          attachments: [],
-          createdAt: new Date(),
-          model: null,
-        },
-      ],
-    });
+    await saveMessages(id, [
+      {
+        id: message.id,
+        role: "user",
+        parts: message.parts,
+        createdAt: new Date(),
+        model: null,
+      },
+    ]);
 
     const selectedModel =
       stable_models.find((model) => model.id === selectedChatModel) ||
@@ -615,9 +602,7 @@ export async function POST(req: Request) {
             id: message.id,
             role: message.role,
             parts: message.parts,
-            attachments: [],
             createdAt: new Date(),
-            chatId: id,
             model: message.role === "assistant" ? selectedChatModel : null,
           }));
 
@@ -631,17 +616,14 @@ export async function POST(req: Request) {
               toSave.push({
                 id: persistedImageMessage.id,
                 role: "assistant",
-                parts:
-                  persistedImageMessage.parts as unknown as (typeof toSave)[number]["parts"],
-                attachments: [],
+                parts: persistedImageMessage.parts,
                 createdAt: new Date(),
-                chatId: id,
                 model: selectedChatModel,
               });
             }
           }
 
-          await saveMessages({ messages: toSave });
+          await saveMessages(id, toSave);
         } catch (error) {
           console.error("Failed to save chat", error);
         }
