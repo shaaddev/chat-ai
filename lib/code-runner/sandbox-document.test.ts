@@ -390,9 +390,10 @@ type TaskOrder = "timer first" | "rejection first";
 // HTML reports an unhandled rejection in a task from a different source than
 // timers, and a browser may run either source first. Chromium runs the timer.
 // Bun's Worker never fires unhandledrejection, so the worker script runs in a
-// child process whose timers and rejection reports are explicit queues. Host
-// work, such as a WebAssembly compile or a Blob read, resolves from a third
-// queue that always runs last.
+// child process whose timers and rejection reports are explicit queues. Like
+// a browser, it drops the report for a rejection handled before the report
+// runs. Host work, such as a WebAssembly compile, a Blob read, or a port
+// message, resolves from a third queue that always runs last.
 const workerProcess = (code: string, order: TaskOrder) => `
 const { writeSync } = require("node:fs");
 const TIMER_FIRST = ${order === "timer first"};
@@ -422,9 +423,13 @@ globalThis.setInterval = (callback, delay = 0, ...args) => {
   return id;
 };
 globalThis.clearTimeout = globalThis.clearInterval = (id) => timers.delete(id);
-process.on("unhandledRejection", (reason) => {
-  reports.push(() => listeners.get("unhandledrejection")({ reason, preventDefault() {}, stopImmediatePropagation() {} }));
+process.on("unhandledRejection", (reason, promise) => {
+  reports.push({ promise, run: () => listeners.get("unhandledrejection")({ reason, preventDefault() {}, stopImmediatePropagation() {} }) });
   schedule();
+});
+process.on("rejectionHandled", (promise) => {
+  const at = reports.findIndex((report) => report.promise === promise);
+  if (at !== -1) reports.splice(at, 1);
 });
 const host = [];
 const fromHost = (work) => (...args) => new Promise((resolve, reject) => {
@@ -441,10 +446,12 @@ class Port {
   handler = null;
   started = false;
   closed = false;
+  entangled = true;
   queue = [];
   get onmessage() { return this.handler; }
-  set onmessage(handler) { this.handler = handler; this.start(); }
-  start() {
+  set onmessage(handler) { this.handler = handler; this.enable(); }
+  start() { this.enable(); }
+  enable() {
     if (this.started) return;
     this.started = true;
     for (const data of this.queue.splice(0)) this.deliver(data);
@@ -458,11 +465,16 @@ class Port {
   }
   postMessage(data) {
     if (typeof data === "function") throw new DOMException("could not be cloned", "DataCloneError");
+    if (!this.entangled) return;
     if (this.other.started) this.other.deliver(data);
     else this.other.queue.push(data);
   }
   addEventListener(type, listener) { if (type === "message") this.listeners.push(listener); }
-  close() { this.closed = true; }
+  close() {
+    this.closed = true;
+    this.entangled = false;
+    this.other.entangled = false;
+  }
 }
 globalThis.MessagePort = Port;
 globalThis.MessageChannel = class {
@@ -481,6 +493,9 @@ function nextTimer() {
   now = Math.max(now, next[1].at);
   return next[1].run;
 }
+function nextReport() {
+  return reports.shift()?.run ?? null;
+}
 function schedule() {
   if (scheduled) return;
   scheduled = true;
@@ -488,7 +503,7 @@ function schedule() {
 }
 function step() {
   scheduled = false;
-  const task = (TIMER_FIRST ? nextTimer() ?? reports.shift() : reports.shift() ?? nextTimer()) ?? host.shift();
+  const task = (TIMER_FIRST ? nextTimer() ?? nextReport() : nextReport() ?? nextTimer()) ?? host.shift();
   if (!task) return;
   try {
     task();
@@ -603,6 +618,14 @@ console.error("careful");`
   });
 });
 
+const HANDLED_BY_A_TIMER_BEFORE_THE_REPORT: Record<
+  TaskOrder,
+  { stdout: string; exit: string }
+> = {
+  "timer first": { stdout: "caught\n", exit: "done" },
+  "rejection first": { stdout: "", exit: "error" },
+};
+
 describe.each(["timer first", "rejection first"] as const)(
   "sandbox worker with the %s",
   (order) => {
@@ -703,6 +726,16 @@ describe.each(["timer first", "rejection first"] as const)(
       expect(exit?.exit).toBe("error");
       expect(String(exit?.detail)).toStartWith(
         "Uncaught (in promise) CompileError"
+      );
+    });
+
+    test("reports a rejection only if no timer handles it before the report", () => {
+      const { stdout, exit } = runInWorker(
+        "const p = Promise.reject(new Error('x'));\nsetTimeout(() => p.catch(() => console.log('caught')), 0);",
+        { order }
+      );
+      expect({ stdout, exit: exit?.exit }).toEqual(
+        HANDLED_BY_A_TIMER_BEFORE_THE_REPORT[order]
       );
     });
   }
