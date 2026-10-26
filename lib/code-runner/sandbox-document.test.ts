@@ -401,7 +401,8 @@ interface PythonError {
 // message, resolves from a third queue that always runs last. An uncaught
 // throw reaches the error listener the way WebKit reports one from compiled
 // code: as "Script error." with no error object. A fake Pyodide raises the
-// given Python error from a host task.
+// given Python error from a host task. For SystemExit it also leaves a
+// rejected promise of its own, which WebKit reports first.
 const workerProcess = (
   code: string,
   order: TaskOrder,
@@ -443,7 +444,7 @@ globalThis.setInterval = (callback, delay = 0, ...args) => {
 };
 globalThis.clearTimeout = globalThis.clearInterval = (id) => timers.delete(id);
 process.on("unhandledRejection", (reason, promise) => {
-  reports.push({ promise, run: () => listeners.get("unhandledrejection")({ reason, preventDefault() {}, stopImmediatePropagation() {} }) });
+  reports.push({ promise, run: () => listeners.get("unhandledrejection")?.({ reason, preventDefault() {}, stopImmediatePropagation() {} }) });
   schedule();
 });
 process.on("rejectionHandled", (promise) => {
@@ -512,6 +513,7 @@ globalThis.importScripts = () => {
     runPython() {},
     runPythonAsync: () => {
       const error = Object.assign(new Error(PYTHON_ERROR.message), { type: PYTHON_ERROR.type });
+      if (error.type === "SystemExit") Promise.reject(error);
       return new Promise((resolve, reject) => {
         host.push(() => reject(error));
         schedule();
