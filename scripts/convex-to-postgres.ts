@@ -1,12 +1,4 @@
-/**
- * Copies a Convex export into Postgres. Safe to rerun: rows that exist are
- * left alone, and users and chats are only overwritten by a newer
- * `updatedAt`, so a rerun after cutover never rolls back newer edits.
- *
- *   bunx convex export --prod --path snapshot.zip && unzip snapshot.zip -d snapshot
- *   DATABASE_URL=postgres://... bun scripts/convex-to-postgres.ts snapshot
- */
-import { sql } from "drizzle-orm";
+import { and, eq, inArray, lt, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import {
@@ -19,7 +11,9 @@ import {
 } from "../lib/db/schema";
 import {
   type ConvexExport,
+  createdAfter,
   describeTarget,
+  parseSince,
   readConvexExport,
   requireDatabaseUrl,
 } from "./convex-export";
@@ -54,7 +48,12 @@ const date = (doc: Doc, key: string) =>
 const optionalDate = (doc: Doc, key: string) =>
   typeof doc[key] === "number" ? new Date(doc[key]) : null;
 
-function planImport(snapshot: ConvexExport, now: Date) {
+function planImport(
+  snapshot: ConvexExport,
+  now: Date,
+  since: number | undefined
+) {
+  const fresh = (doc: Doc) => createdAfter(doc, since);
   const users = snapshot.users.map((doc) => ({
     id: doc._id,
     name: field<string>(doc, "name", "string"),
@@ -73,7 +72,7 @@ function planImport(snapshot: ConvexExport, now: Date) {
     return userId;
   };
 
-  const accounts = snapshot.accounts.map((doc) => ({
+  const accounts = snapshot.accounts.filter(fresh).map((doc) => ({
     id: doc._id,
     accountId: field<string>(doc, "accountId", "string"),
     providerId: field<string>(doc, "providerId", "string"),
@@ -90,7 +89,8 @@ function planImport(snapshot: ConvexExport, now: Date) {
   }));
 
   const liveSessions = snapshot.sessions.filter(
-    (doc) => field<number>(doc, "expiresAt", "number") > now.getTime()
+    (doc) =>
+      field<number>(doc, "expiresAt", "number") > now.getTime() && fresh(doc)
   );
   const sessions = liveSessions.map((doc) => ({
     id: doc._id,
@@ -104,7 +104,8 @@ function planImport(snapshot: ConvexExport, now: Date) {
   }));
 
   const liveVerifications = snapshot.verifications.filter(
-    (doc) => field<number>(doc, "expiresAt", "number") > now.getTime()
+    (doc) =>
+      field<number>(doc, "expiresAt", "number") > now.getTime() && fresh(doc)
   );
   const verifications = liveVerifications.map((doc) => ({
     id: doc._id,
@@ -115,14 +116,17 @@ function planImport(snapshot: ConvexExport, now: Date) {
     updatedAt: date(doc, "updatedAt"),
   }));
 
-  // Chat URLs use the client-generated id, so it becomes the primary key.
   const chatIdByConvexId = new Map<string, string>();
+  const freshChatIds = new Set<string>();
   const chats = snapshot.chats.map((doc) => {
     const id = field<string>(doc, "clientId", "string");
     if ([...chatIdByConvexId.values()].includes(id)) {
       throw new Error(`duplicate chat clientId ${id}`);
     }
     chatIdByConvexId.set(doc._id, id);
+    if (fresh(doc)) {
+      freshChatIds.add(id);
+    }
     const visibility = field<string>(doc, "visibility", "string");
     if (visibility !== "public" && visibility !== "private") {
       throw new Error(`${doc._id}.visibility is ${visibility}`);
@@ -138,7 +142,7 @@ function planImport(snapshot: ConvexExport, now: Date) {
     };
   });
 
-  const messages = snapshot.messages.map((doc) => {
+  const messages = snapshot.messages.filter(fresh).map((doc) => {
     const chatId = chatIdByConvexId.get(field<string>(doc, "chatId", "string"));
     if (!chatId) {
       throw new Error(`${doc._id} belongs to a chat missing from the export`);
@@ -150,7 +154,6 @@ function planImport(snapshot: ConvexExport, now: Date) {
     if (!Array.isArray(doc.parts)) {
       throw new Error(`${doc._id}.parts is not an array`);
     }
-    // The Postgres schema keeps files as `file` parts only.
     if (Array.isArray(doc.attachments) && doc.attachments.length > 0) {
       throw new Error(`${doc._id} has legacy attachments`);
     }
@@ -169,12 +172,14 @@ function planImport(snapshot: ConvexExport, now: Date) {
     accounts,
     sessions,
     verifications,
-    chats,
+    newChats: chats.filter((c) => freshChatIds.has(c.id)),
+    existingChats: chats.filter((c) => !freshChatIds.has(c.id)),
     messages,
     skipped: {
-      expiredSessions: snapshot.sessions.length - liveSessions.length,
-      expiredVerifications:
+      expiredOrOlderSessions: snapshot.sessions.length - liveSessions.length,
+      expiredOrOlderVerifications:
         snapshot.verifications.length - liveVerifications.length,
+      messagesBeforeSince: snapshot.messages.length - messages.length,
       streams: snapshot.streams.length,
     },
   };
@@ -184,15 +189,20 @@ const MESSAGE_BATCH = 100;
 
 async function main() {
   const dir = process.argv[2];
-  if (!dir) {
-    console.error("usage: bun scripts/convex-to-postgres.ts <export-dir>");
+  if (!dir || dir.startsWith("--")) {
+    console.error(
+      "usage: bun scripts/convex-to-postgres.ts <export-dir> [--since=<ms>]"
+    );
     process.exit(2);
   }
   const url = requireDatabaseUrl();
-  const plan = planImport(readConvexExport(dir), new Date());
-  console.log(`target ${describeTarget(url)}`);
+  const since = parseSince(process.argv.slice(3));
+  const plan = planImport(readConvexExport(dir), new Date(), since);
+  console.log(
+    `target ${describeTarget(url)}${since ? `, since ${new Date(since).toISOString()}` : ""}`
+  );
 
-  const client = postgres(url, { prepare: false, max: 1 });
+  const client = postgres(url, { max: 1 });
   const db = drizzle(client);
   const newer = (table: typeof user | typeof chat) =>
     sql`${table.updatedAt} < excluded.updated_at`;
@@ -205,6 +215,7 @@ async function main() {
       verifications: 0,
       chats: 0,
       messages: 0,
+      messagesOfDeletedChats: 0,
     };
     if (plan.users.length > 0) {
       const rows = await tx
@@ -248,10 +259,23 @@ async function main() {
         .returning({ id: verification.id });
       count.verifications = rows.length;
     }
-    if (plan.chats.length > 0) {
+    for (const row of plan.existingChats) {
+      const updated = await tx
+        .update(chat)
+        .set({
+          title: row.title,
+          visibility: row.visibility,
+          systemPrompt: row.systemPrompt,
+          updatedAt: row.updatedAt,
+        })
+        .where(and(eq(chat.id, row.id), lt(chat.updatedAt, row.updatedAt)))
+        .returning({ id: chat.id });
+      count.chats += updated.length;
+    }
+    if (plan.newChats.length > 0) {
       const rows = await tx
         .insert(chat)
-        .values(plan.chats)
+        .values(plan.newChats)
         .onConflictDoUpdate({
           target: chat.id,
           set: {
@@ -263,12 +287,25 @@ async function main() {
           setWhere: newer(chat),
         })
         .returning({ id: chat.id });
-      count.chats = rows.length;
+      count.chats += rows.length;
     }
-    for (let i = 0; i < plan.messages.length; i += MESSAGE_BATCH) {
+    const chatIds = [...new Set(plan.messages.map((m) => m.chatId))];
+    const present = new Set(
+      chatIds.length === 0
+        ? []
+        : (
+            await tx
+              .select({ id: chat.id })
+              .from(chat)
+              .where(inArray(chat.id, chatIds))
+          ).map((row) => row.id)
+    );
+    const messages = plan.messages.filter((m) => present.has(m.chatId));
+    count.messagesOfDeletedChats = plan.messages.length - messages.length;
+    for (let i = 0; i < messages.length; i += MESSAGE_BATCH) {
       const rows = await tx
         .insert(message)
-        .values(plan.messages.slice(i, i + MESSAGE_BATCH))
+        .values(messages.slice(i, i + MESSAGE_BATCH))
         .onConflictDoNothing()
         .returning({ id: message.id });
       count.messages += rows.length;
@@ -282,7 +319,8 @@ async function main() {
     accounts: plan.accounts.length,
     sessions: plan.sessions.length,
     verifications: plan.verifications.length,
-    chats: plan.chats.length,
+    newChats: plan.newChats.length,
+    existingChats: plan.existingChats.length,
     messages: plan.messages.length,
   });
   console.log("written (inserted or updated)", inserted);

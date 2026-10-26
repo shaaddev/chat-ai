@@ -1,31 +1,29 @@
-/**
- * Checks every user, chat, and message in a Convex export against Postgres,
- * field by field. Exits 1 on any missing or different row. Reads the raw
- * export itself instead of reusing the import mapping, so a mapping bug in
- * the import cannot hide here.
- *
- *   DATABASE_URL=postgres://... bun scripts/verify-convex-migration.ts snapshot
- */
 import { isDeepStrictEqual } from "node:util";
 import postgres from "postgres";
 import {
+  createdAfter,
   describeTarget,
+  parseSince,
   readConvexExport,
   requireDatabaseUrl,
 } from "./convex-export";
 
 const dir = process.argv[2];
-if (!dir) {
-  console.error("usage: bun scripts/verify-convex-migration.ts <export-dir>");
+if (!dir || dir.startsWith("--")) {
+  console.error(
+    "usage: bun scripts/verify-convex-migration.ts <export-dir> [--since=<ms>]"
+  );
   process.exit(2);
 }
 
 const snapshot = readConvexExport(dir);
+const since = parseSince(process.argv.slice(3));
 const url = requireDatabaseUrl();
-const db = postgres(url, { prepare: false, max: 1 });
+const db = postgres(url, { max: 1 });
 console.log(`target ${describeTarget(url)}`);
 
 const problems: string[] = [];
+const deletedAfterCutover = { chats: 0, messages: 0 };
 const ms = (value: Date | null) => (value ? value.getTime() : null);
 
 function compare(
@@ -43,9 +41,10 @@ function compare(
   }
 }
 
-// A row edited in Postgres after cutover is newer than the export. Only
-// `createdAt` and identity must still match.
-function isNewer(row: { updated_at: Date }, doc: Record<string, unknown>) {
+function editedAfterExport(
+  row: { updated_at: Date },
+  doc: Record<string, unknown>
+) {
   return row.updated_at.getTime() > (doc.updatedAt as number);
 }
 
@@ -64,7 +63,7 @@ for (const doc of snapshot.users) {
     { created_at: doc.createdAt },
     { created_at: ms(row.created_at) }
   );
-  if (!isNewer(row as { updated_at: Date }, doc)) {
+  if (!editedAfterExport(row as { updated_at: Date }, doc)) {
     compare(
       "user",
       doc._id,
@@ -89,7 +88,11 @@ for (const doc of snapshot.chats) {
   chatIdByConvexId.set(doc._id, id);
   const row = chats.get(id);
   if (!row) {
-    problems.push(`chat ${id}: missing`);
+    if (createdAfter(doc, since)) {
+      problems.push(`chat ${id}: missing`);
+    } else {
+      deletedAfterCutover.chats++;
+    }
     continue;
   }
   compare(
@@ -98,7 +101,7 @@ for (const doc of snapshot.chats) {
     { user_id: doc.userId, created_at: doc.createdAt },
     { user_id: row.user_id, created_at: ms(row.created_at) }
   );
-  if (!isNewer(row as { updated_at: Date }, doc)) {
+  if (!editedAfterExport(row as { updated_at: Date }, doc)) {
     compare(
       "chat",
       id,
@@ -118,15 +121,20 @@ const messages = new Map(
 );
 for (const doc of snapshot.messages) {
   const row = messages.get(doc._id);
+  const chatId = chatIdByConvexId.get(doc.chatId as string);
   if (!row) {
-    problems.push(`message ${doc._id}: missing`);
+    if (createdAfter(doc, since) && chatId && chats.has(chatId)) {
+      problems.push(`message ${doc._id}: missing`);
+    } else {
+      deletedAfterCutover.messages++;
+    }
     continue;
   }
   compare(
     "message",
     doc._id,
     {
-      chat_id: chatIdByConvexId.get(doc.chatId as string),
+      chat_id: chatId,
       role: doc.role,
       parts: doc.parts,
       model: doc.model ?? null,
@@ -136,8 +144,31 @@ for (const doc of snapshot.messages) {
   );
 }
 
+const accounts = new Map(
+  (await db`select * from account`).map((row) => [row.id as string, row])
+);
+for (const doc of snapshot.accounts.filter((d) => createdAfter(d, since))) {
+  const row = accounts.get(doc._id);
+  if (!row) {
+    problems.push(`account ${doc._id}: missing`);
+    continue;
+  }
+  compare(
+    "account",
+    doc._id,
+    {
+      user_id: doc.userId,
+      account_id: doc.accountId,
+      provider_id: doc.providerId,
+      password: doc.password ?? null,
+      created_at: doc.createdAt,
+    },
+    { ...row, created_at: ms(row.created_at) }
+  );
+}
+
 const liveSessions = snapshot.sessions.filter(
-  (doc) => (doc.expiresAt as number) > Date.now()
+  (doc) => (doc.expiresAt as number) > Date.now() && createdAfter(doc, since)
 );
 const sessionIds = new Set(
   (await db`select id from session`).map((row) => row.id as string)
@@ -159,8 +190,15 @@ console.log("checked", {
   users: snapshot.users.length,
   chats: snapshot.chats.length,
   messages: snapshot.messages.length,
+  accounts: snapshot.accounts.length,
   liveSessions: liveSessions.length,
 });
+if (since !== undefined) {
+  console.log(
+    "created before --since and absent from postgres (deleted after cutover)",
+    deletedAfterCutover
+  );
+}
 console.log("rows in postgres but not in the export", {
   users: [...users.keys()].filter((id) => !exportIds.user.has(id)).length,
   chats: [...chats.keys()].filter((id) => !exportIds.chat.has(id)).length,
