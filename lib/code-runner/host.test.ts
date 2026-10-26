@@ -1,5 +1,6 @@
 /// <reference types="bun-types/test" />
 import { afterEach, describe, expect, test } from "bun:test";
+// Loaded up front so the host's dynamic imports settle within `launched()`.
 import "sucrase";
 import "./sandbox-document";
 import type { Runner } from "./languages";
