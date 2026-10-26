@@ -143,7 +143,6 @@ export function Chat({
   const { setChatLoading, refreshChats } = useChatContext();
   const { getChatInputState, setChatInputState, clearChatInputState } =
     useChatDraft();
-  const [isNewChat, setIsNewChat] = useState(initialMessages?.length === 0);
   const [selectedModelId, setSelectedModelId] = useState<ChatModelId>(
     () => findChatModel(initialChatModel)?.id ?? DEFAULT_CHAT_MODEL
   );
@@ -228,6 +227,7 @@ export function Chat({
       messages: initialMessages,
       generateId: generateUUID,
       transport,
+      onFinish: () => refreshChats(),
       onError: (err) => {
         toast.error("Error", {
           description: err.message,
@@ -311,11 +311,6 @@ export function Chat({
       setChatLoading(id, false);
     }
 
-    if (status === "streaming" && isNewChat) {
-      refreshChats();
-      setIsNewChat(false);
-    }
-
     if (
       isImageModel &&
       (prevStatusRef.current === "submitted" ||
@@ -328,7 +323,7 @@ export function Chat({
     }
 
     prevStatusRef.current = status;
-  }, [status, id, setChatLoading, refreshChats, isNewChat, isImageModel]);
+  }, [status, id, setChatLoading, isImageModel]);
 
   useEffect(() => {
     const latestAssistant = latestAssistantMessage;
