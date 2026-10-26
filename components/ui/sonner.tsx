@@ -2,13 +2,18 @@
 
 import { useTheme } from "next-themes";
 import { Toaster as Sonner, type ToasterProps } from "sonner";
+import { useIsMobile } from "@/hooks/use-mobile";
 
-const Toaster = ({ ...props }: ToasterProps) => {
+const Toaster = ({ position, ...props }: ToasterProps) => {
   const { theme = "system" } = useTheme();
+  // On a phone the composer fills the bottom of the screen, and a toast
+  // there would hide the text it says is back in the composer.
+  const isMobile = useIsMobile();
 
   return (
     <Sonner
       className="toaster group"
+      position={isMobile ? "top-center" : position}
       style={
         {
           "--normal-bg": "var(--popover)",
