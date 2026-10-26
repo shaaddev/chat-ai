@@ -1,9 +1,7 @@
 import { History, HomeIcon, LogOutIcon, Palette, UserIcon } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { authClient } from "@/lib/auth-client";
+import { useLogOut } from "@/hooks/use-log-out";
 
 export function AccountSidebar({
   setActiveSection,
@@ -16,22 +14,7 @@ export function AccountSidebar({
     { id: "usage", label: "Usage", icon: History },
   ];
 
-  const router = useRouter();
-
-  const handleLogout = async () => {
-    await authClient.signOut({
-      fetchOptions: {
-        onSuccess: () => {
-          toast.success("Logged out successfully");
-          router.push("/");
-          router.refresh();
-        },
-        onError: () => {
-          toast.error("Failed to log out");
-        },
-      },
-    });
-  };
+  const logOut = useLogOut();
 
   return (
     <div className="space-y-6">
@@ -64,7 +47,7 @@ export function AccountSidebar({
         </Button>
         <Button
           className="h-9 justify-start rounded-[10px] text-destructive hover:cursor-pointer hover:bg-destructive/10 hover:text-destructive"
-          onClick={handleLogout}
+          onClick={logOut}
           variant="ghost"
         >
           <LogOutIcon className="mr-2 h-4 w-4" />

@@ -57,6 +57,7 @@ interface ChatActions {
   addOptimisticChat: (chat: NewChat) => void;
   clearChats: () => void;
   deleteChat: (chatId: string) => void;
+  flushPendingDeletes: () => Promise<void>;
   refreshChats: () => Promise<void>;
   renameChat: (chatId: string, title: string) => Promise<void>;
   setChatLoading: (chatId: string, loading: boolean) => void;
@@ -64,6 +65,11 @@ interface ChatActions {
     chat: Pick<ChatSummary, "id" | "pinnedKey">,
     pinnedKey: string | null
   ) => Promise<void>;
+}
+
+interface PendingDelete {
+  commit: () => Promise<void>;
+  sendOnUnload: () => void;
 }
 
 interface ChatListState {
@@ -199,6 +205,22 @@ function pinFailure(from: string | null, to: string | null) {
   return from === null ? "Chat wasn't pinned" : "Chat wasn't moved";
 }
 
+// Repeats until nothing is left, so a delete started while logout waits
+// still goes out before the session ends.
+async function settleDeletes(
+  pending: ReadonlyMap<string, PendingDelete>,
+  inFlight: ReadonlySet<Promise<void>>
+): Promise<void> {
+  if (pending.size === 0 && inFlight.size === 0) {
+    return;
+  }
+  await Promise.all([
+    ...[...pending.values()].map((pendingDelete) => pendingDelete.commit()),
+    ...inFlight,
+  ]);
+  await settleDeletes(pending, inFlight);
+}
+
 export function ChatProvider({ children }: { children: ReactNode }) {
   const { cache, mutate } = useSWRConfig();
   const [pendingEdits, setPendingEdits] = useState<PendingEdits>(
@@ -208,7 +230,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     () => new Set()
   );
   const chatInputStatesRef = useRef<Map<string, ChatInputState>>(new Map());
-  const unsentDeletesRef = useRef<Set<string>>(new Set());
+  const pendingDeletesRef = useRef<Map<string, PendingDelete>>(new Map());
+  const inFlightDeletesRef = useRef<Set<Promise<void>>>(new Set());
   const lastPinRequestRef = useRef<Map<string, Promise<Response | null>>>(
     new Map()
   );
@@ -216,15 +239,19 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   // A delete waits behind its Undo toast. If the page unloads first, send it
   // with keepalive so the chat the user saw disappear stays deleted.
   useEffect(() => {
-    const flushDeletes = () => {
-      for (const chatId of unsentDeletesRef.current) {
-        fetch(`/api/chats/${chatId}`, { method: "DELETE", keepalive: true });
+    const sendPendingDeletes = () => {
+      for (const pending of pendingDeletesRef.current.values()) {
+        pending.sendOnUnload();
       }
-      unsentDeletesRef.current.clear();
     };
-    window.addEventListener("pagehide", flushDeletes);
-    return () => window.removeEventListener("pagehide", flushDeletes);
+    window.addEventListener("pagehide", sendPendingDeletes);
+    return () => window.removeEventListener("pagehide", sendPendingDeletes);
   }, []);
+
+  const flushPendingDeletes = useCallback(
+    () => settleDeletes(pendingDeletesRef.current, inFlightDeletesRef.current),
+    []
+  );
 
   const updateCachedChats = useCallback(
     (update: (chats: ChatSummary[]) => ChatSummary[]) =>
@@ -284,29 +311,32 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     (chatId: string) => {
       const edit: PendingEdit = { kind: "delete" };
       setPendingEdits((edits) => withEdit(edits, chatId, edit));
-      unsentDeletesRef.current.add(chatId);
 
       let settled = false;
-      const undo = () => {
+      let toastId: string | number | undefined;
+      const settle = () => {
         if (settled) {
-          return;
+          return false;
         }
         settled = true;
-        unsentDeletesRef.current.delete(chatId);
-        setPendingEdits((edits) => withoutEdit(edits, chatId, edit));
+        pendingDeletesRef.current.delete(chatId);
+        return true;
       };
-      const commit = async () => {
-        if (settled) {
-          return;
+      const forget = () => {
+        chatInputStatesRef.current.delete(chatId);
+        return updateCachedChats((chats) =>
+          chats.filter((chat) => chat.id !== chatId)
+        );
+      };
+      const undo = () => {
+        if (settle()) {
+          setPendingEdits((edits) => withoutEdit(edits, chatId, edit));
         }
-        settled = true;
-        unsentDeletesRef.current.delete(chatId);
+      };
+      const send = async () => {
         const res = await sendChatRequest(chatId, { method: "DELETE" });
         if (res && (res.ok || res.status === 404)) {
-          chatInputStatesRef.current.delete(chatId);
-          await updateCachedChats((chats) =>
-            chats.filter((chat) => chat.id !== chatId)
-          );
+          await forget();
         } else {
           toast.error("Chat wasn't deleted", {
             description: "It's back in your list. Try deleting it again.",
@@ -314,8 +344,35 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         }
         setPendingEdits((edits) => withoutEdit(edits, chatId, edit));
       };
+      // Logout awaits in-flight deletes too, so one already sent when the
+      // toast closed still lands before the session ends.
+      const commit = async () => {
+        if (!settle()) {
+          return;
+        }
+        toast.dismiss(toastId);
+        const request = send();
+        inFlightDeletesRef.current.add(request);
+        try {
+          await request;
+        } finally {
+          inFlightDeletesRef.current.delete(request);
+        }
+      };
+      // After a back/forward-cache restore the page comes back as it was, so
+      // the toast must already be gone or its Undo would show a deleted chat.
+      const sendOnUnload = () => {
+        if (!settle()) {
+          return;
+        }
+        fetch(`/api/chats/${chatId}`, { method: "DELETE", keepalive: true });
+        toast.dismiss(toastId);
+        forget();
+        setPendingEdits((edits) => withoutEdit(edits, chatId, edit));
+      };
 
-      toast("Chat deleted", {
+      pendingDeletesRef.current.set(chatId, { commit, sendOnUnload });
+      toastId = toast("Chat deleted", {
         duration: UNDO_WINDOW_MS,
         action: { label: "Undo", onClick: undo },
         onAutoClose: commit,
@@ -422,6 +479,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       addOptimisticChat,
       clearChats,
       deleteChat,
+      flushPendingDeletes,
       refreshChats,
       renameChat,
       setChatLoading,
@@ -431,6 +489,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       addOptimisticChat,
       clearChats,
       deleteChat,
+      flushPendingDeletes,
       refreshChats,
       renameChat,
       setChatLoading,
