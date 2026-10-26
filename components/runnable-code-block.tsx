@@ -218,6 +218,16 @@ function RunnableCodeBlock({
 
   useEffect(() => () => stopRef.current?.(), []);
 
+  const ranCodeRef = useRef(code);
+  useEffect(() => {
+    if (ranCodeRef.current === code) {
+      return;
+    }
+    ranCodeRef.current = code;
+    stopRef.current?.();
+    dispatch({ type: "clear" });
+  }, [code]);
+
   const toggleRun = () => {
     if (active) {
       stopRef.current?.();
