@@ -72,7 +72,9 @@ function DocumentCard({
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="max-h-40 overflow-auto rounded-lg bg-card p-3 text-muted-foreground text-xs">
-            <Markdown>{draft.markdown}</Markdown>
+            <Markdown isStreaming={draft.isStreaming}>
+              {draft.markdown}
+            </Markdown>
           </div>
           <div className="flex justify-end">
             <Button
