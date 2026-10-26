@@ -7,8 +7,7 @@ import {
   type ThemeRegistrationAny,
 } from "streamdown";
 import "streamdown/styles.css";
-import { RUNNABLE_FENCES } from "@/lib/code-runner/languages";
-import { RunnableCodeBlock } from "./runnable-code-block";
+import { RunnableCode } from "./runnable-code-block";
 
 type Components = StreamdownProps["components"];
 
@@ -28,12 +27,12 @@ const components: Partial<Components> = {
   },
 };
 
-const plugins: StreamdownProps["plugins"] = { code };
-
-const runnablePlugins: StreamdownProps["plugins"] = {
-  code,
-  renderers: [{ language: [...RUNNABLE_FENCES], component: RunnableCodeBlock }],
+const runnableComponents: Partial<Components> = {
+  ...components,
+  code: RunnableCode,
 };
+
+const plugins: StreamdownProps["plugins"] = { code };
 
 const controls: StreamdownProps["controls"] = { code: { download: false } };
 
@@ -131,12 +130,12 @@ function NonMemoizedMarkdown({
       animated
       caret="block"
       className={PROSE_CLASSES}
-      components={components}
+      components={runnable ? runnableComponents : components}
       controls={controls}
       isAnimating={isStreaming}
       lineNumbers={false}
       parseIncompleteMarkdown={isStreaming}
-      plugins={runnable ? runnablePlugins : plugins}
+      plugins={plugins}
       shikiTheme={shikiTheme}
     >
       {children}

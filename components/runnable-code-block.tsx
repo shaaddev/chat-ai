@@ -2,6 +2,9 @@
 
 import { Play, Square } from "lucide-react";
 import {
+  type ComponentProps,
+  isValidElement,
+  type ReactNode,
   type Ref,
   type UIEvent,
   useContext,
@@ -13,8 +16,9 @@ import {
 import {
   CodeBlock,
   CodeBlockCopyButton,
-  type CustomRendererProps,
+  defaultComponents,
   StreamdownContext,
+  useIsCodeFenceIncomplete,
 } from "streamdown";
 import { startRun } from "@/lib/code-runner/host";
 import { type Runner, runnerForFence } from "@/lib/code-runner/languages";
@@ -186,13 +190,18 @@ function RunOutput({
   );
 }
 
-export function RunnableCodeBlock({
+function RunnableCodeBlock({
   code,
   isIncomplete,
   language,
-}: CustomRendererProps) {
+  runner,
+}: {
+  code: string;
+  isIncomplete: boolean;
+  language: string;
+  runner: Runner;
+}) {
   const { lineNumbers } = useContext(StreamdownContext);
-  const runner = runnerForFence(language);
   const [state, dispatch] = useReducer(runReducer, INITIAL_RUN_STATE);
   const stopRef = useRef<(() => void) | null>(null);
   const runButtonRef = useRef<HTMLButtonElement>(null);
@@ -200,13 +209,13 @@ export function RunnableCodeBlock({
 
   useEffect(() => () => stopRef.current?.(), []);
 
-  const toggleRun = (selected: Runner) => {
+  const toggleRun = () => {
     if (active) {
       stopRef.current?.();
       return;
     }
     dispatch({ type: "run", at: performance.now() });
-    stopRef.current = startRun(selected, code, dispatch);
+    stopRef.current = startRun(runner, code, dispatch);
   };
 
   const clear = () => {
@@ -224,26 +233,55 @@ export function RunnableCodeBlock({
         language={language}
         lineNumbers={lineNumbers}
       >
-        {runner && !isIncomplete ? (
+        {isIncomplete ? null : (
           <RunButton
             active={active}
             label={runner.label}
-            onClick={() => toggleRun(runner)}
+            onClick={toggleRun}
             ref={runButtonRef}
           />
-        ) : null}
+        )}
         <CodeBlockCopyButton />
       </CodeBlock>
       {open ? (
-        <RunOutput
-          label={runner?.label ?? language}
-          onClear={clear}
-          state={state}
-        />
+        <RunOutput label={runner.label} onClear={clear} state={state} />
       ) : null}
       <output aria-live="polite" className="sr-only">
         {announcement(state.status)}
       </output>
     </div>
+  );
+}
+
+const DefaultCode = defaultComponents.code;
+const LANGUAGE = /language-([^\s]+)/;
+
+function codeText(children: ReactNode): string {
+  if (typeof children === "string") {
+    return children;
+  }
+  return isValidElement<{ children?: ReactNode }>(children) &&
+    typeof children.props.children === "string"
+    ? children.props.children
+    : "";
+}
+
+// Rendering runnable blocks here, rather than through Streamdown's
+// `plugins.renderers`, avoids the Suspense boundary that path adds around
+// every block, which doubled hydration work in code-heavy chats.
+export function RunnableCode(props: ComponentProps<typeof DefaultCode>) {
+  const isIncomplete = useIsCodeFenceIncomplete();
+  const language = LANGUAGE.exec(props.className ?? "")?.[1] ?? "";
+  const runner = runnerForFence(language);
+  if (!(runner && "data-block" in props)) {
+    return <DefaultCode {...props} />;
+  }
+  return (
+    <RunnableCodeBlock
+      code={codeText(props.children)}
+      isIncomplete={isIncomplete}
+      language={language}
+      runner={runner}
+    />
   );
 }

@@ -28,7 +28,5 @@ const RUNNERS_BY_FENCE: ReadonlyMap<string, Runner> = new Map([
   ["python3", PYTHON],
 ]);
 
-export const RUNNABLE_FENCES: readonly string[] = [...RUNNERS_BY_FENCE.keys()];
-
 export const runnerForFence = (fence: string): Runner | undefined =>
   RUNNERS_BY_FENCE.get(fence);
