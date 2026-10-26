@@ -125,6 +125,7 @@ function NonMemoizedMarkdown({
       className={PROSE_CLASSES}
       components={components}
       isAnimating={isStreaming}
+      lineNumbers={false}
       plugins={plugins}
       shikiTheme={shikiTheme}
     >
