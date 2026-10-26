@@ -19,6 +19,7 @@ const UNDO_WINDOW_MS = 5000;
 
 export interface ChatSummary {
   id: string;
+  pinnedKey: string | null;
   title: string;
   updatedAt: Date;
 }
@@ -33,9 +34,19 @@ interface NewChat {
 // SWR's optimisticData rolls back to a whole-list snapshot, which would undo
 // any other edit that settled in between. Unconfirmed edits live here instead
 // and overlay the cache, so each one settles on its own.
-type PendingEdit = { kind: "delete" } | { kind: "rename"; title: string };
+type PendingEdit =
+  | { kind: "delete" }
+  | { kind: "pin"; pinnedKey: string | null }
+  | { kind: "rename"; title: string };
 
-type PendingEdits = ReadonlyMap<string, PendingEdit>;
+type PendingEditKind = PendingEdit["kind"];
+
+// Each chat can have one unconfirmed edit of each kind, so a pin and a rename
+// in flight together both show, and each settles on its own.
+type PendingEdits = ReadonlyMap<
+  string,
+  ReadonlyMap<PendingEditKind, PendingEdit>
+>;
 
 interface ChatInputState {
   attachments: Attachment[];
@@ -51,6 +62,10 @@ interface ChatActions {
   refreshChats: () => Promise<void>;
   renameChat: (chatId: string, title: string) => Promise<void>;
   setChatLoading: (chatId: string, loading: boolean) => void;
+  setPinnedKey: (
+    chat: Pick<ChatSummary, "id" | "pinnedKey">,
+    pinnedKey: string | null
+  ) => Promise<void>;
 }
 
 interface ChatListState {
@@ -107,10 +122,15 @@ async function fetchChats(url: string): Promise<ChatSummary[]> {
   if (!res.ok) {
     throw new Error(`GET ${url} failed with ${res.status}`);
   }
-  const rows: { id: string; title: string; updatedAt: string }[] =
-    await res.json();
-  return rows.map(({ id, title, updatedAt }) => ({
+  const rows: {
+    id: string;
+    pinnedKey: string | null;
+    title: string;
+    updatedAt: string;
+  }[] = await res.json();
+  return rows.map(({ id, pinnedKey, title, updatedAt }) => ({
     id,
+    pinnedKey,
     title,
     updatedAt: new Date(updatedAt),
   }));
@@ -128,15 +148,23 @@ async function sendChatRequest(
 }
 
 function withEdit(edits: PendingEdits, chatId: string, edit: PendingEdit) {
-  return new Map(edits).set(chatId, edit);
+  const forChat = new Map(edits.get(chatId)).set(edit.kind, edit);
+  return new Map(edits).set(chatId, forChat);
 }
 
 function withoutEdit(edits: PendingEdits, chatId: string, edit: PendingEdit) {
-  if (edits.get(chatId) !== edit) {
+  const forChat = edits.get(chatId);
+  if (forChat?.get(edit.kind) !== edit) {
     return edits;
   }
+  const remaining = new Map(forChat);
+  remaining.delete(edit.kind);
   const next = new Map(edits);
-  next.delete(chatId);
+  if (remaining.size === 0) {
+    next.delete(chatId);
+  } else {
+    next.set(chatId, remaining);
+  }
   return next;
 }
 
@@ -148,15 +176,30 @@ function applyPendingEdits(
     return chats;
   }
   return chats.flatMap((chat) => {
-    const edit = edits.get(chat.id);
-    if (!edit) {
+    const forChat = edits.get(chat.id);
+    if (!forChat) {
       return [chat];
     }
-    if (edit.kind === "delete") {
+    if (forChat.has("delete")) {
       return [];
     }
-    return [{ ...chat, title: edit.title }];
+    const pin = forChat.get("pin");
+    const rename = forChat.get("rename");
+    return [
+      {
+        ...chat,
+        ...(pin?.kind === "pin" ? { pinnedKey: pin.pinnedKey } : {}),
+        ...(rename?.kind === "rename" ? { title: rename.title } : {}),
+      },
+    ];
   });
+}
+
+function pinFailure(from: string | null, to: string | null) {
+  if (to === null) {
+    return "Chat wasn't unpinned";
+  }
+  return from === null ? "Chat wasn't pinned" : "Chat wasn't moved";
 }
 
 export function ChatProvider({ children }: { children: ReactNode }) {
@@ -169,6 +212,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   );
   const chatInputStatesRef = useRef<Map<string, ChatInputState>>(new Map());
   const unsentDeletesRef = useRef<Set<string>>(new Set());
+  const lastPinRequestRef = useRef<Map<string, Promise<Response | null>>>(
+    new Map()
+  );
 
   // A delete waits behind its Undo toast. If the page unloads first, send it
   // with keepalive so the chat the user saw disappear stays deleted.
@@ -207,7 +253,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       updateCachedChats((chats) =>
         chats.some((chat) => chat.id === id)
           ? chats
-          : [{ id, title, updatedAt }, ...chats]
+          : [{ id, pinnedKey: null, title, updatedAt }, ...chats]
       );
     },
     [cache, updateCachedChats]
@@ -282,6 +328,48 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     [updateCachedChats]
   );
 
+  const setPinnedKey = useCallback(
+    async (
+      chat: Pick<ChatSummary, "id" | "pinnedKey">,
+      pinnedKey: string | null
+    ) => {
+      if (chat.pinnedKey === pinnedKey) {
+        return;
+      }
+      const edit: PendingEdit = { kind: "pin", pinnedKey };
+      setPendingEdits((edits) => withEdit(edits, chat.id, edit));
+
+      const previous = lastPinRequestRef.current.get(chat.id);
+      const request = (previous ?? Promise.resolve(null)).then(() =>
+        sendChatRequest(chat.id, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pinnedKey }),
+        })
+      );
+      lastPinRequestRef.current.set(chat.id, request);
+      const res = await request;
+      if (lastPinRequestRef.current.get(chat.id) === request) {
+        lastPinRequestRef.current.delete(chat.id);
+      }
+
+      if (res?.ok) {
+        await updateCachedChats((chats) =>
+          chats.map((cached) =>
+            cached.id === chat.id ? { ...cached, pinnedKey } : cached
+          )
+        );
+      } else {
+        toast.error(pinFailure(chat.pinnedKey, pinnedKey), {
+          description:
+            "It's back where it was. Check your connection and try again.",
+        });
+      }
+      setPendingEdits((edits) => withoutEdit(edits, chat.id, edit));
+    },
+    [updateCachedChats]
+  );
+
   const setChatLoading = useCallback((chatId: string, isLoading: boolean) => {
     setLoadingChats((prev) => {
       if (prev.has(chatId) === isLoading) {
@@ -340,6 +428,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       refreshChats,
       renameChat,
       setChatLoading,
+      setPinnedKey,
     }),
     [
       addOptimisticChat,
@@ -348,6 +437,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       refreshChats,
       renameChat,
       setChatLoading,
+      setPinnedKey,
     ]
   );
 
@@ -421,12 +511,13 @@ export function useChatTitle(chatId: string): string | undefined {
     revalidateOnMount: false,
     revalidateOnFocus: false,
   });
-  const edit = context.pendingEdits.get(chatId);
-  if (edit?.kind === "rename") {
-    return edit.title;
-  }
-  if (edit?.kind === "delete") {
+  const forChat = context.pendingEdits.get(chatId);
+  if (forChat?.has("delete")) {
     return;
+  }
+  const rename = forChat?.get("rename");
+  if (rename?.kind === "rename") {
+    return rename.title;
   }
   return data?.find((chat) => chat.id === chatId)?.title;
 }
