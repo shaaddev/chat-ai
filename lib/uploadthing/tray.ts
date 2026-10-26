@@ -1,4 +1,5 @@
 import {
+  ATTACHMENT_MAX_COUNT,
   type AttachmentMediaType,
   checkAttachment,
   isImageType,
@@ -21,7 +22,7 @@ export type TrayItem = TrayFile & TrayItemStatus;
 
 export interface Rejection {
   name: string;
-  reason: "type" | "size";
+  reason: "type" | "size" | "count";
 }
 
 export interface UploadOptions {
@@ -39,7 +40,7 @@ export interface TrayEffects {
   upload: (file: File, options: UploadOptions) => Promise<StoredFileUrl>;
 }
 
-export type TrayReadiness = "empty" | "uploading" | "ready";
+export type TrayReadiness = "empty" | "uploading" | "failed" | "ready";
 
 export interface AttachmentTray {
   add: (files: File[]) => void;
@@ -58,6 +59,9 @@ interface Upload {
 export function readiness(items: readonly TrayItem[]): TrayReadiness {
   if (items.some((item) => item.status === "uploading")) {
     return "uploading";
+  }
+  if (items.some((item) => item.status === "failed")) {
+    return "failed";
   }
   return items.some((item) => item.status === "done") ? "ready" : "empty";
 }
@@ -151,6 +155,10 @@ export function createAttachmentTray(effects: TrayEffects): AttachmentTray {
         const check = checkAttachment(file);
         if (!check.ok) {
           rejections.push({ name: file.name, reason: check.reason });
+          continue;
+        }
+        if (items.length + added.length >= ATTACHMENT_MAX_COUNT) {
+          rejections.push({ name: file.name, reason: "count" });
           continue;
         }
         added.push({

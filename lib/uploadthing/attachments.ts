@@ -8,6 +8,7 @@ export const ATTACHMENT_MEDIA_TYPES = [
 
 export type AttachmentMediaType = (typeof ATTACHMENT_MEDIA_TYPES)[number];
 
+export const ATTACHMENT_MAX_COUNT = 10;
 export const ATTACHMENT_MAX_SIZE = "8MB";
 export const ATTACHMENT_MAX_BYTES = 8 * 1024 * 1024;
 export const ATTACHMENT_LIMIT_LABEL = "8 MB";

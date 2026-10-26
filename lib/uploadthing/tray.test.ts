@@ -1,6 +1,10 @@
 /// <reference types="bun-types/test" />
 import { describe, expect, test } from "bun:test";
-import { ATTACHMENT_MAX_BYTES, formatBytes } from "./attachments";
+import {
+  ATTACHMENT_MAX_BYTES,
+  ATTACHMENT_MAX_COUNT,
+  formatBytes,
+} from "./attachments";
 import {
   createAttachmentTray,
   type Rejection,
@@ -114,6 +118,39 @@ describe("attachment tray", () => {
     expect(tray.getItems().map(({ name }) => name)).toEqual(["ok.png"]);
   });
 
+  test("rejects files past the per-message limit before uploading them", () => {
+    const { tray, uploads, rejected } = setup();
+    tray.add([image("first.png")]);
+
+    tray.add(
+      Array.from({ length: ATTACHMENT_MAX_COUNT + 1 }, (_, index) =>
+        image(`batch-${index}.png`)
+      )
+    );
+
+    expect(tray.getItems()).toHaveLength(ATTACHMENT_MAX_COUNT);
+    expect(uploads).toHaveLength(ATTACHMENT_MAX_COUNT);
+    expect(rejected).toEqual([
+      [
+        { name: `batch-${ATTACHMENT_MAX_COUNT - 1}.png`, reason: "count" },
+        { name: `batch-${ATTACHMENT_MAX_COUNT}.png`, reason: "count" },
+      ],
+    ]);
+  });
+
+  test("a failed upload holds the send until it is retried or removed", async () => {
+    const { tray, uploads } = setup();
+    tray.add([image("chart.png"), pdf("spec.pdf")]);
+    uploads[0].resolve("https://files.test/chart.png");
+    uploads[1].reject(new Error("network down"));
+    await settle();
+
+    expect(readiness(tray.getItems())).toBe("failed");
+
+    tray.remove(tray.getItems()[1].id);
+    expect(readiness(tray.getItems())).toBe("ready");
+  });
+
   test("a failed upload can be retried", async () => {
     const { tray, uploads, failed } = setup();
     tray.add([pdf("report.pdf")]);
@@ -122,7 +159,7 @@ describe("attachment tray", () => {
 
     expect(tray.getItems()[0].status).toBe("failed");
     expect(failed).toEqual(["report.pdf"]);
-    expect(readiness(tray.getItems())).toBe("empty");
+    expect(readiness(tray.getItems())).toBe("failed");
 
     tray.retry(tray.getItems()[0].id);
     expect(tray.getItems()[0]).toMatchObject({

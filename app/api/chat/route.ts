@@ -395,6 +395,12 @@ export async function POST(req: Request) {
     }
     const history = convertToUIMessages(saved);
     const latestUserText = getUserText(history.at(-1)?.parts ?? []);
+    if (model.kind === "image" && !latestUserText) {
+      return new ChatSDKError(
+        "bad_request:api",
+        "Image models need a text prompt. Describe the image you want."
+      ).toResponse();
+    }
 
     const documentIntent = detectDocumentIntent(
       latestUserText,

@@ -27,7 +27,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
-import type { ChatModelId } from "@/lib/ai/models";
+import { type ChatModelId, getChatModel } from "@/lib/ai/models";
 import type { ChatMessage } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
@@ -103,8 +103,11 @@ export function ChatInput({
   const tray = getAttachmentTray(chatId);
   const trayReadiness = useTrayReadiness(tray);
   const hasText = input.trim().length > 0;
+  const needsText = getChatModel(selectedModelId).kind === "image";
   const canSend =
-    trayReadiness !== "uploading" && (hasText || trayReadiness === "ready");
+    trayReadiness !== "uploading" &&
+    trayReadiness !== "failed" &&
+    (hasText || (trayReadiness === "ready" && !needsText));
 
   const attachFiles = useCallback(
     (files: File[]) => {

@@ -1,6 +1,9 @@
 /// <reference types="bun-types/test" />
 import { describe, expect, test } from "bun:test";
-import { ATTACHMENT_MAX_BYTES } from "@/lib/uploadthing/attachments";
+import {
+  ATTACHMENT_MAX_BYTES,
+  ATTACHMENT_MAX_COUNT,
+} from "@/lib/uploadthing/attachments";
 import { postRequestBodySchema, toUserTurn } from "./schema";
 
 const CHAT_ID = "e027ffa1-67fd-4ff1-96fe-1c04b2e91864";
@@ -123,6 +126,54 @@ describe("POST /api/chat file parts", () => {
     expect(parsed && "parts" in parsed ? parsed.parts[0] : null).toMatchObject({
       filename: "old-upload.png",
     });
+  });
+
+  test("a part saved before inline attachments can be edited twice", () => {
+    const legacyPart = {
+      type: "file",
+      mediaType: "image/png",
+      name: "old-upload.png",
+      url: "https://abc123.ufs.sh/f/old-key",
+    };
+    const firstEdit = withParts([legacyPart]);
+    const savedParts =
+      firstEdit.data && "parts" in firstEdit.data.message
+        ? firstEdit.data.message.parts
+        : [];
+
+    expect(withParts(savedParts).success).toBe(true);
+  });
+
+  test("rejects more files than one message can carry", () => {
+    const files = (count: number) =>
+      Array.from({ length: count }, (_, index) => ({
+        ...filePart,
+        url: `https://abc123.ufs.sh/f/key-${index}`,
+      }));
+
+    expect(withParts(files(ATTACHMENT_MAX_COUNT)).success).toBe(true);
+    expect(withParts(files(ATTACHMENT_MAX_COUNT + 1)).success).toBe(false);
+  });
+
+  test("rejects a file-only message to an image model", () => {
+    const result = postRequestBodySchema.safeParse({
+      ...settings,
+      selectedChatModel: "chat-image-1-mini",
+      message: { ...message, parts: [filePart] },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  test("accepts an image model prompt that comes with a reference file", () => {
+    const result = postRequestBodySchema.safeParse({
+      ...settings,
+      selectedChatModel: "chat-image-1-mini",
+      message: {
+        ...message,
+        parts: [filePart, { type: "text", text: "A watercolor of this" }],
+      },
+    });
+    expect(result.success).toBe(true);
   });
 
   test("rejects a file over the upload limit", () => {

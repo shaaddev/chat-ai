@@ -5,6 +5,7 @@ import { useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import {
   ATTACHMENT_LIMIT_LABEL,
+  ATTACHMENT_MAX_COUNT,
   ATTACHMENT_TYPES_LABEL,
 } from "@/lib/uploadthing/attachments";
 import {
@@ -33,6 +34,15 @@ function rejectionToast(reason: Rejection["reason"], names: string[]) {
   const [first] = names;
   const subject =
     names.length === 1 ? first : `${first} and ${names.length - 1} more`;
+  if (reason === "count") {
+    toast.error(
+      `${subject} ${names.length === 1 ? "wasn't" : "weren't"} attached`,
+      {
+        description: `A message can carry up to ${ATTACHMENT_MAX_COUNT} files.`,
+      }
+    );
+    return;
+  }
   if (reason === "size") {
     toast.error(
       `${subject} ${names.length === 1 ? "is" : "are"} over the ${ATTACHMENT_LIMIT_LABEL} limit`,
@@ -71,7 +81,7 @@ const uploadEffects: TrayEffects = {
     });
   },
   notifyRejected: (rejections) => {
-    for (const reason of ["type", "size"] as const) {
+    for (const reason of ["type", "size", "count"] as const) {
       const names = rejections
         .filter((rejection) => rejection.reason === reason)
         .map((rejection) => rejection.name);
