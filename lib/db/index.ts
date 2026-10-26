@@ -8,17 +8,17 @@ function connect() {
   if (!url) {
     throw new Error("NEON_DB is not set");
   }
-  // Neon's pooler runs PgBouncer in transaction mode, which cannot keep
-  // named prepared statements across transactions.
-  return drizzle(postgres(url, { prepare: false }));
+  // Close idle sockets before Vercel freezes the instance or Neon scales to
+  // zero, so a warm function never reuses a dead connection.
+  return drizzle(
+    postgres(url, { max: 5, idle_timeout: 20, connect_timeout: 10 })
+  );
 }
 
 export type Database = ReturnType<typeof connect>;
 
 let instance: Database | undefined;
 
-// Connect on first use so `next build` and secret-less preview builds never
-// need NEON_DB.
 export function getDb(): Database {
   instance ??= connect();
   return instance;

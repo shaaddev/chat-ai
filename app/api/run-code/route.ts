@@ -63,7 +63,11 @@ export async function POST(req: Request) {
 
     const proc = spawn(command.cmd, [...command.args, code], {
       timeout: TIMEOUT_MS,
-      env: { ...process.env, NODE_NO_WARNINGS: "1" },
+      env: {
+        NODE_ENV: process.env.NODE_ENV,
+        PATH: process.env.PATH,
+        NODE_NO_WARNINGS: "1",
+      },
       stdio: ["pipe", "pipe", "pipe"],
     });
 

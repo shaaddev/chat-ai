@@ -214,7 +214,6 @@ export async function POST(req: Request) {
         id: message.id,
         role: "user",
         parts: message.parts,
-        createdAt: new Date(),
         model: null,
       },
     ]);
@@ -602,7 +601,6 @@ export async function POST(req: Request) {
             id: message.id,
             role: message.role,
             parts: message.parts,
-            createdAt: new Date(),
             model: message.role === "assistant" ? selectedChatModel : null,
           }));
 
@@ -617,7 +615,6 @@ export async function POST(req: Request) {
                 id: persistedImageMessage.id,
                 role: "assistant",
                 parts: persistedImageMessage.parts,
-                createdAt: new Date(),
                 model: selectedChatModel,
               });
             }

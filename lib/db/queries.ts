@@ -54,11 +54,6 @@ export async function updateChat({
   return updated.length > 0;
 }
 
-/**
- * Deletes a chat the user owns. Messages and streams go with it by cascade.
- * Returns the deleted messages' parts so callers can clean up uploaded files,
- * or `null` when the user owns no chat with this id.
- */
 export async function deleteChat({
   id,
   userId,
@@ -88,21 +83,41 @@ export async function getMessagesByChatId(chatId: string): Promise<Message[]> {
     .orderBy(asc(message.createdAt), asc(message.id));
 }
 
-/**
- * Inserts messages and bumps the chat's `updatedAt`. Messages are immutable,
- * so a retried save of the same ids is a no-op.
- */
+// Postgres jsonb rejects U+0000, which Convex accepted and models can emit.
+function stripNul<T>(value: T): T {
+  if (typeof value === "string") {
+    return value.replaceAll("\u0000", "") as T;
+  }
+  if (Array.isArray(value)) {
+    return value.map(stripNul) as T;
+  }
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, stripNul(item)])
+    ) as T;
+  }
+  return value;
+}
+
 export async function saveMessages(
   chatId: string,
-  messages: Omit<typeof message.$inferInsert, "chatId">[]
+  messages: Omit<typeof message.$inferInsert, "chatId" | "createdAt">[]
 ) {
   if (messages.length === 0) {
     return;
   }
+  const now = Date.now();
   await getDb().transaction(async (tx) => {
     await tx
       .insert(message)
-      .values(messages.map((m) => ({ ...m, chatId })))
+      .values(
+        messages.map((m, index) => ({
+          ...m,
+          parts: stripNul(m.parts),
+          chatId,
+          createdAt: new Date(now + index),
+        }))
+      )
       .onConflictDoNothing({ target: message.id });
     await tx
       .update(chat)
