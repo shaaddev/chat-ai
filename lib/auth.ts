@@ -12,6 +12,9 @@ import { sendOtpEmail } from "@/lib/email/resend";
 // development, trust any loopback origin so other ports and *.localhost
 // hosts can sign in. Production trusts only BETTER_AUTH_URL.
 function isLoopback(origin: string) {
+  if (!URL.canParse(origin)) {
+    return false;
+  }
   const { hostname } = new URL(origin);
   return (
     hostname === "localhost" ||
