@@ -2,7 +2,7 @@
 
 import { Check, Copy, Globe } from "lucide-react";
 import { memo, useState } from "react";
-import { findChatModel } from "@/lib/ai/models";
+import { getModelLabel } from "@/lib/ai/models";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { cn, sanitizeText } from "@/lib/utils";
 import { Markdown } from "./markdown";
@@ -14,13 +14,6 @@ const COPIED_FEEDBACK_MS = 2000;
 interface MessageProps {
   isStreaming: boolean;
   message: ChatMessage;
-}
-
-function getModelName(modelId: string | null | undefined) {
-  if (!modelId) {
-    return null;
-  }
-  return findChatModel(modelId)?.name ?? modelId;
 }
 
 function getAttachmentName(part: Record<string, unknown>) {
@@ -68,7 +61,8 @@ function PureChatMessage({ message, isStreaming }: MessageProps) {
   const isAssistant = message.role === "assistant";
   const lastPartIndex = message.parts.length - 1;
   const text = getMessageText(message);
-  const modelName = getModelName(message.metadata?.model);
+  const modelId = message.metadata?.model;
+  const modelName = modelId ? getModelLabel(modelId) : null;
   const usedSearch = message.metadata?.useSearch === true;
 
   const handleCopyMessage = async () => {

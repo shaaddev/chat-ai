@@ -235,6 +235,15 @@ export function findChatModel(
   return CHAT_MODELS.find((model) => model.id === id);
 }
 
+// Replies saved before a model left the picker still carry its id.
+const RETIRED_MODEL_NAMES: Record<string, string> = {
+  "google-model-3-flash": "Gemini 3 Flash",
+};
+
+export function getModelLabel(id: string): string {
+  return findChatModel(id)?.name ?? RETIRED_MODEL_NAMES[id] ?? id;
+}
+
 export function getChatModel(id: ChatModelId): ChatModel {
   const model = findChatModel(id);
   if (!model) {
