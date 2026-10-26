@@ -320,6 +320,9 @@ export function Chat({
       onFinish: ({ message, isAbort, isError }) => {
         const replacedReply = replacedReplyRef.current;
         replacedReplyRef.current = undefined;
+        if (!(isAbort || isError) && message.parts.some(isFileUIPart)) {
+          toast.success("Image generated");
+        }
         if (replacedReply && !hasVisibleContent(message)) {
           setMessages((current) => [
             ...current.filter(({ id: messageId }) => messageId !== message.id),
@@ -396,26 +399,13 @@ export function Chat({
     return () => window.clearTimeout(timeoutId);
   }, [useSearch, autoDocumentGeneration, id, input, setChatInputState]);
 
-  const prevStatusRef = useRef(status);
-  const selectedModel = getChatModel(selectedModelId);
-  const isImageModel = selectedModel.kind === "image";
+  const isImageModel = getChatModel(selectedModelId).kind === "image";
 
   useEffect(() => {
     if (status === "streaming" || status === "ready" || status === "error") {
       setChatLoading(id, false);
     }
-
-    if (
-      isImageModel &&
-      (prevStatusRef.current === "submitted" ||
-        prevStatusRef.current === "streaming") &&
-      status === "ready"
-    ) {
-      toast.success("Image generated");
-    }
-
-    prevStatusRef.current = status;
-  }, [status, id, setChatLoading, isImageModel]);
+  }, [status, id, setChatLoading]);
 
   const latestAssistantIsDocument =
     latestAssistantMessage !== undefined &&
