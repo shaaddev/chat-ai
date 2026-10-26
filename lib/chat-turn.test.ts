@@ -334,6 +334,23 @@ describe("a turn", () => {
     expect(calls).toEqual(["handed back append, told"]);
   });
 
+  test("that the server answered and that ends after its chat closed is left for the server to save", async () => {
+    let mounted = true;
+    const { gate, server } = openChat(undefined, {
+      isMounted: () => mounted,
+    });
+
+    await ask(gate, "Tell me a story");
+    await until(() => server.chat.length === 1);
+    streamReply(server.chat[0], { text: "Once upon", finish: false });
+    await until(() => shown(gate).at(-1) === "assistant: Once upon");
+    mounted = false;
+    gate.chat.stop();
+    await until(() => gate.getStatus().phase === "idle");
+
+    expect(server.settle).toHaveLength(0);
+  });
+
   test("whose saved chat the settle can't find keeps the thread on screen", async () => {
     const { calls, gate, server } = openChat();
 
