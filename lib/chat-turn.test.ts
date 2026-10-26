@@ -604,13 +604,10 @@ describe("requestSettle", () => {
     });
   });
 
-  test("reads a chat the server doesn't have as an empty thread", async () => {
+  test("answers null for a chat the server doesn't have", async () => {
     respondWith(Response.json({ code: "not_found:chat" }, { status: 404 }));
 
-    expect(await requestSettle("chat", "turn", false)).toEqual({
-      messages: [],
-      turnSaved: false,
-    });
+    expect(await requestSettle("chat", "turn", false)).toBeNull();
   });
 
   test("fails when the server can't answer or answers without a thread", async () => {

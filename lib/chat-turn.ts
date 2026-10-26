@@ -43,11 +43,12 @@ function parseSettledThread(body: unknown): SettledThread {
   throw new Error("The settle response has no thread");
 }
 
+// Null when the server has no such chat for this user.
 export async function requestSettle(
   chatId: string,
   turnId: string,
   expectReply: boolean
-): Promise<SettledThread> {
+): Promise<SettledThread | null> {
   let response: Response;
   try {
     response = await fetchWithErrorHandlers(`/api/chat/${chatId}/settle`, {
@@ -58,7 +59,7 @@ export async function requestSettle(
     });
   } catch (error) {
     if (error instanceof ChatSDKError && error.type === "not_found") {
-      return { messages: [], turnSaved: false };
+      return null;
     }
     throw error;
   }
@@ -132,8 +133,9 @@ export interface TurnGate {
   chat: Chat<ChatMessage>;
   getStatus: () => TurnStatus;
   retry: () => void;
-  // `prepare` runs once any earlier turn is settled, so it reads the composer
-  // as it is then. It returns nothing when there is nothing to send.
+  // `prepare` runs once an earlier turn has settled, so what it reads, such as
+  // the attachment tray, is current. It returns nothing when there is nothing
+  // to send.
   start: (prepare: () => TurnRequest | undefined) => Promise<void>;
   subscribe: (listener: () => void) => () => void;
 }
@@ -157,9 +159,14 @@ type SettleResult = "settled" | "handed-back" | "failed";
 
 type Phase =
   | { phase: "idle" }
-  | { phase: "running"; turn: Turn; refused: boolean; stopping: boolean }
-  | ({ phase: "settling"; result: Promise<SettleResult> } & Ended)
-  | ({ phase: "unsettled"; reason: SettleFailure } & Ended);
+  | {
+      phase: "running";
+      turn: Turn;
+      refusal: ChatSDKError | undefined;
+      stopping: boolean;
+    }
+  | { phase: "settling"; ended: Ended; result: Promise<SettleResult> }
+  | { phase: "unsettled"; ended: Ended; reason: SettleFailure };
 
 const IDLE: Phase = { phase: "idle" };
 
@@ -186,7 +193,7 @@ function statusOf(phase: Phase, held: boolean): TurnStatus {
       return {
         phase: "unsettled",
         reason: phase.reason,
-        subject: subjectOf(phase),
+        subject: subjectOf(phase.ended),
       };
     default:
       return { phase: "idle" };
@@ -262,7 +269,7 @@ export function createTurnGate({
 
   const updateRunning = (
     turn: Turn,
-    change: Partial<{ refused: boolean; stopping: boolean }>
+    change: Partial<{ refusal: ChatSDKError; stopping: boolean }>
   ) => {
     if (phase.phase === "running" && phase.turn === turn) {
       commit({ ...phase, ...change });
@@ -307,8 +314,12 @@ export function createTurnGate({
       }
       return response;
     } catch (error) {
-      if (turn && turnFailure(error) === "refused") {
-        updateRunning(turn, { refused: true });
+      if (
+        turn &&
+        error instanceof ChatSDKError &&
+        turnFailure(error) === "refused"
+      ) {
+        updateRunning(turn, { refusal: error });
       }
       throw error;
     }
@@ -333,20 +344,23 @@ export function createTurnGate({
   const settle = (ended: Ended): Promise<SettleResult> => {
     const { expectReply, shown, turn } = ended;
     const result = requestSettle(chatId, turn.id, expectReply).then(
-      ({ messages, turnSaved }): SettleResult => {
-        const thread = adoptThread(shown, messages);
+      (settled): SettleResult => {
+        // A chat the settle can't find is gone or not this user's. Either
+        // way the turn saved nothing, so the screen keeps what saved before.
+        const saved = settled?.messages ?? (chatExists ? savedThread : []);
+        const thread = adoptThread(shown, saved);
         showSaved(thread, turn.request);
-        if (turnSaved) {
+        if (settled?.turnSaved) {
           return "settled";
         }
         return handBack(turn, thread, true) ? "handed-back" : "settled";
       },
       (error): SettleResult => {
-        commit({ phase: "unsettled", reason: settleFailure(error), ...ended });
+        commit({ phase: "unsettled", ended, reason: settleFailure(error) });
         return "failed";
       }
     );
-    commit({ phase: "settling", ...ended, result });
+    commit({ phase: "settling", ended, result });
     return result;
   };
 
@@ -380,20 +394,18 @@ export function createTurnGate({
       effects.refreshChats();
       return;
     }
-    const { turn, refused } = phase;
-    // Leaving a chat mid-turn skips the settle, so the reply the server is
-    // still saving lands.
-    if (!effects.isMounted()) {
-      commit(IDLE);
-      effects.refreshChats();
-      return;
-    }
-    if (isAbort || (isError && !refused)) {
-      settle({ turn, shown, expectReply: hasVisibleContent(reply) });
-    } else if (refused) {
+    const { turn, refusal } = phase;
+    // A refusal saved nothing, even after a stop. The chat instance skips
+    // its error callback for a stopped request, so that refusal shows here.
+    if (refusal) {
+      if (isAbort) {
+        effects.showError(refusal);
+      }
       const thread = adoptThread(shown, savedThread);
       showSaved(thread, turn.request);
       handBack(turn, thread, false);
+    } else if (isAbort || isError) {
+      settle({ turn, shown, expectReply: hasVisibleContent(reply) });
     } else {
       finish(turn, reply, shown);
     }
@@ -434,12 +446,12 @@ export function createTurnGate({
         trigger,
       }) => ({
         body: {
+          ...requestSettings(),
           ...body,
           id,
           message: messages.at(-1),
           trigger,
           messageId,
-          ...requestSettings(),
         },
       }),
     }),
@@ -460,8 +472,13 @@ export function createTurnGate({
       setHeld(true);
       const result = await (pending.phase === "settling"
         ? pending.result
-        : settle(pending));
+        : settle(pending.ended));
       setHeld(false);
+      // The chat closed while the send waited. Its text stays in the
+      // composer's saved draft.
+      if (!effects.isMounted()) {
+        return;
+      }
       if (phase.phase === "unsettled") {
         effects.sendBlocked(phase.reason);
       }
@@ -484,7 +501,7 @@ export function createTurnGate({
           ? last
           : undefined,
     };
-    commit({ phase: "running", turn, refused: false, stopping: false });
+    commit({ phase: "running", turn, refusal: undefined, stopping: false });
     send(turn).catch(() => {
       if (isRunning(turn)) {
         commit(IDLE);
@@ -497,7 +514,7 @@ export function createTurnGate({
     getStatus: () => status,
     retry: () => {
       if (phase.phase === "unsettled") {
-        settle(phase);
+        settle(phase.ended);
       }
     },
     start,
