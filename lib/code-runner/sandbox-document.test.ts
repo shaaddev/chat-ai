@@ -388,6 +388,9 @@ describe("sandbox frame", () => {
 type TaskOrder = "timer first" | "rejection first";
 
 interface PythonError {
+  // What the worker's SystemExit.code query returns: None as 0, a bool as
+  // its int, and any other non-int as its str.
+  code?: number | string;
   message: string;
   type: string;
 }
@@ -506,7 +509,7 @@ globalThis.importScripts = () => {
     setStdout() {},
     setStderr() {},
     setStdin() {},
-    runPython() {},
+    runPython: () => PYTHON_ERROR.code,
     runPythonAsync: () => {
       const error = Object.assign(new Error(PYTHON_ERROR.message), { type: PYTHON_ERROR.type });
       if (error.type === "SystemExit") Promise.reject(error);
@@ -584,9 +587,10 @@ function runInWorker(
 }
 
 // Pyodide raises SystemExit as an error whose message is the traceback.
-const systemExit = (lastLine: string): PythonError => ({
+const systemExit = (lastLines: string, code: number | string): PythonError => ({
   type: "SystemExit",
-  message: `Traceback (most recent call last):\n  File "/lib/python314.zip/_pyodide/_base.py", line 420, in run_async\n    coroutine = eval(self.code, globals, locals)\n  File "<snippet>", line 2, in <module>\n${lastLine}\n`,
+  code,
+  message: `Traceback (most recent call last):\n  File "/lib/python314.zip/_pyodide/_base.py", line 420, in run_async\n    coroutine = eval(self.code, globals, locals)\n  File "<snippet>", line 2, in <module>\n${lastLines}\n`,
 });
 
 describe("sandbox worker", () => {
@@ -810,26 +814,49 @@ describe.each(["timer first", "rejection first"] as const)(
 );
 
 describe("sandbox worker running Python", () => {
+  const PARSE_ERROR =
+    "could not parse config:\nExpecting property name enclosed in double quotes: line 1 column 2 (char 1)";
   test.each([
-    ["sys.exit()", "SystemExit", { exit: "done", detail: null }],
-    ["sys.exit(0)", "SystemExit: 0", { exit: "done", detail: null }],
-    ["sys.exit(False)", "SystemExit: False", { exit: "done", detail: null }],
+    ["sys.exit()", "SystemExit", 0, { exit: "done", detail: null }],
+    ["sys.exit(0)", "SystemExit: 0", 0, { exit: "done", detail: null }],
+    ["sys.exit(False)", "SystemExit: False", 0, { exit: "done", detail: null }],
     [
       "sys.exit(True)",
       "SystemExit: True",
+      1,
       { exit: "error", detail: "Exited with code 1" },
     ],
     [
       "sys.exit(3)",
       "SystemExit: 3",
+      3,
       { exit: "error", detail: "Exited with code 3" },
     ],
-    ["sys.exit('bye')", "SystemExit: bye", { exit: "error", detail: "bye" }],
-  ])(
+    [
+      "sys.exit('bye')",
+      "SystemExit: bye",
+      "bye",
+      { exit: "error", detail: "bye" },
+    ],
+    [
+      "sys.exit() with a multi-line message",
+      `SystemExit: ${PARSE_ERROR}`,
+      PARSE_ERROR,
+      { exit: "error", detail: PARSE_ERROR },
+    ],
+    ["sys.exit('')", "SystemExit", "", { exit: "error", detail: "" }],
+    ["sys.exit('0')", "SystemExit: 0", "0", { exit: "error", detail: "0" }],
+    [
+      "sys.exit('True')",
+      "SystemExit: True",
+      "True",
+      { exit: "error", detail: "True" },
+    ],
+  ] as const)(
     "ends a program that calls %s with CPython's status",
-    (call, lastLine, ending) => {
+    (call, lastLines, code, ending) => {
       const { exit } = runInWorker(`import sys\n${call}`, {
-        pythonError: systemExit(lastLine),
+        pythonError: systemExit(lastLines, code),
       });
       expect(exit).toEqual({ type: "exit", ...ending });
     }
