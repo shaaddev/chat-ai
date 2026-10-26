@@ -18,7 +18,7 @@ import {
   getChatModel,
 } from "@/lib/ai/models";
 import type { Session } from "@/lib/auth";
-import { extractSources } from "@/lib/sources";
+import { extractSources, type Source } from "@/lib/sources";
 import type { Attachment, ChatMessage, DocumentDraft } from "@/lib/types";
 import { fetchWithErrorHandlers, generateUUID } from "@/lib/utils";
 import { ChatHistory } from "./chat-history";
@@ -45,11 +45,13 @@ const LazyDocumentSheet = dynamic(
   }
 );
 
-const LazySourcesPanel = dynamic(
-  () => import("./sources-panel").then((module) => module.SourcesPanel),
-  {
-    ssr: false,
-  }
+const LazySourcesPanel = memo(
+  dynamic(
+    () => import("./sources-panel").then((module) => module.SourcesPanel),
+    {
+      ssr: false,
+    }
+  )
 );
 
 const DOC_HINTS = [
@@ -107,6 +109,16 @@ function getLatestConversationMessages(messages: ChatMessage[]) {
   }
 
   return { latestAssistantMessage, latestUserMessage };
+}
+
+function haveSameSources(current: Source[], next: Source[]) {
+  return (
+    current.length === next.length &&
+    current.every(
+      (source, index) =>
+        source.url === next[index].url && source.title === next[index].title
+    )
+  );
 }
 
 function deriveDocumentDraft(
@@ -263,22 +275,28 @@ export function Chat({
 
   const latestAssistantId = latestAssistantMessage?.id;
 
-  const latestSources = useMemo(
+  // Every chunk produces a new message object, so the open sources panel
+  // keeps the previous list until the sources themselves change.
+  const nextSources = useMemo(
     () => extractSources(latestAssistantMessage),
     [latestAssistantMessage]
   );
+  const [latestSources, setLatestSources] = useState(nextSources);
+  if (!haveSameSources(latestSources, nextSources)) {
+    setLatestSources(nextSources);
+  }
 
   // Auto-open the sources panel when fresh sources arrive for the latest
   // assistant message and the user hasn't dismissed it. Don't fight an
   // already-open document sheet: sources only opens if doc sheet is closed.
   useEffect(() => {
-    if (!latestAssistantMessage) {
+    if (!latestAssistantId) {
       return;
     }
     if (latestSources.length === 0) {
       return;
     }
-    if (sourcesPanelDismissedFor.has(latestAssistantMessage.id)) {
+    if (sourcesPanelDismissedFor.has(latestAssistantId)) {
       return;
     }
     if (isDocumentSheetOpen) {
@@ -287,7 +305,7 @@ export function Chat({
     setIsSourcesPanelOpen(true);
   }, [
     isDocumentSheetOpen,
-    latestAssistantMessage,
+    latestAssistantId,
     latestSources.length,
     sourcesPanelDismissedFor,
   ]);
@@ -295,18 +313,15 @@ export function Chat({
   const handleSourcesPanelOpenChange = useCallback(
     (open: boolean) => {
       setIsSourcesPanelOpen(open);
-      if (!(open || latestAssistantMessage)) {
-        return;
-      }
-      if (!open && latestAssistantMessage) {
+      if (!open && latestAssistantId) {
         setSourcesPanelDismissedFor((prev) => {
           const next = new Set(prev);
-          next.add(latestAssistantMessage.id);
+          next.add(latestAssistantId);
           return next;
         });
       }
     },
-    [latestAssistantMessage]
+    [latestAssistantId]
   );
 
   useEffect(() => {
