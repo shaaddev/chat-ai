@@ -155,7 +155,7 @@ function RunOutput({
           // biome-ignore lint/a11y/noNoninteractiveTabindex: Safari does not let the keyboard reach a scroll container, so long output would be unreadable without a tab stop.
           tabIndex={0}
         >
-          <pre className="whitespace-pre-wrap break-words px-4 pt-0.5 pb-3 font-mono text-[13px] text-foreground leading-[1.55]">
+          <pre className="w-max min-w-full whitespace-pre px-4 pt-0.5 pb-3 font-mono text-[13px] text-foreground leading-[1.55]">
             {output.chunks.map((chunk, index) => (
               <span
                 className={
