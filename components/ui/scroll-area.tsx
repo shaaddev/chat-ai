@@ -16,8 +16,10 @@ function ScrollArea({
       data-slot="scroll-area"
       {...props}
     >
+      {/* Radix wraps children in display: table, which lets a long code line
+          widen the whole thread instead of scrolling inside its block. */}
       <ScrollAreaPrimitive.Viewport
-        className="size-full rounded-[inherit] outline-none transition-[color,box-shadow] focus-visible:outline-1 focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        className="size-full rounded-[inherit] outline-none transition-[color,box-shadow] focus-visible:outline-1 focus-visible:ring-[3px] focus-visible:ring-ring/50 [&>div]:!block"
         data-slot="scroll-area-viewport"
       >
         {children}
