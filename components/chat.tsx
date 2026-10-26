@@ -1,6 +1,6 @@
 "use client";
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
+import { DefaultChatTransport, isFileUIPart } from "ai";
 import dynamic from "next/dynamic";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -272,17 +272,24 @@ export function Chat({
       new DefaultChatTransport<ChatMessage>({
         api: "/api/chat",
         fetch: fetchWithErrorHandlers,
-        prepareSendMessagesRequest: ({ messages: outgoing, id: chatId }) => ({
+        prepareSendMessagesRequest: ({
+          messages: outgoing,
+          id: chatId,
+          trigger,
+          messageId,
+        }) => ({
           body: {
             id: chatId,
             message: outgoing.at(-1),
+            trigger,
+            messageId,
             ...requestSettingsRef.current,
           },
         }),
       })
   );
 
-  const { messages, sendMessage, status, setMessages, stop } =
+  const { messages, regenerate, sendMessage, status, setMessages, stop } =
     useChat<ChatMessage>({
       id,
       messages: initialMessages,
@@ -298,6 +305,23 @@ export function Chat({
     });
   const { latestAssistantMessage, latestUserMessage } =
     getLatestConversationMessages(messages);
+
+  const handleRegenerate = useCallback(async () => {
+    setChatLoading(id, true);
+    await regenerate();
+  }, [id, regenerate, setChatLoading]);
+
+  const handleEditMessage = useCallback(
+    async (message: ChatMessage, text: string) => {
+      setChatLoading(id, true);
+      await sendMessage({
+        text,
+        files: message.parts.filter(isFileUIPart),
+        messageId: message.id,
+      });
+    },
+    [id, sendMessage, setChatLoading]
+  );
 
   const latestAssistantId = latestAssistantMessage?.id;
 
@@ -415,7 +439,10 @@ export function Chat({
             isImageModelSelected={isImageModel}
             isNarrow={isRightPanelOpen}
             messages={messages}
+            onEditMessage={handleEditMessage}
             onOpenDocumentBuilder={openDocumentBuilder}
+            onRegenerate={handleRegenerate}
+            selectedModelId={selectedModelId}
             status={status}
           />
 
@@ -426,6 +453,7 @@ export function Chat({
               isEmpty &&
                 "absolute inset-0 flex flex-col justify-center gap-[22px] pb-[calc(4vh+34px)] md:pb-[calc(10vh+42px)]"
             )}
+            data-composer=""
           >
             {isEmpty ? <EmptyGreeting name={session?.user.name} /> : null}
             <MemoizedChatInput
