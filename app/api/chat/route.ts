@@ -26,7 +26,6 @@ import {
   getChatById,
   getMessagesByChatId,
   ownsUploads,
-  saveChat,
   saveReplyIfLatestTurn,
   saveUpload,
   saveUserTurn,
@@ -379,37 +378,49 @@ export async function POST(req: Request) {
       }
     }
 
-    let titleSaved: Promise<void> | undefined;
+    let firstMessage: ChatMessage | undefined;
     if (!existingChat) {
       if (turn.type !== "append") {
         return new ChatSDKError("not_found:chat").toResponse();
       }
-      const message: ChatMessage = { ...turn.message, role: "user" };
-      await saveChat({
-        id,
-        userId,
-        title:
-          getUserText(message.parts).slice(0, CHAT_TITLE_MAX_LENGTH) ||
-          "New chat",
-        systemPrompt: customSystemPrompt,
-      });
-      // A promise, not a callback: a callback would only start once the
-      // reply has finished streaming, so the title would land after the
-      // client's end-of-stream refresh.
-      titleSaved = saveGeneratedTitle({ chatId: id, userId, message }).catch(
-        (error) => console.error("Failed to save the chat title", error)
-      );
-      after(titleSaved);
+      firstMessage = { ...turn.message, role: "user" };
     }
 
     const streamId = generateUUID();
-    const saved = await saveUserTurn({ chatId: id, userId, streamId, turn });
+    const saved = await saveUserTurn({
+      chatId: id,
+      userId,
+      streamId,
+      turn,
+      newChat: firstMessage && {
+        title:
+          getUserText(firstMessage.parts).slice(0, CHAT_TITLE_MAX_LENGTH) ||
+          "New chat",
+        systemPrompt: customSystemPrompt,
+      },
+    });
     if (!saved) {
       return new ChatSDKError(
         "bad_request:api",
         "That message could not be saved. Only a user message in this chat can be edited or regenerated, and a new message needs an unused id."
       ).toResponse();
     }
+
+    let titleSaved: Promise<void> | undefined;
+    if (firstMessage) {
+      // A promise, not a callback: a callback would only start once the
+      // reply has finished streaming, so the title would land after the
+      // client's end-of-stream refresh.
+      titleSaved = saveGeneratedTitle({
+        chatId: id,
+        userId,
+        message: firstMessage,
+      }).catch((error) =>
+        console.error("Failed to save the chat title", error)
+      );
+      after(titleSaved);
+    }
+
     const history = convertToUIMessages(saved);
     const latestUserText = getUserText(history.at(-1)?.parts ?? []);
 

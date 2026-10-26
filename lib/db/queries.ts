@@ -28,22 +28,6 @@ export function canReadChat(row: Chat, userId: string | undefined): boolean {
   return row.visibility === "public" || row.userId === userId;
 }
 
-export async function saveChat({
-  id,
-  userId,
-  title,
-  systemPrompt,
-}: {
-  id: string;
-  userId: string;
-  title: string;
-  systemPrompt?: string;
-}) {
-  await getDb()
-    .insert(chat)
-    .values({ id, userId, title, systemPrompt: systemPrompt ?? null });
-}
-
 export async function updateChat({
   id,
   userId,
@@ -168,6 +152,11 @@ export type UserTurn =
   | { type: "edit"; userMessageId: string; message: NewMessage }
   | { type: "regenerate"; userMessageId: string };
 
+export interface NewChat {
+  systemPrompt?: string;
+  title: string;
+}
+
 async function latestStreamId(db: Database | Transaction, chatId: string) {
   const [row] = await db
     .select({ id: stream.id })
@@ -183,14 +172,22 @@ export async function saveUserTurn({
   userId,
   streamId,
   turn,
+  newChat,
 }: {
   chatId: string;
   userId: string;
   streamId: string;
   turn: UserTurn;
+  newChat?: NewChat;
 }): Promise<Message[] | null> {
   try {
-    return await saveUserTurnOrThrow({ chatId, userId, streamId, turn });
+    return await saveUserTurnOrThrow({
+      chatId,
+      userId,
+      streamId,
+      turn,
+      newChat,
+    });
   } catch (error) {
     if (error instanceof MessageIdTakenError) {
       return null;
@@ -199,7 +196,7 @@ export async function saveUserTurn({
   }
 }
 
-// Thrown inside the transaction so the deletes roll back with the insert.
+// Thrown inside the transaction so a new chat and the deletes roll back too.
 class MessageIdTakenError extends Error {}
 
 const messagePosition = sql`(${message.createdAt}, ${message.id})`;
@@ -211,13 +208,23 @@ async function saveUserTurnOrThrow({
   userId,
   streamId,
   turn,
+  newChat,
 }: {
   chatId: string;
   userId: string;
   streamId: string;
   turn: UserTurn;
+  newChat?: NewChat;
 }): Promise<Message[] | null> {
   return await getDb().transaction(async (tx) => {
+    if (newChat) {
+      await tx.insert(chat).values({
+        id: chatId,
+        userId,
+        title: newChat.title,
+        systemPrompt: newChat.systemPrompt ?? null,
+      });
+    }
     if (!(await lockOwnedChat(tx, chatId, userId))) {
       return null;
     }
