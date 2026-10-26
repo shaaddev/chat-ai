@@ -19,7 +19,12 @@ import {
 import type { Session } from "@/lib/auth";
 import { extractSources, type Source } from "@/lib/sources";
 import type { Attachment, ChatMessage, DocumentDraft } from "@/lib/types";
-import { cn, fetchWithErrorHandlers, generateUUID } from "@/lib/utils";
+import {
+  cn,
+  fetchWithErrorHandlers,
+  generateUUID,
+  hasVisibleContent,
+} from "@/lib/utils";
 import { ChatInput } from "./chat-input";
 import { Messages } from "./chat-messages";
 import { EmptyGreeting, SuggestionChips } from "./empty-chat-state";
@@ -289,6 +294,10 @@ export function Chat({
       })
   );
 
+  // The server saves a regenerated reply only when it has visible content, and
+  // otherwise keeps the old one, so the thread puts the old one back to match.
+  const replacedReplyRef = useRef<ChatMessage | undefined>(undefined);
+
   const { messages, regenerate, sendMessage, status, setMessages, stop } =
     useChat<ChatMessage>({
       id,
@@ -296,7 +305,22 @@ export function Chat({
       generateId: generateUUID,
       transport,
       throttle: 50,
-      onFinish: () => refreshChats(),
+      onFinish: ({ message, isAbort, isError }) => {
+        const replacedReply = replacedReplyRef.current;
+        replacedReplyRef.current = undefined;
+        if (replacedReply && !hasVisibleContent(message)) {
+          setMessages((current) => [
+            ...current.filter(({ id: messageId }) => messageId !== message.id),
+            replacedReply,
+          ]);
+          if (!(isAbort || isError)) {
+            toast("Kept the previous reply", {
+              description: "The regenerated reply came back empty.",
+            });
+          }
+        }
+        refreshChats();
+      },
       onError: (err) => {
         toast.error("Error", {
           description: err.message,
@@ -306,10 +330,13 @@ export function Chat({
   const { latestAssistantMessage, latestUserMessage } =
     getLatestConversationMessages(messages);
 
+  const replyToRegenerate = messages.at(-1);
   const handleRegenerate = useCallback(async () => {
+    replacedReplyRef.current =
+      replyToRegenerate?.role === "assistant" ? replyToRegenerate : undefined;
     setChatLoading(id, true);
     await regenerate();
-  }, [id, regenerate, setChatLoading]);
+  }, [id, regenerate, replyToRegenerate, setChatLoading]);
 
   const handleEditMessage = useCallback(
     async (message: ChatMessage, text: string) => {
