@@ -155,6 +155,20 @@ function RenameField({
     inputRef.current?.select();
   }, []);
 
+  // The mobile sheet dismisses on an Escape it hears in the document's capture
+  // phase, before this field's handler runs, unless the event is already
+  // default-prevented. The window's capture phase runs earlier still.
+  useEffect(() => {
+    const claimEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape" && event.target === inputRef.current) {
+        event.preventDefault();
+      }
+    };
+    window.addEventListener("keydown", claimEscape, { capture: true });
+    return () =>
+      window.removeEventListener("keydown", claimEscape, { capture: true });
+  }, []);
+
   const finish = (title: string | null, viaKeyboard: boolean) => {
     if (doneRef.current) {
       return;
@@ -175,7 +189,6 @@ function RenameField({
           event.preventDefault();
           finish(event.currentTarget.value, true);
         } else if (event.key === "Escape") {
-          event.preventDefault();
           finish(null, true);
         }
       }}
