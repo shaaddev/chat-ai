@@ -28,8 +28,6 @@ const components: Partial<Components> = {
 
 const plugins: StreamdownProps["plugins"] = { code };
 
-// Token colors resolve from CSS variables in app/globals.css, so one theme
-// serves light and dark.
 const codeTokenColors: ThemeRegistrationAny["tokenColors"] = [
   {
     scope: ["comment", "punctuation.definition.comment"],

@@ -26,15 +26,13 @@ function greetingFor(hour: number) {
 
 const subscribeToNothing = () => () => undefined;
 const getLocalGreeting = () => greetingFor(new Date().getHours());
-// The server can't know the visitor's local time, so it renders an empty
-// line of the same height and the client fills it in after hydration.
-const getServerGreeting = () => null;
+const greetingUnknownOnServer = () => null;
 
 export function EmptyGreeting({ name }: { name: string | undefined }) {
   const greeting = useSyncExternalStore(
     subscribeToNothing,
     getLocalGreeting,
-    getServerGreeting
+    greetingUnknownOnServer
   );
   const firstName = name?.trim().split(" ")[0];
 

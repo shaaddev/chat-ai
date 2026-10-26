@@ -75,7 +75,6 @@
   }
 }
 
-/* === NIGHT SHIFT, LIGHT === */
 :root {
   --radius: 0.5rem;
 
@@ -112,7 +111,6 @@
   --sidebar-ring: #5546d8;
 }
 
-/* === NIGHT SHIFT, DARK (default) === */
 .dark {
   --background: #0c1020;
   --foreground: #e6e9f5;
@@ -146,7 +144,6 @@
   color-scheme: dark;
 }
 
-/* === CODE BLOCKS (Streamdown) === */
 [data-streamdown="code-block"] {
   gap: 0;
   padding: 0;
@@ -183,7 +180,6 @@
 
 /* === ANIMATIONS === */
 
-/* Streaming caret */
 @keyframes blink-cursor {
   0%,
   100% {

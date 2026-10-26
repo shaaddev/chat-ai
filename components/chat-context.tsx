@@ -410,7 +410,6 @@ export function useChatList(): ChatList {
   return { status: error ? "error" : "loading" };
 }
 
-/** Reads a chat's title from the list the sidebar loads, without fetching. */
 export function useChatTitle(chatId: string): string | undefined {
   const context = useContext(ChatListStateContext);
   if (context === undefined) {
