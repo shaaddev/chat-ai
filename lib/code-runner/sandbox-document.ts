@@ -32,6 +32,8 @@ const post = self.postMessage.bind(self);
 const nativeSetTimeout = self.setTimeout.bind(self);
 const nativeClearTimeout = self.clearTimeout.bind(self);
 const nativeSetInterval = self.setInterval.bind(self);
+const nativeReject = Promise.reject.bind(Promise);
+const IDLE = Symbol("idle");
 for (let scope = self; scope; scope = Object.getPrototypeOf(scope)) {
   Reflect.deleteProperty(scope, "postMessage");
 }
@@ -139,6 +141,11 @@ self.addEventListener("error", (event) => {
 
 self.addEventListener("unhandledrejection", (event) => {
   event.preventDefault();
+  if (event.reason === IDLE) {
+    event.stopImmediatePropagation();
+    exit("done");
+    return;
+  }
   exit("error", "Uncaught (in promise) " + describe(event.reason));
 });
 
@@ -150,10 +157,14 @@ async function runJavaScript(code) {
   begin();
   const timers = new Set();
   let mainSettled = false;
+  // Browsers report each unhandled rejection in a task queued after the
+  // microtasks that caused it, from a source that may run after timers. A
+  // rejection made once the microtasks drain is reported from that same
+  // source after every earlier one, so its report can safely mean "done".
   const settleIfIdle = () => {
     if (!mainSettled || timers.size > 0) return;
     nativeSetTimeout(() => {
-      if (timers.size === 0) exit("done");
+      if (timers.size === 0) nativeReject(IDLE);
     }, 0);
   };
   self.setTimeout = (callback, delay, ...args) => {
