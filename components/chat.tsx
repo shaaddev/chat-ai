@@ -27,6 +27,7 @@ import {
 } from "@/lib/utils";
 import { ChatInput } from "./chat-input";
 import { Messages } from "./chat-messages";
+import { AttachmentDropZone } from "./drop-overlay";
 import { EmptyGreeting, SuggestionChips } from "./empty-chat-state";
 
 const DRAFT_SAVE_DELAY_MS = 200;
@@ -446,7 +447,11 @@ export function Chat({
 
   return (
     <div className="flex h-full min-h-0 w-full">
-      <div className="flex w-full min-w-0 flex-1 flex-col">
+      <AttachmentDropZone
+        chatId={id}
+        className="flex w-full min-w-0 flex-1 flex-col"
+        isAuthenticated={isAuthenticated}
+      >
         <ChatHeader chatId={id} savedTitle={initialTitle} />
 
         <div className="relative flex min-h-0 w-full flex-1 flex-col">
@@ -497,7 +502,7 @@ export function Chat({
             ) : null}
           </div>
         </div>
-      </div>
+      </AttachmentDropZone>
       {isDocumentSheetOpen ? (
         <LazyDocumentSheet
           initialMarkdown={documentDraft?.markdown}
