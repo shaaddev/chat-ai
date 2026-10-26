@@ -4,7 +4,13 @@ const FRACTIONAL_INDEX_KEY_REGEX = /^[0-9A-Za-z]{1,64}$/;
 
 export const patchRequestBodySchema = z
   .object({
-    title: z.string().trim().min(1).max(100).optional(),
+    title: z
+      .string()
+      .overwrite((title) => title.replaceAll("\u0000", ""))
+      .trim()
+      .min(1)
+      .max(100)
+      .optional(),
     systemPrompt: z
       .string()
       .nullable()

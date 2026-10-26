@@ -323,7 +323,7 @@ async function saveGeneratedTitle({
 function getUserText(parts: ChatMessage["parts"]) {
   return parts
     .filter((part) => part.type === "text")
-    .map((part) => part.text)
+    .map((part) => part.text.replaceAll("\u0000", ""))
     .join("\n")
     .trim()
     .slice(0, 10_000);
