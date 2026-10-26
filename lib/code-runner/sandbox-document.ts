@@ -148,7 +148,8 @@ function describe(error) {
 
 self.addEventListener("error", (event) => {
   event.preventDefault();
-  exit("error", "Uncaught " + describe(event.error === undefined ? event.message : event.error));
+  const error = event.error;
+  exit("error", error === null || error === undefined ? event.message : "Uncaught " + describe(error));
 });
 
 self.addEventListener("unhandledrejection", (event) => {
@@ -208,20 +209,26 @@ async function runJavaScript(code) {
   counted(WebAssembly, ["compile", "instantiate", "compileStreaming", "instantiateStreaming"]);
   counted(Blob.prototype, ["text", "arrayBuffer", "bytes"]);
   counted(Response.prototype, ["text", "json", "arrayBuffer", "blob", "formData", "bytes"]);
+  // WebKit reports a throw from compiled code as "Script error." with no
+  // error object, so a timer reports its own.
+  const call = (callback, args) => {
+    try {
+      callback(...args);
+    } catch (error) {
+      exit("error", "Uncaught " + describe(error));
+    }
+  };
   self.setTimeout = (callback, delay, ...args) => {
     const id = nativeSetTimeout(() => {
       timers.delete(id);
-      try {
-        callback(...args);
-      } finally {
-        settleIfIdle();
-      }
+      call(callback, args);
+      settleIfIdle();
     }, delay);
     timers.add(id);
     return id;
   };
   self.setInterval = (callback, delay, ...args) => {
-    const id = nativeSetInterval(() => callback(...args), delay);
+    const id = nativeSetInterval(() => call(callback, args), delay);
     timers.add(id);
     return id;
   };
