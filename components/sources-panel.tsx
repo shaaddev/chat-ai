@@ -79,7 +79,7 @@ export function SourcesPanel({ onClose, sources }: SourcesPanelProps) {
     <motion.aside
       animate={{ x: 0, opacity: 1 }}
       aria-label="Sources"
-      className="fixed inset-x-0 top-[50px] bottom-0 z-40 flex flex-col rounded-t-2xl bg-popover text-popover-foreground shadow-md outline-none md:static md:my-2 md:mr-2 md:w-sm md:shrink-0 md:rounded-2xl"
+      className="fixed inset-x-0 top-[50px] bottom-0 z-40 flex flex-col rounded-t-2xl bg-popover text-popover-foreground shadow-md outline-none md:inset-x-auto md:top-14 md:right-2 md:bottom-2 md:w-sm md:rounded-2xl xl:static xl:my-2 xl:mr-2 xl:shrink-0 xl:shadow-none"
       id={SOURCES_PANEL_ID}
       initial={{ x: 24, opacity: 0 }}
       onKeyDown={(event) => {
