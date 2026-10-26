@@ -318,10 +318,15 @@ function missingModuleDetail(text) {
   return lines.slice(0, at).concat("ModuleNotFoundError: No module named '" + name + "'. Packages aren't available in this sandbox.").join("\n");
 }
 
+// CPython exits with 0 for None and with the number for an int, which
+// includes the bools. Any other value is printed, and the exit code is 1.
+const EXIT_CODES = new Map([[undefined, "0"], ["None", "0"], ["False", "0"], ["True", "1"]]);
+
 function systemExitDetail(text) {
   const value = /^SystemExit(?:: (.*))?$/.exec(text.trim().split("\n").pop() || "")?.[1];
-  if (value === undefined || value === "0" || value === "None") return null;
-  return /^-?\d+$/.test(value) ? "Exited with code " + value : value;
+  const code = EXIT_CODES.get(value) ?? value;
+  if (code === "0") return null;
+  return /^-?\d+$/.test(code) ? "Exited with code " + code : code;
 }
 
 async function runPython(code) {
