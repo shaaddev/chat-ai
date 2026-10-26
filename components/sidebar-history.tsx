@@ -1,6 +1,15 @@
 "use client";
 
-import { type LucideIcon, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { DndContext, useDraggable } from "@dnd-kit/core";
+import {
+  GripVertical,
+  type LucideIcon,
+  MoreHorizontal,
+  Pencil,
+  Pin,
+  PinOff,
+  Trash2,
+} from "lucide-react";
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -21,6 +30,7 @@ import {
   useChat,
   useChatList,
 } from "@/components/chat-context";
+import { DraggedChatOverlay, useChatRail } from "@/components/chat-rail";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -37,7 +47,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import type { Session } from "@/lib/auth";
-import { groupChatsByDate } from "@/lib/chat-groups";
+import { type DropTarget, PIN_AT_END, UNPINNED } from "@/lib/pinned-order";
 
 const UI_SPRING = {
   type: "spring",
@@ -58,8 +68,11 @@ const PRESENCE = {
 const MotionMenuItem = motion.create(SidebarMenuItem);
 
 interface RowControls {
+  isPinned: boolean;
+  pin: () => void;
   remove: () => void;
   rename: () => void;
+  unpin: () => void;
 }
 
 /** Where focus goes when the menu closes after an action runs. */
@@ -69,10 +82,29 @@ interface RowAction {
   icon: LucideIcon;
   label: string;
   run: (row: RowControls) => FocusAfterAction;
+  shows?: (row: RowControls) => boolean;
   variant?: "destructive";
 }
 
 const ROW_ACTIONS: readonly RowAction[] = [
+  {
+    label: "Pin chat",
+    icon: Pin,
+    shows: (row) => !row.isPinned,
+    run: (row) => {
+      row.pin();
+      return "menu-opener";
+    },
+  },
+  {
+    label: "Unpin chat",
+    icon: PinOff,
+    shows: (row) => row.isPinned,
+    run: (row) => {
+      row.unpin();
+      return "menu-opener";
+    },
+  },
   {
     label: "Rename",
     icon: Pencil,
@@ -157,16 +189,21 @@ interface ChatRowProps {
   isActive: boolean;
   isResponding: boolean;
   onDelete: (chatId: string, wasActive: boolean) => void;
+  onMove: (chatId: string, target: DropTarget) => void;
   onNavigate: () => void;
   onRename: (chatId: string, title: string) => void;
   ref?: Ref<HTMLLIElement>;
 }
+
+const SLOT_CLASS =
+  "rounded-[10px] bg-primary/8 outline-1 outline-dashed outline-primary/45 -outline-offset-1";
 
 function ChatRowComponent({
   chat,
   isActive,
   isResponding,
   onDelete,
+  onMove,
   onNavigate,
   onRename,
   ref,
@@ -174,6 +211,17 @@ function ChatRowComponent({
   const [isEditing, setIsEditing] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const linkRef = useRef<HTMLAnchorElement>(null);
+  const { attributes, isDragging, listeners, setActivatorNodeRef, setNodeRef } =
+    useDraggable({ id: chat.id });
+  const setLinkRef = useCallback(
+    (node: HTMLAnchorElement | null) => {
+      linkRef.current = node;
+      setNodeRef(node);
+      setActivatorNodeRef(node);
+    },
+    [setActivatorNodeRef, setNodeRef]
+  );
+  const isPinned = chat.pinnedKey !== null;
   const openedFromRowRef = useRef(false);
   const usedKeysInMenuRef = useRef(false);
   const focusOnMenuCloseRef = useRef<HTMLElement | "kept" | null>(null);
@@ -187,8 +235,11 @@ function ChatRowComponent({
   }, [isEditing]);
 
   const controls: RowControls = {
+    isPinned,
+    pin: () => onMove(chat.id, PIN_AT_END),
     rename: () => setIsEditing(true),
     remove: () => onDelete(chat.id, isActive),
+    unpin: () => onMove(chat.id, UNPINNED),
   };
 
   const runAction = (action: RowAction) => {
@@ -205,6 +256,10 @@ function ChatRowComponent({
 
   const openMenuFromRow = (event: SyntheticEvent) => {
     event.preventDefault();
+    // A long press that lifted the row also fires contextmenu on Android.
+    if (isDragging) {
+      return;
+    }
     openedFromRowRef.current = true;
     setIsMenuOpen(true);
   };
@@ -234,23 +289,38 @@ function ChatRowComponent({
   };
 
   return (
-    <MotionMenuItem layout="position" ref={ref} {...PRESENCE}>
+    <MotionMenuItem
+      className={isDragging ? SLOT_CLASS : undefined}
+      layout="position"
+      ref={ref}
+      {...PRESENCE}
+    >
+      {isPinned && !isDragging ? (
+        <GripVertical
+          aria-hidden
+          className="pointer-events-none absolute top-2.5 -left-[11px] size-4 text-muted-foreground opacity-0 transition-opacity group-hover/menu-item:opacity-100"
+        />
+      ) : null}
       {isEditing ? (
         <RenameField initialTitle={chat.title} onDone={finishRename} />
       ) : (
         <SidebarMenuButton
           asChild
-          className="focus-visible:ring-ring"
+          className={`select-none [-webkit-touch-callout:none] focus-visible:ring-ring ${isDragging ? "opacity-0" : ""}`}
           isActive={isActive}
         >
           <Link
             aria-current={isActive ? "page" : undefined}
+            aria-describedby={attributes["aria-describedby"]}
             data-chat-link=""
             href={`/chat/${chat.id}`}
+            {...listeners}
             onContextMenu={openMenuFromRow}
             onKeyDown={(event) => {
               if (isContextMenuKey(event)) {
                 openMenuFromRow(event);
+              } else {
+                listeners?.onKeyDown?.(event);
               }
             }}
             onNavigate={(event) => {
@@ -259,7 +329,7 @@ function ChatRowComponent({
               }
               onNavigate();
             }}
-            ref={linkRef}
+            ref={setLinkRef}
           >
             <span className="min-w-0 flex-1 truncate">{chat.title}</span>
             {isResponding ? (
@@ -270,7 +340,7 @@ function ChatRowComponent({
           </Link>
         </SidebarMenuButton>
       )}
-      {isEditing ? null : (
+      {isEditing || isDragging ? null : (
         <DropdownMenu onOpenChange={setIsMenuOpen} open={isMenuOpen}>
           <DropdownMenuTrigger asChild>
             <SidebarMenuAction
@@ -293,7 +363,9 @@ function ChatRowComponent({
             }}
             side="right"
           >
-            {ROW_ACTIONS.map((action) => (
+            {ROW_ACTIONS.filter(
+              (action) => action.shows?.(controls) ?? true
+            ).map((action) => (
               <DropdownMenuItem
                 className="rounded-lg"
                 key={action.label}
@@ -337,6 +409,17 @@ function SidebarNote({ children }: { children: ReactNode }) {
   );
 }
 
+function GroupLabel({ children }: { children: ReactNode }) {
+  return (
+    <SidebarGroupLabel
+      asChild
+      className="h-auto gap-1.5 rounded-none px-2.5 pt-[18px] pb-1.5 text-muted-foreground [&>svg]:size-[13px]"
+    >
+      <h2>{children}</h2>
+    </SidebarGroupLabel>
+  );
+}
+
 function SignedInHistory() {
   const pathname = usePathname();
   const router = useRouter();
@@ -344,11 +427,8 @@ function SignedInHistory() {
   const { deleteChat, refreshChats, renameChat } = useChat();
   const list = useChatList();
   const chats = list.status === "ready" ? list.chats : undefined;
-
-  const groups = useMemo(
-    () => (chats ? groupChatsByDate(chats, new Date()) : []),
-    [chats]
-  );
+  const { announcement, contextProps, drag, labelRef, moveChat, rail } =
+    useChatRail(chats);
 
   const closeMobileSheet = useCallback(
     () => setOpenMobile(false),
@@ -380,7 +460,7 @@ function SignedInHistory() {
     );
   }
 
-  if (list.status === "loading") {
+  if (list.status === "loading" || !rail) {
     return <SidebarSkeleton />;
   }
 
@@ -388,38 +468,78 @@ function SignedInHistory() {
     return <SidebarNote>No chats yet</SidebarNote>;
   }
 
-  return (
-    <SidebarMenu className="relative gap-0 px-3 pb-3">
-      <LayoutGroup>
-        <AnimatePresence initial={false} mode="popLayout">
-          {groups.flatMap((group) => [
-            <motion.li
-              key={`group:${group.label}`}
-              layout="position"
-              {...PRESENCE}
-            >
-              <SidebarGroupLabel
-                asChild
-                className="h-auto rounded-none px-2.5 pt-[18px] pb-1.5 text-muted-foreground"
+  const renderRow = (chat: ChatSummary) => (
+    <ChatRow
+      chat={chat}
+      isActive={pathname === `/chat/${chat.id}`}
+      isResponding={list.loadingChats.has(chat.id)}
+      key={chat.id}
+      onDelete={handleDelete}
+      onMove={moveChat}
+      onNavigate={closeMobileSheet}
+      onRename={renameChat}
+    />
+  );
+
+  const pinnedItems = rail.showsPinnedGroup
+    ? [
+        <motion.li
+          key="group:Pinned"
+          layout="position"
+          ref={labelRef}
+          {...PRESENCE}
+        >
+          <GroupLabel>
+            <Pin aria-hidden />
+            Pinned
+          </GroupLabel>
+        </motion.li>,
+        ...(rail.pinned.length > 0
+          ? rail.pinned.map(renderRow)
+          : [
+              <motion.li
+                className="flex h-9 items-center gap-2 rounded-[10px] px-2.5 text-muted-foreground text-sm outline-dashed outline-1 outline-muted-foreground/40 -outline-offset-1"
+                key="pin-target"
+                layout="position"
+                {...PRESENCE}
               >
-                <h2>{group.label}</h2>
-              </SidebarGroupLabel>
-            </motion.li>,
-            ...group.chats.map((chat) => (
-              <ChatRow
-                chat={chat}
-                isActive={pathname === `/chat/${chat.id}`}
-                isResponding={list.loadingChats.has(chat.id)}
-                key={chat.id}
-                onDelete={handleDelete}
-                onNavigate={closeMobileSheet}
-                onRename={renameChat}
-              />
-            )),
-          ])}
-        </AnimatePresence>
-      </LayoutGroup>
-    </SidebarMenu>
+                <Pin aria-hidden className="size-4" />
+                Drop here to pin
+              </motion.li>,
+            ]),
+      ]
+    : [];
+
+  const draggedTitle = drag
+    ? list.chats.find(({ id }) => id === drag.chatId)?.title
+    : undefined;
+
+  return (
+    <DndContext {...contextProps}>
+      <SidebarMenu className="relative gap-0 px-3 pb-3">
+        <LayoutGroup>
+          <AnimatePresence initial={false} mode="popLayout">
+            {[
+              ...pinnedItems,
+              ...rail.groups.flatMap((group) => [
+                <motion.li
+                  key={`group:${group.label}`}
+                  layout="position"
+                  {...PRESENCE}
+                >
+                  <GroupLabel>{group.label}</GroupLabel>
+                </motion.li>,
+                ...group.chats.map(renderRow),
+              ]),
+            ]}
+          </AnimatePresence>
+        </LayoutGroup>
+      </SidebarMenu>
+      <DraggedChatOverlay title={draggedTitle} />
+      <p aria-atomic="true" aria-live="assertive" className="sr-only">
+        {announcement}
+      </p>
+    </DndContext>
   );
 }
 
