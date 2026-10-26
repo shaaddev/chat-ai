@@ -28,36 +28,30 @@ export function canReadChat(row: Chat, userId: string | undefined): boolean {
   return row.visibility === "public" || row.userId === userId;
 }
 
-export async function saveChat({
-  id,
-  userId,
-  title,
-  systemPrompt,
-}: {
-  id: string;
-  userId: string;
-  title: string;
-  systemPrompt?: string;
-}) {
-  await getDb()
-    .insert(chat)
-    .values({ id, userId, title, systemPrompt: systemPrompt ?? null });
-}
-
 export async function updateChat({
   id,
   userId,
   changes,
+  onlyIfTitle,
 }: {
   id: string;
   userId: string;
   changes: Partial<Pick<Chat, "title" | "systemPrompt" | "pinnedKey">>;
+  onlyIfTitle?: string;
 }): Promise<boolean> {
   // `updatedAt` orders the sidebar by activity. Renaming is not activity.
   const updated = await getDb()
     .update(chat)
-    .set({ ...changes, updatedAt: sql`${chat.updatedAt}` })
-    .where(and(eq(chat.id, id), eq(chat.userId, userId)))
+    .set({ ...stripNul(changes), updatedAt: sql`${chat.updatedAt}` })
+    .where(
+      and(
+        eq(chat.id, id),
+        eq(chat.userId, userId),
+        onlyIfTitle === undefined
+          ? undefined
+          : eq(chat.title, stripNul(onlyIfTitle))
+      )
+    )
     .returning({ id: chat.id });
   return updated.length > 0;
 }
@@ -168,6 +162,11 @@ export type UserTurn =
   | { type: "edit"; userMessageId: string; message: NewMessage }
   | { type: "regenerate"; userMessageId: string };
 
+export interface NewChat {
+  systemPrompt?: string;
+  title: string;
+}
+
 async function latestStreamId(db: Database | Transaction, chatId: string) {
   const [row] = await db
     .select({ id: stream.id })
@@ -183,14 +182,22 @@ export async function saveUserTurn({
   userId,
   streamId,
   turn,
+  newChat,
 }: {
   chatId: string;
   userId: string;
   streamId: string;
   turn: UserTurn;
+  newChat?: NewChat;
 }): Promise<Message[] | null> {
   try {
-    return await saveUserTurnOrThrow({ chatId, userId, streamId, turn });
+    return await saveUserTurnOrThrow({
+      chatId,
+      userId,
+      streamId,
+      turn,
+      newChat,
+    });
   } catch (error) {
     if (error instanceof MessageIdTakenError) {
       return null;
@@ -199,8 +206,12 @@ export async function saveUserTurn({
   }
 }
 
-// Thrown inside the transaction so the deletes roll back with the insert.
+// Thrown inside the transaction so a new chat and the deletes roll back too.
 class MessageIdTakenError extends Error {}
+
+// The database clock, so app servers with skewed clocks agree on turn order.
+// Not now(): it is fixed at transaction start, before the chat row lock.
+const databaseNow = sql`clock_timestamp()`;
 
 const messagePosition = sql`(${message.createdAt}, ${message.id})`;
 const positionOf = (messageId: string) =>
@@ -211,13 +222,23 @@ async function saveUserTurnOrThrow({
   userId,
   streamId,
   turn,
+  newChat,
 }: {
   chatId: string;
   userId: string;
   streamId: string;
   turn: UserTurn;
+  newChat?: NewChat;
 }): Promise<Message[] | null> {
   return await getDb().transaction(async (tx) => {
+    if (newChat) {
+      await tx.insert(chat).values({
+        id: chatId,
+        userId,
+        title: stripNul(newChat.title),
+        systemPrompt: stripNul(newChat.systemPrompt ?? null),
+      });
+    }
     if (!(await lockOwnedChat(tx, chatId, userId))) {
       return null;
     }
@@ -248,7 +269,6 @@ async function saveUserTurnOrThrow({
           );
       }
     }
-    const now = new Date();
     if (turn.type !== "regenerate") {
       const inserted = await tx
         .insert(message)
@@ -257,7 +277,7 @@ async function saveUserTurnOrThrow({
           chatId,
           role: "user",
           parts: stripNul(turn.message.parts),
-          createdAt: now,
+          createdAt: databaseNow,
         })
         .onConflictDoNothing({ target: message.id })
         .returning({ id: message.id });
@@ -265,8 +285,13 @@ async function saveUserTurnOrThrow({
         throw new MessageIdTakenError();
       }
     }
-    await tx.insert(stream).values({ id: streamId, chatId, createdAt: now });
-    await tx.update(chat).set({ updatedAt: now }).where(eq(chat.id, chatId));
+    await tx
+      .insert(stream)
+      .values({ id: streamId, chatId, createdAt: databaseNow });
+    await tx
+      .update(chat)
+      .set({ updatedAt: databaseNow })
+      .where(eq(chat.id, chatId));
     const history = await tx
       .select()
       .from(message)
@@ -313,7 +338,6 @@ export async function saveReplyIfLatestTurn({
           )
         );
     }
-    const now = new Date();
     await tx
       .insert(message)
       .values({
@@ -321,10 +345,13 @@ export async function saveReplyIfLatestTurn({
         parts: stripNul(reply.parts),
         chatId,
         role: "assistant",
-        createdAt: now,
+        createdAt: databaseNow,
       })
       .onConflictDoNothing({ target: message.id });
-    await tx.update(chat).set({ updatedAt: now }).where(eq(chat.id, chatId));
+    await tx
+      .update(chat)
+      .set({ updatedAt: databaseNow })
+      .where(eq(chat.id, chatId));
   });
 }
 

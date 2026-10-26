@@ -26,7 +26,6 @@ import {
   getChatById,
   getMessagesByChatId,
   ownsUploads,
-  saveChat,
   saveReplyIfLatestTurn,
   saveUpload,
   saveUserTurn,
@@ -302,14 +301,22 @@ async function saveGeneratedTitle({
   chatId,
   userId,
   message,
+  provisionalTitle,
 }: {
   chatId: string;
   userId: string;
   message: ChatMessage;
+  provisionalTitle: string;
 }) {
   const title = await generateChatTitle(message);
   if (title) {
-    await updateChat({ id: chatId, userId, changes: { title } });
+    // A rename while the model was naming the chat wins.
+    await updateChat({
+      id: chatId,
+      userId,
+      changes: { title },
+      onlyIfTitle: provisionalTitle,
+    });
   }
 }
 
@@ -345,13 +352,13 @@ export async function POST(req: Request) {
 
     const session = await auth();
     if (!session) {
-      return new Response("Unauthorized", { status: 401 });
+      return new ChatSDKError("unauthorized:chat").toResponse();
     }
     const userId = session.user.id;
 
     const existingChat = await getChatById(id);
     if (existingChat && existingChat.userId !== userId) {
-      return new Response("Unauthorized", { status: 401 });
+      return new ChatSDKError("forbidden:chat").toResponse();
     }
 
     // The schema checks a new message. A regenerate reuses a saved one, so
@@ -379,37 +386,53 @@ export async function POST(req: Request) {
       }
     }
 
-    let titleSaved: Promise<void> | undefined;
+    let newChat: { message: ChatMessage; provisionalTitle: string } | undefined;
     if (!existingChat) {
       if (turn.type !== "append") {
         return new ChatSDKError("not_found:chat").toResponse();
       }
       const message: ChatMessage = { ...turn.message, role: "user" };
-      await saveChat({
-        id,
-        userId,
-        title:
+      newChat = {
+        message,
+        provisionalTitle:
           getUserText(message.parts).slice(0, CHAT_TITLE_MAX_LENGTH) ||
           "New chat",
-        systemPrompt: customSystemPrompt,
-      });
-      // A promise, not a callback: a callback would only start once the
-      // reply has finished streaming, so the title would land after the
-      // client's end-of-stream refresh.
-      titleSaved = saveGeneratedTitle({ chatId: id, userId, message }).catch(
-        (error) => console.error("Failed to save the chat title", error)
-      );
-      after(titleSaved);
+      };
     }
 
     const streamId = generateUUID();
-    const saved = await saveUserTurn({ chatId: id, userId, streamId, turn });
+    const saved = await saveUserTurn({
+      chatId: id,
+      userId,
+      streamId,
+      turn,
+      newChat: newChat && {
+        title: newChat.provisionalTitle,
+        systemPrompt: customSystemPrompt,
+      },
+    });
     if (!saved) {
       return new ChatSDKError(
         "bad_request:api",
         "That message could not be saved. Only a user message in this chat can be edited or regenerated, and a new message needs an unused id."
       ).toResponse();
     }
+
+    let titleSaved: Promise<void> | undefined;
+    if (newChat) {
+      // A promise, not a callback: a callback would only start once the
+      // reply has finished streaming, so the title would land after the
+      // client's end-of-stream refresh.
+      titleSaved = saveGeneratedTitle({
+        chatId: id,
+        userId,
+        ...newChat,
+      }).catch((error) =>
+        console.error("Failed to save the chat title", error)
+      );
+      after(titleSaved);
+    }
+
     const history = convertToUIMessages(saved);
     const latestUserText = getUserText(history.at(-1)?.parts ?? []);
 
