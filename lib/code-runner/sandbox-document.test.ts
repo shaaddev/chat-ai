@@ -714,6 +714,12 @@ describe.each(["timer first", "rejection first"] as const)(
         "Uncaught Error: in timer",
       ],
       [
+        "a throw inside a queued microtask",
+        "queueMicrotask(() => {\n  console.log('micro');\n  throw new Error('in microtask');\n});",
+        "micro\n",
+        "Uncaught Error: in microtask",
+      ],
+      [
         "a throw the browser reports without its error",
         "const { port1, port2 } = new MessageChannel();\nport1.onmessage = () => { throw new Error('in handler'); };\nport2.postMessage(1);\nawait new Blob(['x']).text();",
         "",
