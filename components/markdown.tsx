@@ -25,13 +25,7 @@ const components: Partial<Components> = {
 const plugins: StreamdownProps["plugins"] = { code };
 const shikiTheme: StreamdownProps["shikiTheme"] = ["houston", "houston"];
 
-// Body type defaults to serif but follows whatever the user picks via the
-// `data-prose` attribute (set on <html> by `lib/theme.ts`).
-//   data-prose="serif"  → font-serif (Source Serif 4) — default
-//   data-prose="sans"   → font-sans  (Geist Sans)
 const PROSE_CLASSES = [
-  "[html[data-prose='serif']_&]:font-serif",
-  "[html[data-prose='sans']_&]:font-sans",
   "text-[16px] leading-[1.7] text-foreground/90",
   "[&>*:last-child]:after:text-accent [&>*:last-child]:after:animate-[blink-cursor_1.1s_ease-in-out_infinite] motion-reduce:[&>*:last-child]:after:animate-none",
   "[&_p]:my-3",

@@ -58,33 +58,6 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* Anti-FOUC: hydrate the active theme variant + density before paint.
-            Migrates legacy `accent-color` localStorage values to the new
-            `chat-ai:theme` key. */}
-        <script>{`
-          try {
-            var theme = localStorage.getItem('chat-ai:theme');
-            if (!theme) {
-              var legacy = localStorage.getItem('accent-color');
-              if (legacy === 'blue' || legacy === 'teal' || legacy === 'purple') {
-                theme = 'ink';
-              } else if (legacy === 'green') {
-                theme = 'terminal';
-              } else {
-                theme = 'paper';
-              }
-              localStorage.setItem('chat-ai:theme', theme);
-            }
-            document.documentElement.setAttribute('data-theme', theme);
-
-            var density = localStorage.getItem('chat-ai:density') || 'comfortable';
-            document.documentElement.setAttribute('data-density', density);
-
-            var prose = localStorage.getItem('chat-ai:prose') || 'serif';
-            document.documentElement.setAttribute('data-prose', prose);
-          } catch (_error) {
-          }
-        `}</script>
         <link href="https://fonts.googleapis.com" rel="preconnect" />
         <link
           crossOrigin="anonymous"
