@@ -390,7 +390,9 @@ type TaskOrder = "timer first" | "rejection first";
 // HTML reports an unhandled rejection in a task from a different source than
 // timers, and a browser may run either source first. Chromium runs the timer.
 // Bun's Worker never fires unhandledrejection, so the worker script runs in a
-// child process whose timers and rejection reports are explicit queues.
+// child process whose timers and rejection reports are explicit queues. Host
+// work, such as a WebAssembly compile or a Blob read, resolves from a third
+// queue that always runs last.
 const workerProcess = (code: string, order: TaskOrder) => `
 const { writeSync } = require("node:fs");
 const TIMER_FIRST = ${order === "timer first"};
@@ -424,6 +426,37 @@ process.on("unhandledRejection", (reason) => {
   reports.push(() => listeners.get("unhandledrejection")({ reason, preventDefault() {}, stopImmediatePropagation() {} }));
   schedule();
 });
+const host = [];
+const fromHost = (work) => (...args) => new Promise((resolve, reject) => {
+  work(...args).then(
+    (value) => { host.push(() => resolve(value)); schedule(); },
+    (error) => { host.push(() => reject(error)); schedule(); }
+  );
+});
+WebAssembly.instantiate = fromHost(WebAssembly.instantiate.bind(WebAssembly));
+const blobText = Blob.prototype.text;
+Blob.prototype.text = function () { return fromHost(() => blobText.call(this))(); };
+class Port {
+  listeners = [];
+  onmessage = null;
+  postMessage(data) {
+    const target = this.other;
+    host.push(() => {
+      for (const listener of [...target.listeners, target.onmessage]) if (listener) listener({ data });
+    });
+    schedule();
+  }
+  addEventListener(type, listener) { if (type === "message") this.listeners.push(listener); }
+  close() {}
+}
+globalThis.MessageChannel = class {
+  constructor() {
+    this.port1 = new Port();
+    this.port2 = new Port();
+    this.port1.other = this.port2;
+    this.port2.other = this.port1;
+  }
+};
 function nextTimer() {
   let next = null;
   for (const entry of timers) if (!next || entry[1].at < next[1].at) next = entry;
@@ -439,7 +472,7 @@ function schedule() {
 }
 function step() {
   scheduled = false;
-  const task = TIMER_FIRST ? nextTimer() ?? reports.shift() : reports.shift() ?? nextTimer();
+  const task = (TIMER_FIRST ? nextTimer() ?? reports.shift() : reports.shift() ?? nextTimer()) ?? host.shift();
   if (!task) return;
   try {
     task();
@@ -600,10 +633,41 @@ describe.each(["timer first", "rejection first"] as const)(
         "await new Promise((resolve) => setTimeout(resolve, 20));\nconsole.log('waited');",
         "waited\n",
       ],
+      [
+        "an unawaited WebAssembly compile",
+        "WebAssembly.instantiate(new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0])).then(() => console.log('instantiated'));",
+        "instantiated\n",
+      ],
+      [
+        "an unawaited Blob read",
+        "new Blob(['from a blob']).text().then(console.log);",
+        "from a blob\n",
+      ],
+      [
+        "a handled rejection from host work",
+        "WebAssembly.instantiate(new Uint8Array([1, 2, 3])).catch(() => console.log('caught'));",
+        "caught\n",
+      ],
+      [
+        "a MessageChannel round trip",
+        "const { port1, port2 } = new MessageChannel();\nport1.onmessage = (event) => { console.log('got', event.data); port1.close(); };\nport2.postMessage('ping');",
+        "got ping\n",
+      ],
     ])("reports %s as done", (_, code, printed) => {
       const { stdout, exit } = runInWorker(code, { order });
       expect(stdout).toBe(printed);
       expect(exit).toEqual({ type: "exit", exit: "done", detail: null });
+    });
+
+    test("reports a rejection from unawaited host work as an error", () => {
+      const { exit } = runInWorker(
+        "WebAssembly.instantiate(new Uint8Array([1, 2, 3]));",
+        { order }
+      );
+      expect(exit?.exit).toBe("error");
+      expect(String(exit?.detail)).toStartWith(
+        "Uncaught (in promise) CompileError"
+      );
     });
   }
 );
