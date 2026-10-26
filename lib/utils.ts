@@ -65,6 +65,22 @@ export function hasVisibleContent({ parts }: Pick<ChatMessage, "parts">) {
   );
 }
 
+async function toChatSDKError(response: Response) {
+  const body: unknown = await response.json().catch(() => null);
+  if (
+    typeof body === "object" &&
+    body !== null &&
+    "code" in body &&
+    typeof body.code === "string" &&
+    body.code !== ""
+  ) {
+    const cause =
+      "cause" in body && typeof body.cause === "string" ? body.cause : undefined;
+    return new ChatSDKError(body.code as ErrorCode, cause);
+  }
+  return new ChatSDKError("server:api");
+}
+
 export async function fetchWithErrorHandlers(
   input: RequestInfo | URL,
   init?: RequestInit
@@ -73,13 +89,12 @@ export async function fetchWithErrorHandlers(
     const response = await fetch(input, init);
 
     if (!response.ok) {
-      const { code, cause } = await response.json();
-      throw new ChatSDKError(code as ErrorCode, cause);
+      throw await toChatSDKError(response);
     }
 
     return response;
   } catch (error: unknown) {
-    if (typeof navigator !== "undefined" && !navigator.onLine) {
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
       throw new ChatSDKError("offline:chat");
     }
 

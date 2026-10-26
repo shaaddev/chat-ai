@@ -9,7 +9,12 @@ import {
   getEmptyReplyReason,
   getReasoningText,
 } from "@/lib/message-display";
-import { extractSources, getFaviconUrl, type Source } from "@/lib/sources";
+import {
+  extractSources,
+  getFaviconUrl,
+  SOURCES_PANEL_ID,
+  type Source,
+} from "@/lib/sources";
 import type { ChatMessage } from "@/lib/types";
 import { cn, sanitizeText } from "@/lib/utils";
 import { Markdown } from "./markdown";
@@ -37,8 +42,10 @@ export interface ReplyControls {
 interface MessageProps {
   edit?: EditControls;
   isEditing: boolean;
+  isSourcesOpen: boolean;
   isStreaming: boolean;
   message: ChatMessage;
+  onToggleSources: (messageId: string) => void;
   reply?: ReplyControls;
 }
 
@@ -68,7 +75,18 @@ function ModelChip({
   );
 }
 
-function SourceChips({ sources }: { sources: Source[] }) {
+function SourceChips({
+  isOpen,
+  onToggle,
+  sources,
+}: {
+  isOpen: boolean;
+  onToggle: () => void;
+  sources: Source[];
+}) {
+  if (sources.length === 0) {
+    return null;
+  }
   return (
     <div className="flex min-w-0 flex-wrap gap-1.5">
       {sources.map((source) => (
@@ -92,21 +110,33 @@ function SourceChips({ sources }: { sources: Source[] }) {
           <span className="truncate">{source.domain}</span>
         </a>
       ))}
+      <button
+        aria-controls={isOpen ? SOURCES_PANEL_ID : undefined}
+        aria-expanded={isOpen}
+        className="inline-flex h-7 cursor-pointer items-center rounded-full px-[11px] text-[13px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring aria-expanded:bg-secondary aria-expanded:text-foreground"
+        onClick={onToggle}
+        type="button"
+      >
+        {sources.length === 1 ? "1 source" : `${sources.length} sources`}
+      </button>
     </div>
   );
 }
 
-const EMPTY_REPLY_SUMMARY: Record<EmptyReplyReason, string> = {
+type ReplyNoticeReason = EmptyReplyReason | "missing";
+
+const EMPTY_REPLY_SUMMARY: Record<ReplyNoticeReason, string> = {
   length: "The reply hit its length limit before writing any text.",
+  missing: "This message has no reply yet.",
   other: "The model ended its turn without writing a reply.",
 };
 
-function EmptyReplyNotice({
+export function EmptyReplyNotice({
   onRegenerate,
   reason,
 }: {
   onRegenerate?: () => void;
-  reason: EmptyReplyReason;
+  reason: ReplyNoticeReason;
 }) {
   return (
     <div
@@ -138,8 +168,10 @@ function EmptyReplyNotice({
 function PureChatMessage({
   edit,
   isEditing,
+  isSourcesOpen,
   isStreaming,
   message,
+  onToggleSources,
   reply,
 }: MessageProps) {
   const isAssistant = message.role === "assistant";
@@ -227,7 +259,11 @@ function PureChatMessage({
         ) : null}
         {isAssistant && !isStreaming && !emptyReplyReason && (
           <div className="mt-3.5 flex flex-wrap items-center justify-between gap-2">
-            <SourceChips sources={sources} />
+            <SourceChips
+              isOpen={isSourcesOpen}
+              onToggle={() => onToggleSources(message.id)}
+              sources={sources}
+            />
             {(text.length > 0 || reply) && (
               <MessageActions className="ml-auto">
                 {text.length > 0 && <CopyButton text={text} />}

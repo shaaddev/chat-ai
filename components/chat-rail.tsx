@@ -25,6 +25,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { type ChatSummary, useChat } from "@/components/chat-context";
+import { useToday } from "@/hooks/use-today";
 import { groupChatsByDate } from "@/lib/chat-groups";
 import {
   currentTargetOf,
@@ -143,6 +144,7 @@ export function useChatRail(chats: readonly ChatSummary[] | undefined) {
   const chatsRef = useRef(chats);
   const labelRef = useRef<HTMLLIElement>(null);
   const reduceMotion = useReducedMotion();
+  const today = useToday();
 
   useLayoutEffect(() => {
     chatsRef.current = chats;
@@ -166,11 +168,11 @@ export function useChatRail(chats: readonly ChatSummary[] | undefined) {
       ? placeChat(chats, drag.chatId, drag.target)
       : splitPinned(chats);
     return {
-      groups: groupChatsByDate(unpinned, new Date()),
+      groups: groupChatsByDate(unpinned, today),
       pinned,
       showsPinnedGroup: pinned.length > 0 || (isDragging && isEmptyGroupOpen),
     };
-  }, [chats, drag, isDragging, isEmptyGroupOpen]);
+  }, [chats, drag, isDragging, isEmptyGroupOpen, today]);
 
   const moveChat = useCallback(
     (chatId: string, target: DropTarget) => {

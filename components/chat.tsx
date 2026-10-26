@@ -1,6 +1,7 @@
 "use client";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, isFileUIPart } from "ai";
+import { Search } from "lucide-react";
 import dynamic from "next/dynamic";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -9,6 +10,7 @@ import {
   useChatDraft,
   useChatTitle,
 } from "@/components/chat-context";
+import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import {
   type ChatModelId,
@@ -17,6 +19,7 @@ import {
   getChatModel,
 } from "@/lib/ai/models";
 import type { Session } from "@/lib/auth";
+import { openCommandPalette } from "@/lib/command-palette";
 import { ChatSDKError } from "@/lib/errors";
 import { extractSources, type Source } from "@/lib/sources";
 import type { ChatMessage, DocumentDraft } from "@/lib/types";
@@ -181,6 +184,16 @@ function ChatHeaderComponent({
     <header className="flex h-[50px] shrink-0 items-center gap-1.5 px-2 md:h-12 md:px-3.5">
       <SidebarTrigger className="size-9 rounded-[10px] text-muted-foreground" />
       <h1 className="min-w-0 truncate font-medium text-sm">{title}</h1>
+      <Button
+        aria-keyshortcuts="Meta+K Control+K"
+        aria-label="Search chats and actions"
+        className="ml-auto size-9 rounded-[10px] text-muted-foreground"
+        onClick={openCommandPalette}
+        size="icon"
+        variant="ghost"
+      >
+        <Search aria-hidden className="size-4" />
+      </Button>
     </header>
   );
 }
@@ -232,18 +245,17 @@ export function Chat({
     string | null
   >(null);
 
-  // Sources panel state — auto-opens when sources arrive for the latest
-  // assistant response, but stays closed if the user dismissed it for that
-  // specific response.
-  const [isSourcesPanelOpen, setIsSourcesPanelOpen] = useState(false);
-  const [sourcesPanelDismissedFor, setSourcesPanelDismissedFor] = useState<
-    Set<string>
-  >(() => new Set());
+  const [sourcesMessageId, setSourcesMessageId] = useState<string | null>(null);
+  const toggleSources = useCallback((messageId: string) => {
+    setSourcesMessageId((current) =>
+      current === messageId ? null : messageId
+    );
+  }, []);
+  const closeSources = useCallback(() => setSourcesMessageId(null), []);
 
   const openDocumentBuilder = useCallback(() => {
     setIsDocumentSheetOpen(true);
-    // Document and sources panels share the right slot — close sources.
-    setIsSourcesPanelOpen(false);
+    setSourcesMessageId(null);
   }, []);
   const handleSuggestionClick = useCallback((text: string) => {
     setInput(text);
@@ -272,6 +284,9 @@ export function Chat({
     requestSettingsRef.current = requestSettings;
   });
 
+  const [lastTrigger, setLastTrigger] = useState<
+    "submit-message" | "regenerate-message"
+  >("submit-message");
   const [transport] = useState(
     () =>
       new DefaultChatTransport<ChatMessage>({
@@ -282,15 +297,18 @@ export function Chat({
           id: chatId,
           trigger,
           messageId,
-        }) => ({
-          body: {
-            id: chatId,
-            message: outgoing.at(-1),
-            trigger,
-            messageId,
-            ...requestSettingsRef.current,
-          },
-        }),
+        }) => {
+          setLastTrigger(trigger);
+          return {
+            body: {
+              id: chatId,
+              message: outgoing.at(-1),
+              trigger,
+              messageId,
+              ...requestSettingsRef.current,
+            },
+          };
+        },
       })
   );
 
@@ -298,45 +316,58 @@ export function Chat({
   // otherwise keeps the old one, so the thread puts the old one back to match.
   const replacedReplyRef = useRef<ChatMessage | undefined>(undefined);
 
-  const { messages, regenerate, sendMessage, status, setMessages, stop } =
-    useChat<ChatMessage>({
-      id,
-      messages: initialMessages,
-      generateId: generateUUID,
-      transport,
-      throttle: 50,
-      onFinish: ({ message, isAbort, isError }) => {
-        const replacedReply = replacedReplyRef.current;
-        replacedReplyRef.current = undefined;
-        if (replacedReply && !hasVisibleContent(message)) {
-          setMessages((current) => [
-            ...current.filter(({ id: messageId }) => messageId !== message.id),
-            replacedReply,
-          ]);
-          if (!(isAbort || isError)) {
-            toast("Kept the previous reply", {
-              description: "The regenerated reply came back empty.",
-            });
-          }
+  const {
+    error,
+    messages,
+    regenerate,
+    sendMessage,
+    status,
+    setMessages,
+    stop,
+  } = useChat<ChatMessage>({
+    id,
+    messages: initialMessages,
+    generateId: generateUUID,
+    transport,
+    throttle: 50,
+    onFinish: ({ message, isAbort, isError }) => {
+      const replacedReply = replacedReplyRef.current;
+      replacedReplyRef.current = undefined;
+      if (!(isAbort || isError) && message.parts.some(isFileUIPart)) {
+        toast.success("Image generated");
+      }
+      if (replacedReply && !hasVisibleContent(message)) {
+        setMessages((current) => [
+          ...current.filter(({ id: messageId }) => messageId !== message.id),
+          replacedReply,
+        ]);
+        if (!(isAbort || isError)) {
+          toast("Kept the previous reply", {
+            description: "The regenerated reply came back empty.",
+          });
         }
-        refreshChats();
-      },
-      onError: (err) => {
-        toast.error("Error", {
-          description:
-            err instanceof ChatSDKError && typeof err.cause === "string"
-              ? err.cause
-              : err.message,
-        });
-      },
-    });
+      }
+      refreshChats();
+    },
+    onError: (err) => {
+      toast.error("Error", {
+        description:
+          err instanceof ChatSDKError && typeof err.cause === "string"
+            ? err.cause
+            : err.message,
+      });
+    },
+  });
   const { latestAssistantMessage, latestUserMessage } =
     getLatestConversationMessages(messages);
 
   const replyToRegenerate = messages.at(-1);
   const handleRegenerate = useCallback(async () => {
     replacedReplyRef.current =
-      replyToRegenerate?.role === "assistant" ? replyToRegenerate : undefined;
+      replyToRegenerate?.role === "assistant" &&
+      hasVisibleContent(replyToRegenerate)
+        ? replyToRegenerate
+        : undefined;
     setChatLoading(id, true);
     await regenerate();
   }, [id, regenerate, replyToRegenerate, setChatLoading]);
@@ -355,44 +386,18 @@ export function Chat({
 
   const latestAssistantId = latestAssistantMessage?.id;
 
-  const latestSources = useStableSources(latestAssistantMessage);
+  // A new latest reply, from a send, a regenerate, or an edit, closes the
+  // panel so it never lingers over a reply it doesn't describe.
+  const [sourcesLatestId, setSourcesLatestId] = useState(latestAssistantId);
+  if (sourcesLatestId !== latestAssistantId) {
+    setSourcesLatestId(latestAssistantId);
+    setSourcesMessageId(null);
+  }
 
-  // Auto-open the sources panel when fresh sources arrive for the latest
-  // assistant message and the user hasn't dismissed it. Don't fight an
-  // already-open document sheet: sources only opens if doc sheet is closed.
-  useEffect(() => {
-    if (!latestAssistantId) {
-      return;
-    }
-    if (latestSources.length === 0) {
-      return;
-    }
-    if (sourcesPanelDismissedFor.has(latestAssistantId)) {
-      return;
-    }
-    if (isDocumentSheetOpen) {
-      return;
-    }
-    setIsSourcesPanelOpen(true);
-  }, [
-    isDocumentSheetOpen,
-    latestAssistantId,
-    latestSources.length,
-    sourcesPanelDismissedFor,
-  ]);
-
-  const handleSourcesPanelOpenChange = useCallback(
-    (open: boolean) => {
-      setIsSourcesPanelOpen(open);
-      if (!open && latestAssistantId) {
-        setSourcesPanelDismissedFor((prev) => {
-          const next = new Set(prev);
-          next.add(latestAssistantId);
-          return next;
-        });
-      }
-    },
-    [latestAssistantId]
+  const panelSources = useStableSources(
+    sourcesMessageId === null
+      ? undefined
+      : messages.find(({ id: messageId }) => messageId === sourcesMessageId)
   );
 
   useEffect(() => {
@@ -407,26 +412,13 @@ export function Chat({
     return () => window.clearTimeout(timeoutId);
   }, [useSearch, autoDocumentGeneration, id, input, setChatInputState]);
 
-  const prevStatusRef = useRef(status);
-  const selectedModel = getChatModel(selectedModelId);
-  const isImageModel = selectedModel.kind === "image";
+  const isImageModel = getChatModel(selectedModelId).kind === "image";
 
   useEffect(() => {
     if (status === "streaming" || status === "ready" || status === "error") {
       setChatLoading(id, false);
     }
-
-    if (
-      isImageModel &&
-      (prevStatusRef.current === "submitted" ||
-        prevStatusRef.current === "streaming") &&
-      status === "ready"
-    ) {
-      toast.success("Image generated");
-    }
-
-    prevStatusRef.current = status;
-  }, [status, id, setChatLoading, isImageModel]);
+  }, [status, id, setChatLoading]);
 
   const latestAssistantIsDocument =
     latestAssistantMessage !== undefined &&
@@ -446,7 +438,16 @@ export function Chat({
     [messages, documentSourceMessageId]
   );
 
+  const isSourcesPanelOpen = !isDocumentSheetOpen && panelSources.length > 0;
   const isRightPanelOpen = isDocumentSheetOpen || isSourcesPanelOpen;
+  // The server answers with an HTTP error only before it saves a turn, and
+  // fetchWithErrorHandlers turns every HTTP error into a ChatSDKError. So a
+  // refused send or edit saved no message to regenerate. A refused
+  // regenerate leaves its saved message, which can still be regenerated.
+  const sendWasRefused =
+    status === "error" &&
+    error instanceof ChatSDKError &&
+    lastTrigger === "submit-message";
   const isEmpty = messages.length === 0;
 
   return (
@@ -468,7 +469,10 @@ export function Chat({
             onEditMessage={handleEditMessage}
             onOpenDocumentBuilder={openDocumentBuilder}
             onRegenerate={handleRegenerate}
+            onToggleSources={toggleSources}
             selectedModelId={selectedModelId}
+            sendWasRefused={sendWasRefused}
+            sourcesMessageId={isSourcesPanelOpen ? sourcesMessageId : null}
             status={status}
           />
 
@@ -516,11 +520,11 @@ export function Chat({
           suggestedFormat={documentDraft?.format ?? "docx"}
         />
       ) : null}
-      {!isDocumentSheetOpen && isSourcesPanelOpen ? (
+      {isSourcesPanelOpen ? (
         <LazySourcesPanel
-          onOpenChange={handleSourcesPanelOpenChange}
-          open={isSourcesPanelOpen}
-          sources={latestSources}
+          key={sourcesMessageId}
+          onClose={closeSources}
+          sources={panelSources}
         />
       ) : null}
     </div>

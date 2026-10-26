@@ -1,5 +1,7 @@
 import type { ChatMessage } from "./types";
 
+export const SOURCES_PANEL_ID = "sources-panel";
+
 export interface Source {
   domain: string;
   id: string;

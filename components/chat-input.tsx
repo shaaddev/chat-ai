@@ -282,8 +282,8 @@ export function ChatInput({
           value={input}
         />
 
-        <div className="flex items-center gap-1">
-          <div className="flex min-w-0 flex-1 items-center gap-1">
+        <div className="flex items-center gap-1 pointer-coarse:gap-2.5">
+          <div className="flex min-w-0 flex-1 items-center gap-1 pointer-coarse:gap-2.5">
             <FileInput onFiles={attachFiles} />
             <ModelsPopover
               onSelectModel={onSelectModel}
@@ -292,7 +292,7 @@ export function ChatInput({
             <button
               aria-pressed={useSearch}
               className={cn(
-                "inline-flex h-[34px] shrink-0 cursor-pointer items-center gap-[7px] rounded-[10px] px-2 font-medium text-[13.5px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-2.5",
+                "touch-hitbox relative inline-flex h-[34px] shrink-0 cursor-pointer items-center gap-[7px] rounded-[10px] px-2 font-medium text-[13.5px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-2.5",
                 useSearch
                   ? "bg-primary/12 text-primary"
                   : "text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -309,7 +309,7 @@ export function ChatInput({
                 <button
                   aria-label="Chat settings"
                   className={cn(
-                    "inline-flex size-[34px] shrink-0 cursor-pointer items-center justify-center rounded-[10px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    "touch-hitbox relative inline-flex size-[34px] shrink-0 cursor-pointer items-center justify-center rounded-[10px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     hasActiveSettings
                       ? "bg-primary/12 text-primary"
                       : "text-muted-foreground hover:bg-accent hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground"
@@ -474,7 +474,7 @@ function PureStopButton({
   return (
     <button
       aria-label="Stop generating"
-      className="flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-primary text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-secondary"
+      className="touch-hitbox relative flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-primary text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-secondary"
       data-testid="stop-button"
       onClick={(e) => {
         e.preventDefault();
@@ -500,7 +500,7 @@ function PureSendButton({
   return (
     <button
       aria-label="Send message"
-      className="flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-primary text-primary-foreground transition-[background-color,opacity] hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-secondary disabled:cursor-default disabled:opacity-45"
+      className="touch-hitbox relative flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-primary text-primary-foreground transition-[background-color,opacity] hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-secondary disabled:cursor-default disabled:opacity-45"
       disabled={!canSend}
       onClick={(e) => {
         e.preventDefault();

@@ -5,6 +5,9 @@
 @source "../node_modules/@streamdown/code/dist/*.js";
 
 @custom-variant dark (&:is(.dark *));
+/* Radix menu items take DOM focus on hover too, and :focus-visible inherits
+   from a focused text field, so menu rings key off InputModality instead. */
+@custom-variant keyboard (:where([data-input-modality="keyboard"]) &);
 
 /* === THEME REGISTRATION (Tailwind v4) === */
 @theme inline {
@@ -161,6 +164,17 @@
   color: var(--muted-foreground);
 }
 
+[data-streamdown="code-block-header"] > span {
+  display: inline-block;
+  margin: 0;
+  font-family: var(--font-sans);
+  text-transform: none;
+}
+
+[data-streamdown="code-block-header"] > span::first-letter {
+  text-transform: uppercase;
+}
+
 [data-streamdown="code-block-actions"] {
   background: transparent;
   border: 0;
@@ -190,7 +204,44 @@
   }
 }
 
+/* With reduced motion, tailwindcss-animate entrances and exits keep their fade
+   and drop the zoom, slide, and spin, matching MotionConfig reducedMotion="user". */
+@media (prefers-reduced-motion: reduce) {
+  [class*="animate-in"],
+  [class*="animate-out"] {
+    --tw-enter-scale: 1 !important;
+    --tw-enter-rotate: 0 !important;
+    --tw-enter-translate-x: 0 !important;
+    --tw-enter-translate-y: 0 !important;
+    --tw-exit-scale: 1 !important;
+    --tw-exit-rotate: 0 !important;
+    --tw-exit-translate-x: 0 !important;
+    --tw-exit-translate-y: 0 !important;
+  }
+}
+
 /* === UTILITIES === */
+
+/* Grows a control's hit area to at least 44px on touch screens without
+   changing how it looks. The control must be positioned. */
+@utility touch-hitbox {
+  @media (pointer: coarse) {
+    &::after {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: max(100%, 44px);
+      height: max(100%, 44px);
+      content: "";
+      translate: -50% -50%;
+    }
+  }
+}
+
+[data-streamdown="code-block-actions"] button {
+  @apply relative touch-hitbox;
+}
+
 @layer utilities {
   .no-scrollbar::-webkit-scrollbar {
     display: none;

@@ -151,12 +151,12 @@ export function PreviewAttachment({
       )}
       <button
         aria-label={`Remove ${item.name}`}
-        className="absolute -top-1.5 -right-1.5 z-10 flex size-5 cursor-pointer items-center justify-center rounded-full border border-border bg-card text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="absolute -top-1.5 pointer-coarse:-top-2 -right-1.5 pointer-coarse:-right-2 z-10 flex pointer-coarse:size-7 size-5 cursor-pointer items-center justify-center rounded-full border border-border bg-card text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         data-testid="remove-attachment-button"
         onClick={onRemove}
         type="button"
       >
-        <X aria-hidden className="size-3" />
+        <X aria-hidden className="pointer-coarse:size-3.5 size-3" />
       </button>
     </div>
   );

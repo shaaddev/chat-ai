@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Geist_Mono, Instrument_Sans } from "next/font/google";
 import "./globals.css";
 import { ChatProvider } from "@/components/chat-context";
+import { InputModality } from "@/components/input-modality";
 import { PerformanceMonitor } from "@/components/performance-monitor";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
@@ -53,6 +54,7 @@ export default function RootLayout({
       <body
         className={`${instrumentSans.variable} ${geistMono.variable} bg-background font-sans text-foreground antialiased`}
       >
+        <InputModality />
         <ThemeProvider>
           <MotionConfig reducedMotion="user">
             <ChatProvider>

@@ -1,6 +1,7 @@
 /// <reference types="bun-types/test" />
 import { describe, expect, test } from "bun:test";
 import {
+  endsWithoutReply,
   getEmptyReplyReason,
   getReasoningText,
   isShownInThread,
@@ -65,5 +66,33 @@ describe("isShownInThread", () => {
 
   test("shows an empty reply once it has finished", () => {
     expect(isShownInThread(reply([], { finishReason: "length" }))).toBe(true);
+  });
+});
+
+describe("endsWithoutReply", () => {
+  const question: ChatMessage = {
+    id: "question",
+    role: "user",
+    parts: [{ type: "text", text: "Reply with pong" }],
+  };
+
+  test("is true when the thread ends on a user message", () => {
+    expect(endsWithoutReply([question])).toBe(true);
+  });
+
+  test("is true when the only reply after it shows nothing", () => {
+    const failed = reply([{ type: "step-start" }], { model: "m" });
+    expect(endsWithoutReply([question, failed])).toBe(true);
+  });
+
+  test("is false once a reply shows, even an empty-reply notice", () => {
+    const answered = reply([{ type: "text", text: "pong" }]);
+    const empty = reply([], { finishReason: "stop" });
+    expect(endsWithoutReply([question, answered])).toBe(false);
+    expect(endsWithoutReply([question, empty])).toBe(false);
+  });
+
+  test("is false for an empty thread", () => {
+    expect(endsWithoutReply([])).toBe(false);
   });
 });

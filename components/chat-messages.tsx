@@ -14,11 +14,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useMessages } from "@/hooks/use-message";
 import { type ChatModelId, getModelLabel } from "@/lib/ai/models";
 import { focusComposer } from "@/lib/composer";
-import { isShownInThread } from "@/lib/message-display";
+import { endsWithoutReply, isShownInThread } from "@/lib/message-display";
 import type { ChatMessage, DocumentDraft } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
   type EditControls,
+  EmptyReplyNotice,
   PreviewMessage,
   type ReplyControls,
 } from "./chat-message";
@@ -34,7 +35,10 @@ interface MessagesProps {
   onEditMessage: (message: ChatMessage, text: string) => void;
   onOpenDocumentBuilder: () => void;
   onRegenerate: () => void;
+  onToggleSources: (messageId: string) => void;
   selectedModelId: ChatModelId;
+  sendWasRefused: boolean;
+  sourcesMessageId: string | null;
   status: UseChatHelpers<ChatMessage>["status"];
 }
 
@@ -123,7 +127,7 @@ function ScrollToBottomButton({
         <motion.button
           animate={{ opacity: 1, y: 0 }}
           aria-label="Scroll to latest message"
-          className="absolute bottom-4 left-1/2 z-20 inline-flex size-9 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full bg-popover text-muted-foreground shadow-md transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="touch-hitbox absolute bottom-4 left-1/2 z-20 inline-flex size-9 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full bg-popover text-muted-foreground shadow-md transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           exit={{ opacity: 0, y: 8 }}
           initial={{ opacity: 0, y: 8 }}
           onClick={onClick}
@@ -141,13 +145,16 @@ function PureMessages({
   chatId,
   messages,
   status,
+  sendWasRefused,
   isImageModelSelected,
   isNarrow,
   documentDraft,
   onEditMessage,
   onOpenDocumentBuilder,
   onRegenerate,
+  onToggleSources,
   selectedModelId,
+  sourcesMessageId,
 }: MessagesProps) {
   const { containerRef, isAtBottom, scrollToBottom, scrollUserMessageToTop } =
     useMessages();
@@ -163,6 +170,8 @@ function PureMessages({
     lastMessage !== undefined &&
     (lastMessage.role === "user" || !isShownInThread(lastMessage));
   const visibleMessages = messages.filter(isShownInThread);
+  const isMissingReply =
+    !(isBusy || sendWasRefused) && endsWithoutReply(messages);
   const latestUserMessageId =
     messages.findLast((message) => message.role === "user")?.id ?? null;
 
@@ -303,8 +312,10 @@ function PureMessages({
                       <PreviewMessage
                         edit={isBusy ? undefined : editControls}
                         isEditing={message.id === editingMessageId}
+                        isSourcesOpen={message.id === sourcesMessageId}
                         isStreaming={message.id === streamingMessageId}
                         message={message}
+                        onToggleSources={onToggleSources}
                         reply={
                           message.id === latestReplyId
                             ? replyControls
@@ -313,6 +324,14 @@ function PureMessages({
                       />
                       {isLast && isAwaitingContent ? (
                         <PendingReply isImage={isImageModelSelected} />
+                      ) : null}
+                      {isLast && isMissingReply ? (
+                        <div className="mt-5">
+                          <EmptyReplyNotice
+                            onRegenerate={onRegenerate}
+                            reason="missing"
+                          />
+                        </div>
                       ) : null}
                     </div>
                     {documentDraft?.messageId === message.id &&
