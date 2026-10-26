@@ -8,13 +8,33 @@ import { getDb } from "@/lib/db";
 import { account, session, user, verification } from "@/lib/db/schema";
 import { sendOtpEmail } from "@/lib/email/resend";
 
+// Better Auth 1.7 checks the Origin of every email-OTP request. In
+// development, trust any loopback origin so other ports and *.localhost
+// hosts can sign in. Production trusts only BETTER_AUTH_URL.
+function isLoopback(origin: string) {
+  const { hostname } = new URL(origin);
+  return (
+    hostname === "localhost" ||
+    hostname.endsWith(".localhost") ||
+    hostname === "127.0.0.1" ||
+    hostname === "[::1]"
+  );
+}
+
 function createAuth() {
   return betterAuth({
     database: drizzleAdapter(getDb(), {
       provider: "pg",
       schema: { user, session, account, verification },
     }),
-    trustedOrigins: ["http://localhost:3000", "https://chat.shaaddev.com"],
+    trustedOrigins: (request) => {
+      const origin = request?.headers.get("origin");
+      return process.env.NODE_ENV !== "production" &&
+        origin &&
+        isLoopback(origin)
+        ? [origin]
+        : [];
+    },
     plugins: [
       emailOTP({
         disableSignUp: true,
