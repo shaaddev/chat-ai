@@ -225,6 +225,7 @@ async function runJavaScript(code) {
     timers.add(id);
     return id;
   };
+  self.close = () => exit("done");
   self.clearTimeout = self.clearInterval = (id) => {
     if (!timers.delete(id)) return;
     nativeClearTimeout(id);
