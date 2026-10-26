@@ -113,8 +113,7 @@ export function ChatInput({
   const needsText = getChatModel(selectedModelId).kind === "image";
   const canSend =
     !isSendHeld &&
-    trayReadiness !== "uploading" &&
-    trayReadiness !== "failed" &&
+    (trayReadiness === "ready" || trayReadiness === "empty") &&
     (hasText || (trayReadiness === "ready" && !needsText));
 
   const attachFiles = useCallback(

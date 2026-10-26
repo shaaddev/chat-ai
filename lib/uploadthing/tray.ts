@@ -40,7 +40,12 @@ export interface TrayEffects {
   upload: (file: File, options: UploadOptions) => Promise<StoredFileUrl>;
 }
 
-export type TrayReadiness = "empty" | "uploading" | "failed" | "ready";
+export type TrayReadiness =
+  | "empty"
+  | "uploading"
+  | "failed"
+  | "over-limit"
+  | "ready";
 
 export interface SentFile {
   filename: string;
@@ -64,12 +69,21 @@ interface Upload {
   removed: boolean;
 }
 
+// A hand-back restores every file, so the tray can hold more than one
+// message may carry.
+export function filesOverLimit(items: readonly TrayItem[]): number {
+  return Math.max(0, items.length - ATTACHMENT_MAX_COUNT);
+}
+
 export function readiness(items: readonly TrayItem[]): TrayReadiness {
   if (items.some((item) => item.status === "uploading")) {
     return "uploading";
   }
   if (items.some((item) => item.status === "failed")) {
     return "failed";
+  }
+  if (filesOverLimit(items) > 0) {
+    return "over-limit";
   }
   return items.some((item) => item.status === "done") ? "ready" : "empty";
 }

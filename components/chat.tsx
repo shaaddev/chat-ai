@@ -459,11 +459,8 @@ export function Chat({
         const items = tray.getItems();
         const trayState = readiness(items);
         const files = sentFiles(items);
-        if (
-          trayState === "uploading" ||
-          trayState === "failed" ||
-          !(text || files.length > 0)
-        ) {
+        const isTraySendable = trayState === "ready" || trayState === "empty";
+        if (!(isTraySendable && (text || files.length > 0))) {
           return;
         }
         clearChatInputState(id);

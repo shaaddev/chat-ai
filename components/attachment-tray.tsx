@@ -11,6 +11,7 @@ import {
 import {
   type AttachmentTray,
   createAttachmentTray,
+  filesOverLimit,
   type Rejection,
   readiness,
   type TrayEffects,
@@ -124,6 +125,7 @@ export function AttachmentTrayList({ tray }: { tray: AttachmentTray }) {
     () => NO_ITEMS
   );
   const reduceMotion = useReducedMotion();
+  const overLimit = filesOverLimit(items);
 
   return (
     <AnimatePresence initial={false}>
@@ -161,6 +163,15 @@ export function AttachmentTrayList({ tray }: { tray: AttachmentTray }) {
               ))}
             </AnimatePresence>
           </ul>
+          {overLimit > 0 ? (
+            <p
+              className="px-1 pb-1.5 text-muted-foreground text-xs"
+              role="status"
+            >
+              Remove {overLimit} {overLimit === 1 ? "file" : "files"} to send. A
+              message can carry up to {ATTACHMENT_MAX_COUNT} files.
+            </p>
+          ) : null}
         </motion.div>
       ) : null}
     </AnimatePresence>
