@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { getDb } from ".";
 import { type Chat, chat, type Message, message, stream } from "./schema";
 
@@ -46,9 +46,10 @@ export async function updateChat({
   userId: string;
   changes: { title?: string; systemPrompt?: string | null };
 }): Promise<boolean> {
+  // `updatedAt` orders the sidebar by activity. Renaming is not activity.
   const updated = await getDb()
     .update(chat)
-    .set(changes)
+    .set({ ...changes, updatedAt: sql`${chat.updatedAt}` })
     .where(and(eq(chat.id, id), eq(chat.userId, userId)))
     .returning({ id: chat.id });
   return updated.length > 0;

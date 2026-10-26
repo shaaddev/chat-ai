@@ -32,9 +32,7 @@ interface NewChat {
 // SWR's optimisticData rolls back to a whole-list snapshot, which would undo
 // any other edit that settled in between. Unconfirmed edits live here instead
 // and overlay the cache, so each one settles on its own.
-type PendingEdit =
-  | { kind: "delete" }
-  | { kind: "rename"; title: string; updatedAt: Date };
+type PendingEdit = { kind: "delete" } | { kind: "rename"; title: string };
 
 type PendingEdits = ReadonlyMap<string, PendingEdit>;
 
@@ -156,7 +154,7 @@ function applyPendingEdits(
     if (edit.kind === "delete") {
       return [];
     }
-    return [{ ...chat, title: edit.title, updatedAt: edit.updatedAt }];
+    return [{ ...chat, title: edit.title }];
   });
 }
 
@@ -202,11 +200,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   const renameChat = useCallback(
     async (chatId: string, title: string) => {
-      const edit: PendingEdit = {
-        kind: "rename",
-        title,
-        updatedAt: new Date(),
-      };
+      const edit: PendingEdit = { kind: "rename", title };
       setPendingEdits((edits) => withEdit(edits, chatId, edit));
 
       const res = await sendChatRequest(chatId, {
@@ -216,11 +210,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       });
       if (res?.ok) {
         await updateCachedChats((chats) =>
-          chats.map((chat) =>
-            chat.id === chatId
-              ? { ...chat, title, updatedAt: edit.updatedAt }
-              : chat
-          )
+          chats.map((chat) => (chat.id === chatId ? { ...chat, title } : chat))
         );
       } else {
         toast.error("Chat wasn't renamed", {
