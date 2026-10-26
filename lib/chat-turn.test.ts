@@ -348,7 +348,7 @@ describe("a turn", () => {
       "user: Earlier question",
       "assistant: Earlier answer",
     ]);
-    expect(calls).toEqual(["handed back append, told"]);
+    expect(calls).toEqual(["handed back append, told, maybe saved"]);
   });
 
   test("stopped and then refused hands its text back and shows why, without a settle", async () => {

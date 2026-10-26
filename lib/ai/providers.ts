@@ -13,6 +13,7 @@ const openrouter = createOpenRouter({
 const WEB_SEARCH_MAX_RESULTS = 5;
 
 export const CHAT_TITLE_MAX_LENGTH = 80;
+export const TITLE_WAIT_MS = 3000;
 const TITLE_TIMEOUT_MS = 10_000;
 
 export function getLanguageModel(

@@ -119,7 +119,7 @@ export interface TurnEffects {
   turnFinished: (reply: ChatMessage, keptPrevious: boolean) => void;
   turnNotSaved: (
     request: TurnRequest,
-    options: { editShown: boolean; notify: boolean }
+    options: { editShown: boolean; maybeSaved: boolean; notify: boolean }
   ) => void;
 }
 
@@ -317,12 +317,16 @@ export function createTurnGate({
     effects.refreshChats();
   };
 
-  const handBack = (turn: Turn, thread: ChatMessage[], notify: boolean) => {
+  const handBack = (
+    turn: Turn,
+    thread: ChatMessage[],
+    { maybeSaved, notify }: { maybeSaved: boolean; notify: boolean }
+  ) => {
     const { request } = turn;
     const editShown =
       request.kind === "edit" &&
       thread.some(({ id }) => id === request.messageId);
-    effects.turnNotSaved(request, { editShown, notify });
+    effects.turnNotSaved(request, { editShown, maybeSaved, notify });
     return request.kind !== "regenerate";
   };
 
@@ -342,7 +346,11 @@ export function createTurnGate({
         if (chatFound && settled.turnSaved) {
           return "settled";
         }
-        return handBack(turn, thread, true) ? "handed-back" : "settled";
+        const handedBack = handBack(turn, thread, {
+          maybeSaved: !chatFound,
+          notify: true,
+        });
+        return handedBack ? "handed-back" : "settled";
       },
       (error): SettleResult => {
         commit({ phase: "unsettled", ended, reason: settleFailure(error) });
@@ -391,7 +399,7 @@ export function createTurnGate({
       }
       const thread = adoptThread(shown, savedThread);
       showSaved(thread, turn.request);
-      handBack(turn, thread, false);
+      handBack(turn, thread, { maybeSaved: false, notify: false });
     } else if (isAbort || isError) {
       settle({ turn, shown, expectReply: hasVisibleContent(reply) });
     } else {

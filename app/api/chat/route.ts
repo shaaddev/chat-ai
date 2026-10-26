@@ -21,6 +21,7 @@ import {
   CHAT_TITLE_MAX_LENGTH,
   generateChatTitle,
   getLanguageModel,
+  TITLE_WAIT_MS,
 } from "@/lib/ai/providers";
 import {
   getChatById,
@@ -282,8 +283,6 @@ async function writeGeneratedImage(
     });
   }
 }
-
-const TITLE_WAIT_MS = 3000;
 
 // The client refreshes the sidebar when a stream ends, so a new chat's
 // stream waits briefly for its title. A slow title still saves afterward.

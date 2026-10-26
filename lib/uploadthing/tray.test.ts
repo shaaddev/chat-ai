@@ -287,7 +287,7 @@ describe("attachment tray", () => {
           url: "u1",
         },
       ],
-      { mayBeSaved: true }
+      { maybeSaved: true }
     );
 
     tray.remove(tray.getItems()[0].id);

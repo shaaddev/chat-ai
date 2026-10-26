@@ -1,10 +1,12 @@
 import { z } from "zod";
 import { auth } from "@/app/auth";
+import { TITLE_WAIT_MS } from "@/lib/ai/providers";
 import { isReplyPending, settleTurn } from "@/lib/db/queries";
 import { ChatSDKError } from "@/lib/errors";
 import { convertToUIMessages } from "@/lib/utils";
 
-const REPLY_WAIT_MS = 3000;
+// A new chat's reply saves only after its stream has waited for the title.
+const REPLY_WAIT_MS = TITLE_WAIT_MS + 2000;
 const REPLY_POLL_MS = 100;
 
 const settleRequestBodySchema = z.object({

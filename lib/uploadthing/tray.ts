@@ -59,7 +59,10 @@ export interface AttachmentTray {
   clearAfterSend: () => void;
   getItems: () => readonly TrayItem[];
   remove: (id: string) => void;
-  restore: (files: readonly SentFile[]) => void;
+  restore: (
+    files: readonly SentFile[],
+    options?: { maybeSaved: boolean }
+  ) => void;
   retry: (id: string) => void;
   subscribe: (listener: () => void) => () => void;
 }
@@ -110,6 +113,9 @@ export function createAttachmentTray(effects: TrayEffects): AttachmentTray {
   let items: readonly TrayItem[] = [];
   const files = new Map<string, File>();
   const uploads = new Map<string, Upload>();
+  // Restored after a send that a late request may still save, so a saved
+  // message may show them.
+  const maybeSavedFiles = new Set<string>();
   const listeners = new Set<() => void>();
 
   const commit = (next: readonly TrayItem[]) => {
@@ -228,6 +234,7 @@ export function createAttachmentTray(effects: TrayEffects): AttachmentTray {
         cancel(item);
         release(item);
       }
+      maybeSavedFiles.clear();
       commit([]);
     },
     getItems: () => items,
@@ -238,15 +245,16 @@ export function createAttachmentTray(effects: TrayEffects): AttachmentTray {
       }
       commit(items.filter((candidate) => candidate.id !== id));
       release(item);
-      if (item.status === "done") {
-        effects.discard(item.url);
-      } else {
+      if (item.status !== "done") {
         cancel(item);
+      } else if (!maybeSavedFiles.has(id)) {
+        effects.discard(item.url);
       }
+      maybeSavedFiles.delete(id);
     },
     // Every file goes back, even past the per-message limit. They are the
     // user's uploads, so only the user removes them.
-    restore: (sent) => {
+    restore: (sent, options) => {
       if (sent.length === 0) {
         return;
       }
@@ -261,6 +269,11 @@ export function createAttachmentTray(effects: TrayEffects): AttachmentTray {
           url,
         })
       );
+      if (options?.maybeSaved) {
+        for (const item of restored) {
+          maybeSavedFiles.add(item.id);
+        }
+      }
       commit([...restored, ...items]);
     },
     retry: (id) => {

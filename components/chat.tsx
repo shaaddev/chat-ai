@@ -338,7 +338,7 @@ export function Chat({
   const [turns] = useState(() => {
     const restoreInput = (
       request: TurnRequest,
-      { editShown }: { editShown: boolean }
+      { editShown, maybeSaved }: { editShown: boolean; maybeSaved: boolean }
     ) => {
       if (request.kind === "regenerate") {
         return;
@@ -356,7 +356,7 @@ export function Chat({
         });
       }
       if (request.kind === "append") {
-        getAttachmentTray(id).restore(request.files);
+        getAttachmentTray(id).restore(request.files, { maybeSaved });
       }
     };
 
@@ -397,12 +397,12 @@ export function Chat({
             });
           }
         },
-        turnNotSaved: (request, { editShown, notify }) => {
+        turnNotSaved: (request, { editShown, maybeSaved, notify }) => {
           if (notify && mountedRef.current) {
             const notice = TURN_NOT_SAVED[request.kind];
             toast(notice.title, { description: notice.description });
           }
-          restoreInput(request, { editShown });
+          restoreInput(request, { editShown, maybeSaved });
         },
       },
     });

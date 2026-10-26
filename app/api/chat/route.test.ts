@@ -551,7 +551,9 @@ describe.skipIf(!hasTestDatabase)("POST /api/chat against Postgres", () => {
     const lateReplyId = crypto.randomUUID();
 
     const response = settle(chatId, { turnId, expectReply: true });
-    await new Promise((resolve) => setTimeout(resolve, 3500));
+    await new Promise((resolve) =>
+      setTimeout(resolve, providers.TITLE_WAIT_MS + 500)
+    );
     await saveReplyIfLatestTurn({
       chatId,
       streamId: turnId,
