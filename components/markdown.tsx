@@ -28,6 +28,8 @@ const components: Partial<Components> = {
 
 const plugins: StreamdownProps["plugins"] = { code };
 
+const controls: StreamdownProps["controls"] = { code: { download: false } };
+
 const codeTokenColors: ThemeRegistrationAny["tokenColors"] = [
   {
     scope: ["comment", "punctuation.definition.comment"],
@@ -122,6 +124,7 @@ function NonMemoizedMarkdown({
       caret="block"
       className={PROSE_CLASSES}
       components={components}
+      controls={controls}
       isAnimating={isStreaming}
       lineNumbers={false}
       plugins={plugins}

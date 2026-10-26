@@ -161,6 +161,17 @@
   color: var(--muted-foreground);
 }
 
+[data-streamdown="code-block-header"] > span {
+  display: inline-block;
+  margin: 0;
+  font-family: var(--font-sans);
+  text-transform: none;
+}
+
+[data-streamdown="code-block-header"] > span::first-letter {
+  text-transform: uppercase;
+}
+
 [data-streamdown="code-block-actions"] {
   background: transparent;
   border: 0;
