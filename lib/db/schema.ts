@@ -100,6 +100,7 @@ export const chat = pgTable(
       .notNull()
       .default("private"),
     systemPrompt: text("system_prompt"),
+    pinnedKey: text("pinned_key"),
     ...timestamps,
   },
   (table) => [

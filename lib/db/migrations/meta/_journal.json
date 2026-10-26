@@ -8,6 +8,13 @@
       "when": 1792977735661,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792984017064,
+      "tag": "0001_chat_pinned_key",
+      "breakpoints": true
     }
   ]
 }

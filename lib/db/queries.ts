@@ -44,7 +44,7 @@ export async function updateChat({
 }: {
   id: string;
   userId: string;
-  changes: { title?: string; systemPrompt?: string | null };
+  changes: Partial<Pick<Chat, "title" | "systemPrompt" | "pinnedKey">>;
 }): Promise<boolean> {
   // `updatedAt` orders the sidebar by activity. Renaming is not activity.
   const updated = await getDb()

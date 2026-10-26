@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { auth } from "@/app/auth";
 import {
   canReadChat,
@@ -13,25 +12,11 @@ import {
   extractFileKeysFromMessages,
 } from "@/lib/uploadthing/utils";
 import { convertToUIMessages } from "@/lib/utils";
+import { patchRequestBodySchema } from "./schema";
 
 interface Params {
   params: Promise<{ id: string }>;
 }
-
-const patchSchema = z
-  .object({
-    title: z.string().trim().min(1).max(100).optional(),
-    systemPrompt: z
-      .string()
-      .nullable()
-      .optional()
-      .transform((prompt) => (prompt === "" ? null : prompt)),
-  })
-  .refine(
-    ({ title, systemPrompt }) =>
-      title !== undefined || systemPrompt !== undefined,
-    { message: "Nothing to update" }
-  );
 
 const unauthorized = () =>
   NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -58,10 +43,15 @@ export async function PATCH(req: Request, { params }: Params) {
     return unauthorized();
   }
 
-  const parsed = patchSchema.safeParse(await req.json().catch(() => null));
+  const parsed = patchRequestBodySchema.safeParse(
+    await req.json().catch(() => null)
+  );
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Send a title of 1 to 100 characters or a system prompt." },
+      {
+        error:
+          "Send a title of 1 to 100 characters, a system prompt, or a pinned key of 1 to 64 letters and digits.",
+      },
       { status: 400 }
     );
   }
