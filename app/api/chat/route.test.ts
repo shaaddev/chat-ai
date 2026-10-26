@@ -2,8 +2,9 @@
 import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
 import { simulateReadableStream } from "ai";
 import { MockLanguageModelV4 } from "ai/test";
+import { eq } from "drizzle-orm";
 import type { Session } from "@/app/auth";
-import { chat, message } from "@/lib/db/schema";
+import { chat, message, stream } from "@/lib/db/schema";
 import { hasTestDatabase, openTestDatabase } from "@/lib/db/test-database";
 import type { ChatMessage } from "@/lib/types";
 
@@ -161,6 +162,23 @@ describe.skipIf(!hasTestDatabase)("POST /api/chat against Postgres", () => {
     expect((await getChatById(chatId))?.title).toBe("Weekend in Lisbon");
   });
 
+  test("a first message of only NUL characters starts as a new chat", async () => {
+    const userId = await testDatabase.createUser();
+    const chatId = crypto.randomUUID();
+    signInAs(userId);
+    pendingTitle = Promise.withResolvers();
+
+    const response = await post(
+      firstTurn(chatId, crypto.randomUUID(), "\u0000")
+    );
+    const provisionalTitle = (await getChatById(chatId))?.title;
+    pendingTitle.resolve("Empty message");
+    await Promise.all(backgroundTasks);
+    await response.text();
+
+    expect(provisionalTitle).toBe("New chat");
+  });
+
   test("the generated title replaces the provisional one", async () => {
     const userId = await testDatabase.createUser();
     const chatId = crypto.randomUUID();
@@ -189,5 +207,129 @@ describe.skipIf(!hasTestDatabase)("POST /api/chat against Postgres", () => {
     await response.text();
 
     expect((await getChatById(chatId))?.title).toBe("Lisbon trip");
+  });
+
+  const STALE_TURN_CAUSE =
+    "That message is no longer in this chat. Reload the chat and try again.";
+
+  const seedRepliedChat = async (
+    userParts: ChatMessage["parts"],
+    replyParts: ChatMessage["parts"] = [{ type: "text", text: "Seeded reply" }]
+  ) => {
+    const userId = await testDatabase.createUser();
+    const chatId = crypto.randomUUID();
+    const userMessageId = crypto.randomUUID();
+    const replyId = crypto.randomUUID();
+    const updatedAt = new Date("2026-10-20T10:00:00Z");
+    await testDatabase.db
+      .insert(chat)
+      .values({ id: chatId, userId, title: "Seeded", updatedAt });
+    await testDatabase.db.insert(message).values([
+      {
+        id: userMessageId,
+        chatId,
+        role: "user",
+        parts: userParts,
+        createdAt: new Date("2026-10-20T09:00:00Z"),
+      },
+      {
+        id: replyId,
+        chatId,
+        role: "assistant",
+        parts: replyParts,
+        createdAt: new Date("2026-10-20T09:01:00Z"),
+      },
+    ]);
+    signInAs(userId);
+    return { chatId, replyId, updatedAt, userMessageId };
+  };
+
+  const regenerate = (chatId: string, messageId: string, model: string) =>
+    post({
+      id: chatId,
+      selectedChatModel: model,
+      trigger: "regenerate-message",
+      message: { id: messageId },
+    });
+
+  const expectNothingSaved = async (chatId: string, updatedAt: Date) => {
+    const streams = await testDatabase.db
+      .select()
+      .from(stream)
+      .where(eq(stream.chatId, chatId));
+    expect(streams).toEqual([]);
+    expect((await getChatById(chatId))?.updatedAt).toEqual(updatedAt);
+  };
+
+  test("an image-model regenerate of a message with no text is refused before anything is saved", async () => {
+    const { chatId, updatedAt, userMessageId } = await seedRepliedChat([
+      {
+        type: "file",
+        mediaType: "image/png",
+        filename: "photo.png",
+        url: "https://abc123.ufs.sh/f/photo",
+      },
+    ]);
+
+    const response = await regenerate(
+      chatId,
+      userMessageId,
+      "chat-image-1-mini"
+    );
+
+    expect(response.status).toBe(400);
+    expect((await response.json()).cause).toBe(
+      "Image models need a text prompt. Describe the image you want."
+    );
+    await expectNothingSaved(chatId, updatedAt);
+  });
+
+  test("an image-model regenerate aimed at a reply says the message is gone", async () => {
+    const { chatId, replyId, updatedAt } = await seedRepliedChat(
+      [{ type: "text", text: "Draw a lighthouse" }],
+      [
+        {
+          type: "file",
+          mediaType: "image/png",
+          filename: "lighthouse.png",
+          url: "https://abc123.ufs.sh/f/lighthouse",
+        },
+      ]
+    );
+
+    const response = await regenerate(chatId, replyId, "chat-image-1-mini");
+
+    expect(response.status).toBe(400);
+    expect((await response.json()).cause).toBe(STALE_TURN_CAUSE);
+    await expectNothingSaved(chatId, updatedAt);
+  });
+
+  test("an image-model regenerate in a chat that does not exist is not found", async () => {
+    signInAs(await testDatabase.createUser());
+
+    const response = await regenerate(
+      crypto.randomUUID(),
+      crypto.randomUUID(),
+      "chat-image-1-mini"
+    );
+
+    expect(response.status).toBe(404);
+    expect((await response.json()).code).toBe("not_found:chat");
+  });
+
+  test("a regenerate of a message that is not in the chat says to reload", async () => {
+    const { chatId, updatedAt } = await seedRepliedChat([
+      { type: "text", text: "Plan a weekend in Lisbon" },
+    ]);
+
+    const response = await regenerate(
+      chatId,
+      crypto.randomUUID(),
+      "chat-5-mini"
+    );
+
+    expect(response.status).toBe(400);
+    expect((await response.json()).cause).toBe(STALE_TURN_CAUSE);
+    await expectNothingSaved(chatId, updatedAt);
   });
 });

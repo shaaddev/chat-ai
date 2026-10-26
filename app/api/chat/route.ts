@@ -24,7 +24,7 @@ import {
 } from "@/lib/ai/providers";
 import {
   getChatById,
-  getMessagesByChatId,
+  getUserMessage,
   ownsUploads,
   saveReplyIfLatestTurn,
   saveUpload,
@@ -323,11 +323,19 @@ async function saveGeneratedTitle({
 function getUserText(parts: ChatMessage["parts"]) {
   return parts
     .filter((part) => part.type === "text")
-    .map((part) => part.text)
+    .map((part) => part.text.replaceAll("\u0000", ""))
     .join("\n")
     .trim()
     .slice(0, 10_000);
 }
+
+// A turn is refused when its target message is gone (another tab edited or
+// deleted it) or a new message reuses an id; a reload resyncs the thread.
+const staleTurnResponse = () =>
+  new ChatSDKError(
+    "bad_request:api",
+    "That message is no longer in this chat. Reload the chat and try again."
+  ).toResponse();
 
 export async function POST(req: Request) {
   let requestBody: PostRequestBody;
@@ -361,22 +369,6 @@ export async function POST(req: Request) {
       return new ChatSDKError("forbidden:chat").toResponse();
     }
 
-    // The schema checks a new message. A regenerate reuses a saved one, so
-    // check it here, before the turn is saved.
-    if (turn.type === "regenerate" && model.kind === "image") {
-      const [target] = convertToUIMessages(
-        (await getMessagesByChatId(id)).filter(
-          ({ id: messageId }) => messageId === turn.userMessageId
-        )
-      );
-      if (target && !getUserText(target.parts)) {
-        return new ChatSDKError(
-          "bad_request:api",
-          "Image models need a text prompt. Describe the image you want."
-        ).toResponse();
-      }
-    }
-
     if (turn.type !== "regenerate") {
       const fileUrls = turn.message.parts.flatMap((part) =>
         part.type === "file" ? [part.url] : []
@@ -400,6 +392,25 @@ export async function POST(req: Request) {
       };
     }
 
+    // The schema checks a new message. A regenerate reuses a saved one, so
+    // check it here, before the turn is saved.
+    if (turn.type === "regenerate" && model.kind === "image") {
+      const target = await getUserMessage({
+        chatId: id,
+        messageId: turn.userMessageId,
+      });
+      if (!target) {
+        return staleTurnResponse();
+      }
+      const [{ parts }] = convertToUIMessages([target]);
+      if (!getUserText(parts)) {
+        return new ChatSDKError(
+          "bad_request:api",
+          "Image models need a text prompt. Describe the image you want."
+        ).toResponse();
+      }
+    }
+
     const streamId = generateUUID();
     const saved = await saveUserTurn({
       chatId: id,
@@ -412,10 +423,7 @@ export async function POST(req: Request) {
       },
     });
     if (!saved) {
-      return new ChatSDKError(
-        "bad_request:api",
-        "That message could not be saved. Only a user message in this chat can be edited or regenerated, and a new message needs an unused id."
-      ).toResponse();
+      return staleTurnResponse();
     }
 
     let titleSaved: Promise<void> | undefined;

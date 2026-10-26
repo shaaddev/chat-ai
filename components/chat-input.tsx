@@ -136,7 +136,7 @@ export function ChatInput({
 
     addOptimisticChat({
       id: chatId,
-      title: input.trim().slice(0, 80) || "New chat",
+      title: input.replaceAll("\u0000", "").trim().slice(0, 80) || "New chat",
       createdAt: new Date(),
       updatedAt: new Date(),
     });
