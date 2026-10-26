@@ -20,7 +20,6 @@ export function ImageLightbox({
   onIndexChange: (index: number | null) => void;
   onClosed: () => void;
 }) {
-  // Keeps the last image on screen while the dialog animates closed.
   const [shownIndex, setShownIndex] = useState(index ?? 0);
   if (index !== null && index !== shownIndex) {
     setShownIndex(index);

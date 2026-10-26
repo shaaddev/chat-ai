@@ -13,7 +13,6 @@ interface TrayFile {
   id: string;
   mediaType: AttachmentMediaType;
   name: string;
-  /** A local object URL for images, so a thumbnail shows before the upload ends. */
   previewUrl: string | null;
   size: number;
 }
@@ -30,21 +29,21 @@ export interface UploadOptions {
   signal: AbortSignal;
 }
 
+type StoredFileUrl = string;
+
 export interface TrayEffects {
   createId: () => string;
   discard: (url: string) => void;
   notifyFailed: (name: string) => void;
   notifyRejected: (rejections: Rejection[]) => void;
-  /** Uploads one file and resolves with its stored URL. */
-  upload: (file: File, options: UploadOptions) => Promise<string>;
+  upload: (file: File, options: UploadOptions) => Promise<StoredFileUrl>;
 }
 
 export type TrayReadiness = "empty" | "uploading" | "ready";
 
 export interface AttachmentTray {
   add: (files: File[]) => void;
-  /** Empties the tray after a send. Done uploads now belong to the message. */
-  clear: () => void;
+  clearAfterSend: () => void;
   getItems: () => readonly TrayItem[];
   remove: (id: string) => void;
   retry: (id: string) => void;
@@ -181,7 +180,7 @@ export function createAttachmentTray(effects: TrayEffects): AttachmentTray {
         start(item.id, file);
       }
     },
-    clear: () => {
+    clearAfterSend: () => {
       for (const item of items) {
         cancel(item);
         release(item);

@@ -11,21 +11,27 @@ const textPartSchema = z.object({
   text: z.string().min(1).max(100_000), // Allow up to ~100k characters for large inputs
 });
 
-const filePartSchema = z
+const currentFilePartSchema = z.object({
+  type: z.enum(["file"]),
+  mediaType: z.enum(ATTACHMENT_MEDIA_TYPES),
+  filename: z.string().min(1).max(255),
+  size: z.number().int().nonnegative().max(ATTACHMENT_MAX_BYTES),
+  url: z.string().url(),
+});
+
+const preInlineAttachmentFilePartSchema = z
   .object({
     type: z.enum(["file"]),
     mediaType: z.enum(ATTACHMENT_MEDIA_TYPES),
-    filename: z.string().min(1).max(255).optional(),
-    // Parts saved before inline attachments carry `name` and no size, and an
-    // edit resends a message's saved parts.
-    name: z.string().min(1).max(255).optional(),
-    size: z.number().int().nonnegative().max(ATTACHMENT_MAX_BYTES).optional(),
+    name: z.string().min(1).max(255),
     url: z.string().url(),
   })
-  .transform(({ name, ...part }) => ({
-    ...part,
-    filename: part.filename ?? name,
-  }));
+  .transform(({ name, ...part }) => ({ ...part, filename: name }));
+
+const filePartSchema = z.union([
+  currentFilePartSchema,
+  preInlineAttachmentFilePartSchema,
+]);
 
 const partSchema = z.union([textPartSchema, filePartSchema]);
 

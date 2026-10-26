@@ -187,7 +187,7 @@ describe("attachment tray", () => {
     uploads[0].resolve("https://files.test/sent.png");
     await settle();
 
-    tray.clear();
+    tray.clearAfterSend();
 
     expect(tray.getItems()).toEqual([]);
     expect(discarded).toEqual([]);

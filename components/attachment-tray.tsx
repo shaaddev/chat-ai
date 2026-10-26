@@ -82,21 +82,17 @@ const uploadEffects: TrayEffects = {
   },
 };
 
-const trays = new Map<string, AttachmentTray>();
+const traysForThisTab = new Map<string, AttachmentTray>();
 
-/**
- * One tray per chat for the life of the tab, so a draft's attachments and
- * its unfinished uploads survive moving between chats.
- */
 export function getAttachmentTray(chatId: string): AttachmentTray {
-  const existing = trays.get(chatId);
+  const existing = traysForThisTab.get(chatId);
   if (existing) {
     return existing;
   }
   const tray = createAttachmentTray(uploadEffects);
-  // A server render gets a throwaway tray so requests never share one.
-  if (typeof window !== "undefined") {
-    trays.set(chatId, tray);
+  const isBrowser = typeof window !== "undefined";
+  if (isBrowser) {
+    traysForThisTab.set(chatId, tray);
   }
   return tray;
 }

@@ -166,7 +166,7 @@ export function ChatInput({
     }
 
     clearChatInputState(chatId);
-    tray.clear();
+    tray.clearAfterSend();
     setInput("");
     // Note: we intentionally do NOT reset useSearch — it persists across
     // submissions and is the user's global preference.
