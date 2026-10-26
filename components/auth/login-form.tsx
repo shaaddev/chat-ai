@@ -106,7 +106,7 @@ export function LoginForm({
               disabled={isPending}
               type="submit"
             >
-              {isPending ? "Sending Email..." : "Continue with Email"}
+              {isPending ? "Sending email..." : "Continue with email"}
             </Button>
           </form>
         </Form>

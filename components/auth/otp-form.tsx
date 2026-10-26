@@ -29,13 +29,7 @@ const schema = z.object({
   }),
 });
 
-export function OTPForm({
-  email,
-  isSignUp = false,
-}: {
-  email: string;
-  isSignUp?: boolean;
-}) {
+export function OTPForm({ email }: { email: string }) {
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -50,21 +44,10 @@ export function OTPForm({
     setIsPending(true);
 
     try {
-      let result;
-
-      if (isSignUp) {
-        // For signup, verify the email
-        result = await authClient.emailOtp.verifyEmail({
-          email,
-          otp: values.pin,
-        });
-      } else {
-        // For sign-in, use the sign-in method
-        result = await authClient.signIn.emailOtp({
-          email,
-          otp: values.pin,
-        });
-      }
+      const result = await authClient.signIn.emailOtp({
+        email,
+        otp: values.pin,
+      });
 
       if (result.error) {
         toast.error("Error!", {
@@ -74,9 +57,7 @@ export function OTPForm({
         // Ensure client state sees the new session
         await refreshChats();
         toast.success("Success!", {
-          description: isSignUp
-            ? "Your account has been verified!"
-            : "You're now signed in!",
+          description: "You're now signed in!",
         });
         router.replace("/");
         router.refresh();
