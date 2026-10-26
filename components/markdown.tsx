@@ -16,7 +16,7 @@ const components: Partial<Components> = {
       // @ts-expect-error - Next link prop typing collides with anchor props
       <Link
         {...props}
-        className="text-primary underline-offset-2 transition-colors hover:underline"
+        className="text-primary underline decoration-primary/40 underline-offset-2 transition-colors hover:decoration-primary"
         rel="noreferrer"
         target="_blank"
       >
@@ -100,7 +100,6 @@ const PROSE_CLASSES = [
   "[&_ul]:mt-0 [&_ul]:mb-3.5 [&_ul]:list-outside [&_ul]:list-disc [&_ul]:pl-[22px]",
   "[&_ol]:mt-0 [&_ol]:mb-3.5 [&_ol]:list-outside [&_ol]:list-decimal [&_ol]:pl-[22px]",
   "[&_li]:my-[3px] [&_li]:py-0 [&_li]:pl-1 [&_li]:marker:text-muted-foreground",
-  "[&_a]:text-primary [&_a]:underline-offset-2 hover:[&_a]:underline",
   "[&_code]:rounded-md [&_code]:bg-code [&_code]:px-1.5 [&_code]:py-px [&_code]:font-mono [&_code]:text-[13px]",
   "[&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:leading-[1.55]",
   "[&_blockquote]:my-4 [&_blockquote]:border-muted-foreground/40 [&_blockquote]:border-l-2 [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground",
