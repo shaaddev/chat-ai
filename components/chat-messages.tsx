@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useMessages } from "@/hooks/use-message";
-import { image_models } from "@/lib/ai/models";
+import { findChatModel } from "@/lib/ai/models";
 import type { ExportFormat } from "@/lib/document-export";
 import type { ChatMessage } from "@/lib/types";
 import { PreviewMessage } from "./chat-message";
@@ -191,9 +191,8 @@ function PureMessages({
     lastAssistantMessageId = null;
   }
 
-  const isImageModelSelected = image_models.some(
-    (im) => im.id === selectedChatModel
-  );
+  const isImageModelSelected =
+    findChatModel(selectedChatModel)?.kind === "image";
 
   // Scroll the just-sent user message to the top of the viewport once per
   // submission. Tracked by ref so we don't re-fire on every re-render.

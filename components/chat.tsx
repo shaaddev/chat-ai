@@ -11,7 +11,12 @@ import {
 } from "@/components/chat-context";
 import { Button } from "@/components/ui/button";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { image_models } from "@/lib/ai/models";
+import {
+  type ChatModelId,
+  DEFAULT_CHAT_MODEL,
+  findChatModel,
+  getChatModel,
+} from "@/lib/ai/models";
 import type { Session } from "@/lib/auth";
 import type { ExportFormat } from "@/lib/document-export";
 import { extractSources } from "@/lib/sources";
@@ -103,6 +108,22 @@ function getLatestConversationMessages(messages: ChatMessage[]) {
   return { latestAssistantMessage, latestUserMessage };
 }
 
+// The cookie only seeds the next page load. A server action could set it
+// too, but its response re-renders the whole page, message list included.
+function persistChatModel(modelId: ChatModelId) {
+  if (!("cookieStore" in window)) {
+    return;
+  }
+  window.cookieStore.set("chat-model", modelId).catch(() => undefined);
+}
+
+interface ChatRequestSettings {
+  autoDocumentGeneration: boolean;
+  customSystemPrompt: string | undefined;
+  selectedChatModel: ChatModelId;
+  useSearch: boolean;
+}
+
 interface ChatProps {
   id: string;
   initialChatModel: string;
@@ -123,6 +144,9 @@ export function Chat({
   const { getChatInputState, setChatInputState, clearChatInputState } =
     useChatDraft();
   const [isNewChat, setIsNewChat] = useState(initialMessages?.length === 0);
+  const [selectedModelId, setSelectedModelId] = useState<ChatModelId>(
+    () => findChatModel(initialChatModel)?.id ?? DEFAULT_CHAT_MODEL
+  );
 
   const [input, setInput] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -167,27 +191,43 @@ export function Chat({
     setAutoDocumentGeneration(persistedState.autoDocumentGeneration);
   }, [getChatInputState, id]);
 
+  const handleSelectModel = useCallback((modelId: ChatModelId) => {
+    setSelectedModelId(modelId);
+    persistChatModel(modelId);
+  }, []);
+
+  const requestSettings: ChatRequestSettings = {
+    autoDocumentGeneration,
+    customSystemPrompt,
+    selectedChatModel: selectedModelId,
+    useSearch,
+  };
+  const requestSettingsRef = useRef(requestSettings);
+  useEffect(() => {
+    requestSettingsRef.current = requestSettings;
+  });
+
+  const [transport] = useState(
+    () =>
+      new DefaultChatTransport<ChatMessage>({
+        api: "/api/chat",
+        fetch: fetchWithErrorHandlers,
+        prepareSendMessagesRequest: ({ messages: outgoing, id: chatId }) => ({
+          body: {
+            id: chatId,
+            message: outgoing.at(-1),
+            ...requestSettingsRef.current,
+          },
+        }),
+      })
+  );
+
   const { messages, sendMessage, status, setMessages, stop } =
     useChat<ChatMessage>({
       id,
       messages: initialMessages,
       generateId: generateUUID,
-      transport: new DefaultChatTransport({
-        api: "/api/chat",
-        fetch: fetchWithErrorHandlers,
-        prepareSendMessagesRequest({ messages: outgoing, id: chatId, body }) {
-          return {
-            body: {
-              id: chatId,
-              message: outgoing.at(-1),
-              selectedChatModel: initialChatModel,
-              customSystemPrompt,
-              autoDocumentGeneration,
-              ...body,
-            },
-          };
-        },
-      }),
+      transport,
       onError: (err) => {
         toast.error("Error", {
           description: err.message,
@@ -264,7 +304,7 @@ export function Chat({
   ]);
 
   const prevStatusRef = useRef(status);
-  const isImageModel = image_models.some((m) => m.id === initialChatModel);
+  const isImageModel = getChatModel(selectedModelId).kind === "image";
 
   useEffect(() => {
     if (status === "streaming" || status === "ready" || status === "error") {
@@ -382,7 +422,7 @@ export function Chat({
               messages={messages}
               onOpenDocumentBuilder={openDocumentBuilder}
               onSuggestionClick={handleSuggestionClick}
-              selectedChatModel={initialChatModel}
+              selectedChatModel={selectedModelId}
               status={status}
             />
 
@@ -395,9 +435,10 @@ export function Chat({
                 chatId={id}
                 clearChatInputState={clearChatInputState}
                 customSystemPrompt={customSystemPrompt}
-                initialChatModel={initialChatModel}
                 input={input}
                 isAuthenticated={isAuthenticated}
+                onSelectModel={handleSelectModel}
+                selectedModelId={selectedModelId}
                 sendMessage={sendMessage}
                 setAttachments={setAttachments}
                 setAutoDocumentGeneration={setAutoDocumentGeneration}

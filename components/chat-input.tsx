@@ -27,6 +27,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
+import type { ChatModelId } from "@/lib/ai/models";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { LoginContent } from "./auth/login-content";
@@ -40,9 +41,10 @@ interface ChatInputProps {
   chatId: string | undefined;
   clearChatInputState: (chatId: string) => void;
   customSystemPrompt?: string;
-  initialChatModel: string;
   input: string;
   isAuthenticated?: boolean;
+  onSelectModel: (modelId: ChatModelId) => void;
+  selectedModelId: ChatModelId;
   sendMessage: UseChatHelpers<ChatMessage>["sendMessage"];
   setAttachments: Dispatch<SetStateAction<Attachment[]>>;
   setAutoDocumentGeneration: Dispatch<SetStateAction<boolean>>;
@@ -62,7 +64,8 @@ export function ChatInput({
   stop,
   status,
   chatId,
-  initialChatModel,
+  onSelectModel,
+  selectedModelId,
   isAuthenticated,
   attachments,
   setAttachments,
@@ -107,24 +110,21 @@ export function ChatInput({
     });
 
     try {
-      sendMessage(
-        {
-          role: "user",
-          parts: [
-            ...attachments.map((attachment) => ({
-              type: "file" as const,
-              name: attachment.name,
-              mediaType: attachment.contentType,
-              url: attachment.url,
-            })),
-            {
-              type: "text",
-              text: input,
-            },
-          ],
-        },
-        { body: { useSearch, customSystemPrompt, autoDocumentGeneration } }
-      );
+      sendMessage({
+        role: "user",
+        parts: [
+          ...attachments.map((attachment) => ({
+            type: "file" as const,
+            name: attachment.name,
+            mediaType: attachment.contentType,
+            url: attachment.url,
+          })),
+          {
+            type: "text",
+            text: input,
+          },
+        ],
+      });
     } catch (error) {
       setChatLoading(chatId, false);
       throw error;
@@ -145,10 +145,7 @@ export function ChatInput({
     attachments,
     setAttachments,
     input,
-    useSearch,
-    autoDocumentGeneration,
     clearChatInputState,
-    customSystemPrompt,
   ]);
 
   useEffect(() => {
@@ -251,7 +248,10 @@ export function ChatInput({
 
         <div className="flex items-center justify-between gap-2 px-3 py-2">
           <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
-            <ModelsPopover selectedModelId={initialChatModel} />
+            <ModelsPopover
+              onSelectModel={onSelectModel}
+              selectedModelId={selectedModelId}
+            />
             <button
               aria-pressed={useSearch}
               className={cn(

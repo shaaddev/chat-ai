@@ -3,7 +3,7 @@
 import { Check, Copy, Globe } from "lucide-react";
 import { memo, useState } from "react";
 import { useSmoothText } from "@/hooks/use-smooth-text";
-import { image_models, stable_models } from "@/lib/ai/models";
+import { findChatModel } from "@/lib/ai/models";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { cn, sanitizeText } from "@/lib/utils";
 import { Markdown } from "./markdown";
@@ -22,10 +22,7 @@ function getModelName(modelId: string | null | undefined) {
   if (!modelId) {
     return null;
   }
-  const model =
-    stable_models.find((m) => m.id === modelId) ||
-    image_models.find((m) => m.id === modelId);
-  return model?.name || modelId;
+  return findChatModel(modelId)?.name ?? modelId;
 }
 
 function getAttachmentName(part: Record<string, unknown>) {

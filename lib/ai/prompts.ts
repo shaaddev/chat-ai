@@ -1,31 +1,28 @@
-// general prompt
+import type { ChatModel } from "./models";
+
 export const regularPrompt = `
-  You are a friendly assistant! Keep your responses concise and helpful. 
+  You are a friendly assistant! Keep your responses concise and helpful.
 `;
 
 export const openAIPrompt = `
   You are a friendly assistant! Answer all questions concise
 `;
 
-// edit this to suit each model
+export const titlePrompt = `\n
+    - you will generate a short title based on the first message a user begins a conversation with
+    - ensure it is not more than 80 characters long
+    - the title should be a summary of the user's message
+    - do not use quotes or colons`;
+
 export const systemPrompt = ({
-  selectedChatModel,
+  model,
   customSystemPrompt,
 }: {
-  selectedChatModel: string;
+  model: ChatModel;
   customSystemPrompt?: string;
 }) => {
-  // If the user has set a custom system prompt for this chat, use it
   if (customSystemPrompt) {
     return customSystemPrompt;
   }
-
-  if (
-    selectedChatModel === "chat-o3-mini" ||
-    selectedChatModel === "chat-4o-mini" ||
-    selectedChatModel === "chat-5-mini"
-  ) {
-    return openAIPrompt;
-  }
-  return regularPrompt;
+  return model.provider === "openai" ? openAIPrompt : regularPrompt;
 };

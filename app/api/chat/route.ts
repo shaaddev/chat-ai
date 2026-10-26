@@ -14,15 +14,10 @@ import {
   createResumableStreamContext,
   type ResumableStreamContext,
 } from "resumable-stream";
-import { generateTitleFromUserMessage } from "@/app/actions";
 import { auth } from "@/app/auth";
-import {
-  getLanguageModel,
-  IMAGE_MODEL_SLUGS,
-  image_models,
-  stable_models,
-} from "@/lib/ai/models";
+import { getChatModel } from "@/lib/ai/models";
 import { systemPrompt } from "@/lib/ai/prompts";
+import { generateChatTitle, getLanguageModel } from "@/lib/ai/providers";
 import {
   createStreamId,
   getChatById,
@@ -174,6 +169,7 @@ export async function POST(req: Request) {
       autoDocumentGeneration: boolean;
       customSystemPrompt?: string;
     } = requestBody;
+    const model = getChatModel(requestBody.selectedChatModel);
 
     const latestUserText = message.parts
       .filter((part) => part.type === "text")
@@ -192,7 +188,7 @@ export async function POST(req: Request) {
     const existingChat = await getChatById(id);
 
     if (!existingChat && session) {
-      const title = await generateTitleFromUserMessage({ message });
+      const title = await generateChatTitle(message);
       await saveChat({
         id,
         userId: session.user.id,
@@ -219,14 +215,6 @@ export async function POST(req: Request) {
       },
     ]);
 
-    const selectedModel =
-      stable_models.find((model) => model.id === selectedChatModel) ||
-      image_models.find((model) => model.id === selectedChatModel);
-
-    if (!selectedModel) {
-      return new Response("Invalid model selected", { status: 400 });
-    }
-
     const streamId = generateUUID();
     await createStreamId({ streamId, chatId: id });
 
@@ -245,11 +233,7 @@ export async function POST(req: Request) {
     const stream = createUIMessageStream({
       execute: async ({ writer: dataStream }) => {
         try {
-          const isImageModel = image_models.some(
-            (m) => m.id === selectedChatModel
-          );
-
-          if (isImageModel) {
+          if (model.kind === "image") {
             try {
               const response = await fetch(
                 "https://openrouter.ai/api/v1/chat/completions",
@@ -264,7 +248,7 @@ export async function POST(req: Request) {
                     "X-Title": "Chat AI - Shaad",
                   },
                   body: JSON.stringify({
-                    model: IMAGE_MODEL_SLUGS[selectedChatModel],
+                    model: model.slug,
                     messages: [
                       {
                         role: "user",
@@ -471,11 +455,11 @@ export async function POST(req: Request) {
               customSystemPrompt ?? existingChat?.systemPrompt ?? undefined;
 
             const res = streamText({
-              model: getLanguageModel(selectedChatModel, {
+              model: getLanguageModel(model.slug, {
                 useWebSearch: useSearch,
               }),
               instructions: systemPrompt({
-                selectedChatModel,
+                model,
                 customSystemPrompt: effectiveSystemPrompt,
               }),
               messages: await convertToModelMessages(uiMessages),

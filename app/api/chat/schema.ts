@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CHAT_MODEL_IDS } from "@/lib/ai/models";
 
 const textPartSchema = z.object({
   type: z.enum(["text"]),
@@ -26,14 +27,7 @@ export const postRequestBodySchema = z.object({
     role: z.enum(["user"]),
     parts: z.array(partSchema),
   }),
-  selectedChatModel: z.enum([
-    "google-model-3-1-flash-lite",
-    "google-model-2-5-flash-lite",
-    "chat-5-mini",
-    // image models
-    "chat-image-1-mini",
-    "chat-gemini-2-5-flash-image",
-  ]),
+  selectedChatModel: z.enum(CHAT_MODEL_IDS),
   useSearch: z.boolean().optional().default(false),
   autoDocumentGeneration: z.boolean().optional().default(false),
   customSystemPrompt: z.string().optional(),
