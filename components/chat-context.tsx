@@ -215,6 +215,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   );
   const chatInputStatesRef = useRef<Map<string, ChatInputState>>(new Map());
   const pendingDeletesRef = useRef<Map<string, PendingDelete>>(new Map());
+  const inFlightDeletesRef = useRef<Set<Promise<void>>>(new Set());
   const lastPinRequestRef = useRef<Map<string, Promise<Response | null>>>(
     new Map()
   );
@@ -232,9 +233,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const flushPendingDeletes = useCallback(async () => {
-    await Promise.all(
-      [...pendingDeletesRef.current.values()].map((pending) => pending.commit())
-    );
+    await Promise.all([
+      ...[...pendingDeletesRef.current.values()].map((pending) =>
+        pending.commit()
+      ),
+      ...inFlightDeletesRef.current,
+    ]);
   }, []);
 
   const updateCachedChats = useCallback(
@@ -317,11 +321,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           setPendingEdits((edits) => withoutEdit(edits, chatId, edit));
         }
       };
-      const commit = async () => {
-        if (!settle()) {
-          return;
-        }
-        toast.dismiss(toastId);
+      const send = async () => {
         const res = await sendChatRequest(chatId, { method: "DELETE" });
         if (res && (res.ok || res.status === 404)) {
           await forget();
@@ -331,6 +331,21 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           });
         }
         setPendingEdits((edits) => withoutEdit(edits, chatId, edit));
+      };
+      // Logout awaits in-flight deletes too, so one already sent when the
+      // toast closed still lands before the session ends.
+      const commit = async () => {
+        if (!settle()) {
+          return;
+        }
+        toast.dismiss(toastId);
+        const request = send();
+        inFlightDeletesRef.current.add(request);
+        try {
+          await request;
+        } finally {
+          inFlightDeletesRef.current.delete(request);
+        }
       };
       // After a back/forward-cache restore the page comes back as it was, so
       // the toast must already be gone or its Undo would show a deleted chat.
