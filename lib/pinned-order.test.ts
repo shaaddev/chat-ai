@@ -130,6 +130,20 @@ describe("pinnedKeyForDrop", () => {
     expect(order).toEqual(["first", "twin-a", "twin-b", "new", "last"]);
   });
 
+  test("previews a drop between chats that share a key where it saves", () => {
+    const chats = [
+      chat("a", "a1"),
+      chat("b", "a1"),
+      chat("c", "a2"),
+      chat("x"),
+    ];
+
+    const preview = ids(placeChat(chats, "x", at(1)).pinned);
+
+    expect(preview).toEqual(["a", "b", "x", "c"]);
+    expect(pinnedOrder(drop(chats, "x", at(1)))).toEqual(preview);
+  });
+
   test("keeps every key valid for the PATCH route across many drops", () => {
     let chats: Pinnable[] = Array.from({ length: 8 }, (_, index) =>
       chat(`chat-${index}`)

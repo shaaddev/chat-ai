@@ -77,6 +77,21 @@ export function currentTargetOf(
 }
 
 /** The rail with one chat moved to `target`, as it looks once the drop saves. */
+// Two devices can pin chats with the same key, and no key sorts strictly
+// between equal keys. A drop inside such a run lands after it, so the preview
+// and the saved order agree.
+function landingIndex(others: readonly Pinnable[], index: number): number {
+  let landing = clampIndex(index, others.length);
+  while (
+    landing > 0 &&
+    landing < others.length &&
+    others[landing].pinnedKey === others[landing - 1].pinnedKey
+  ) {
+    landing += 1;
+  }
+  return landing;
+}
+
 export function placeChat<T extends Pinnable>(
   chats: readonly T[],
   chatId: string,
@@ -92,7 +107,7 @@ export function placeChat<T extends Pinnable>(
   if (target.zone === "unpinned") {
     return { pinned: others, unpinned: [...rest, chat] };
   }
-  const index = clampIndex(target.index, others.length);
+  const index = landingIndex(others, target.index);
   return {
     pinned: [...others.slice(0, index), chat, ...others.slice(index)],
     unpinned: rest,
@@ -113,19 +128,13 @@ export function pinnedKeyForDrop(
   }
   const { pinned } = splitPinned(chats);
   const others = pinned.filter(({ id }) => id !== chatId);
-  const index = clampIndex(target.index, others.length);
+  const index = landingIndex(others, target.index);
   const current = pinned.findIndex(({ id }) => id === chatId);
   if (current === index) {
     return pinned[current].pinnedKey;
   }
   const before = others[index - 1]?.pinnedKey ?? null;
-  // Two devices can pin chats with the same key, and no key sorts strictly
-  // between equal keys, so the upper bound is the next larger key.
-  const after =
-    others
-      .slice(index)
-      .find((chat) => before === null || chat.pinnedKey > before)?.pinnedKey ??
-    null;
+  const after = others[index]?.pinnedKey ?? null;
   return generateKeyBetween(before, after);
 }
 
