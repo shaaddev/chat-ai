@@ -449,6 +449,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       const edit: PendingEdit = { kind: "pin", pinnedKey };
       setPendingEdits((edits) => withEdit(edits, chat.id, edit));
 
+      const sentWhileLoading = loadingChatsRef.current.has(chat.id);
       const previous = lastPinRequestRef.current.get(chat.id);
       const request = (previous ?? Promise.resolve(null)).then(() =>
         sendChatRequest(chat.id, {
@@ -470,14 +471,21 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           )
         );
       } else {
+        const failure = editFailure(res, sentWhileLoading);
+        if (failure === "deleted") {
+          await forgetChat(chat.id);
+        }
+        const reason = EDIT_FAILURE_REASONS[failure];
         toast.error(pinFailure(chat.pinnedKey, pinnedKey), {
           description:
-            "It's back where it was. Check your connection and try again.",
+            failure === "deleted"
+              ? reason
+              : `It's back where it was. ${reason}`,
         });
       }
       setPendingEdits((edits) => withoutEdit(edits, chat.id, edit));
     },
-    [updateCachedChats]
+    [forgetChat, updateCachedChats]
   );
 
   const setChatLoading = useCallback((chatId: string, isLoading: boolean) => {
