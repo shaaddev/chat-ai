@@ -17,8 +17,9 @@ import {
   getChatModel,
 } from "@/lib/ai/models";
 import type { Session } from "@/lib/auth";
+import { ChatSDKError } from "@/lib/errors";
 import { extractSources, type Source } from "@/lib/sources";
-import type { Attachment, ChatMessage, DocumentDraft } from "@/lib/types";
+import type { ChatMessage, DocumentDraft } from "@/lib/types";
 import {
   cn,
   fetchWithErrorHandlers,
@@ -27,6 +28,7 @@ import {
 } from "@/lib/utils";
 import { ChatInput } from "./chat-input";
 import { Messages } from "./chat-messages";
+import { AttachmentDropZone } from "./drop-overlay";
 import { EmptyGreeting, SuggestionChips } from "./empty-chat-state";
 
 const DRAFT_SAVE_DELAY_MS = 200;
@@ -218,7 +220,6 @@ export function Chat({
   );
 
   const [input, setInput] = useState("");
-  const [attachments, setAttachments] = useState<Attachment[]>([]);
   // Web search defaults ON. The actual user-preferred default is hydrated
   // from localStorage on mount via `getChatInputState` below.
   const [useSearch, setUseSearch] = useState(true);
@@ -251,7 +252,6 @@ export function Chat({
   useEffect(() => {
     const persistedState = getChatInputState(id);
     setInput(persistedState.input);
-    setAttachments(persistedState.attachments);
     setUseSearch(persistedState.useSearch);
     setAutoDocumentGeneration(persistedState.autoDocumentGeneration);
   }, [getChatInputState, id]);
@@ -323,7 +323,10 @@ export function Chat({
       },
       onError: (err) => {
         toast.error("Error", {
-          description: err.message,
+          description:
+            err instanceof ChatSDKError && typeof err.cause === "string"
+              ? err.cause
+              : err.message,
         });
       },
     });
@@ -396,21 +399,13 @@ export function Chat({
     const timeoutId = window.setTimeout(() => {
       setChatInputState(id, {
         input,
-        attachments,
         useSearch,
         autoDocumentGeneration,
       });
     }, DRAFT_SAVE_DELAY_MS);
 
     return () => window.clearTimeout(timeoutId);
-  }, [
-    attachments,
-    useSearch,
-    autoDocumentGeneration,
-    id,
-    input,
-    setChatInputState,
-  ]);
+  }, [useSearch, autoDocumentGeneration, id, input, setChatInputState]);
 
   const prevStatusRef = useRef(status);
   const selectedModel = getChatModel(selectedModelId);
@@ -456,7 +451,11 @@ export function Chat({
 
   return (
     <div className="flex h-full min-h-0 w-full">
-      <div className="flex w-full min-w-0 flex-1 flex-col">
+      <AttachmentDropZone
+        chatId={id}
+        className="flex w-full min-w-0 flex-1 flex-col"
+        isAuthenticated={isAuthenticated}
+      >
         <ChatHeader chatId={id} savedTitle={initialTitle} />
 
         <div className="relative flex min-h-0 w-full flex-1 flex-col">
@@ -484,7 +483,6 @@ export function Chat({
           >
             {isEmpty ? <EmptyGreeting name={session?.user.name} /> : null}
             <MemoizedChatInput
-              attachments={attachments}
               autoDocumentGeneration={autoDocumentGeneration}
               chatId={id}
               clearChatInputState={clearChatInputState}
@@ -494,7 +492,6 @@ export function Chat({
               onSelectModel={handleSelectModel}
               selectedModelId={selectedModelId}
               sendMessage={sendMessage}
-              setAttachments={setAttachments}
               setAutoDocumentGeneration={setAutoDocumentGeneration}
               setCustomSystemPrompt={setCustomSystemPrompt}
               setInput={setInput}
@@ -509,7 +506,7 @@ export function Chat({
             ) : null}
           </div>
         </div>
-      </div>
+      </AttachmentDropZone>
       {isDocumentSheetOpen ? (
         <LazyDocumentSheet
           initialMarkdown={documentDraft?.markdown}

@@ -24,6 +24,7 @@ import {
 } from "@/lib/ai/providers";
 import {
   getChatById,
+  getMessagesByChatId,
   ownsUploads,
   saveChat,
   saveReplyIfLatestTurn,
@@ -351,6 +352,22 @@ export async function POST(req: Request) {
     const existingChat = await getChatById(id);
     if (existingChat && existingChat.userId !== userId) {
       return new Response("Unauthorized", { status: 401 });
+    }
+
+    // The schema checks a new message. A regenerate reuses a saved one, so
+    // check it here, before the turn is saved.
+    if (turn.type === "regenerate" && model.kind === "image") {
+      const [target] = convertToUIMessages(
+        (await getMessagesByChatId(id)).filter(
+          ({ id: messageId }) => messageId === turn.userMessageId
+        )
+      );
+      if (target && !getUserText(target.parts)) {
+        return new ChatSDKError(
+          "bad_request:api",
+          "Image models need a text prompt. Describe the image you want."
+        ).toResponse();
+      }
     }
 
     if (turn.type !== "regenerate") {

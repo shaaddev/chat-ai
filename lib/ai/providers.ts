@@ -31,7 +31,12 @@ const TITLE_EDGE_PUNCTUATION = /^["'“”‘’]+|["'“”‘’.!?:]+$/g;
 
 function messageText(message: ChatMessage) {
   return message.parts
-    .flatMap((part) => (part.type === "text" ? [part.text] : []))
+    .flatMap((part) => {
+      if (part.type === "text") {
+        return [part.text];
+      }
+      return part.type === "file" && part.filename ? [part.filename] : [];
+    })
     .join("\n")
     .slice(0, 2000);
 }
