@@ -1,5 +1,6 @@
 /// <reference types="bun-types/test" />
 import { describe, expect, test } from "bun:test";
+import { spawnSync } from "node:child_process";
 import {
   LOAD_TIMEOUT_MS,
   OUTPUT_LIMIT_WITH_OVERFLOW_SENTINEL,
@@ -403,26 +404,88 @@ describe("sandbox frame", () => {
   });
 });
 
-async function runInWorker(code: string, waitMs = 2000) {
-  const url = URL.createObjectURL(
-    new Blob([WORKER_SCRIPT], { type: "text/javascript" })
+type TaskOrder = "timer first" | "rejection first";
+
+// HTML reports an unhandled rejection in a task from a different source than
+// timers, and a browser may run either source first. Chromium runs the timer.
+// Bun's Worker never fires unhandledrejection, so the worker script runs in a
+// child process whose timers and rejection reports are explicit queues.
+const workerProcess = (code: string, order: TaskOrder) => `
+const { writeSync } = require("node:fs");
+const TIMER_FIRST = ${order === "timer first"};
+const realSetTimeout = setTimeout;
+const listeners = new Map();
+const timers = new Map();
+const reports = [];
+let now = 0;
+let nextId = 1;
+let scheduled = false;
+globalThis.postMessage = (message) => {
+  writeSync(1, JSON.stringify(message) + "\\n");
+  if (message.type === "exit") process.exit(0);
+};
+globalThis.addEventListener = (type, handler) => listeners.set(type, handler);
+globalThis.setTimeout = (callback, delay = 0, ...args) => {
+  const id = nextId++;
+  timers.set(id, { at: now + delay, run: () => callback(...args) });
+  schedule();
+  return id;
+};
+globalThis.setInterval = (callback, delay = 0, ...args) => {
+  const id = nextId++;
+  const arm = () => timers.set(id, { at: now + Math.max(1, delay), run: () => { arm(); callback(...args); } });
+  arm();
+  schedule();
+  return id;
+};
+globalThis.clearTimeout = globalThis.clearInterval = (id) => timers.delete(id);
+process.on("unhandledRejection", (reason) => {
+  reports.push(() => listeners.get("unhandledrejection")({ reason, preventDefault() {}, stopImmediatePropagation() {} }));
+  schedule();
+});
+function nextTimer() {
+  let next = null;
+  for (const entry of timers) if (!next || entry[1].at < next[1].at) next = entry;
+  if (!next) return null;
+  timers.delete(next[0]);
+  now = Math.max(now, next[1].at);
+  return next[1].run;
+}
+function schedule() {
+  if (scheduled) return;
+  scheduled = true;
+  realSetTimeout(step, 1);
+}
+function step() {
+  scheduled = false;
+  const task = TIMER_FIRST ? nextTimer() ?? reports.shift() : reports.shift() ?? nextTimer();
+  if (!task) return;
+  try {
+    task();
+  } finally {
+    schedule();
+  }
+}
+${WORKER_SCRIPT}
+listeners.get("message")({ data: { type: "run", runtime: "javascript", code: ${JSON.stringify(code)} } });
+`;
+
+function runInWorker(
+  code: string,
+  {
+    order = "timer first",
+    waitMs = 2000,
+  }: { order?: TaskOrder; waitMs?: number } = {}
+) {
+  const child = spawnSync(
+    process.execPath,
+    ["--eval", workerProcess(code, order)],
+    { encoding: "utf8", timeout: waitMs }
   );
-  const worker = new Worker(url);
-  const messages: Message[] = [];
-  const exited = new Promise<void>((resolve) => {
-    worker.onmessage = (event: MessageEvent<Message>) => {
-      messages.push(event.data);
-      if (event.data.type === "exit") {
-        resolve();
-      }
-    };
-  });
-  worker.postMessage({ type: "run", runtime: "javascript", code });
-  await Promise.race([
-    exited,
-    new Promise((resolve) => setTimeout(resolve, waitMs)),
-  ]);
-  worker.terminate();
+  const messages: Message[] = child.stdout
+    .split("\n")
+    .filter((line) => line !== "")
+    .map((line) => JSON.parse(line));
   const text = (stream: string) =>
     messages
       .filter((m) => m.type === "output" && m.stream === stream)
@@ -436,8 +499,8 @@ async function runInWorker(code: string, waitMs = 2000) {
 }
 
 describe("sandbox worker", () => {
-  test("formats console output the way Node does", async () => {
-    const { stdout, stderr, exit } = await runInWorker(
+  test("formats console output the way Node does", () => {
+    const { stdout, stderr, exit } = runInWorker(
       `console.log(1, "a", { name: "Ada", langs: ["js"] }, [1, [2, [3, [4]]]], new Map([["k", 1]]), new Set([1]), null, undefined, 10n);
 console.log("%s has %d items", "cart", 3);
 console.error("careful");`
@@ -449,46 +512,100 @@ console.error("careful");`
     expect(exit).toEqual({ type: "exit", exit: "done", detail: null });
   });
 
-  test("waits for timers before it reports done", async () => {
-    const { stdout, exit } = await runInWorker(
+  test("waits for timers before it reports done", () => {
+    const { stdout, exit } = runInWorker(
       `setTimeout(() => console.log("later"), 20); console.log("now");`
     );
     expect(stdout).toBe("now\nlater\n");
     expect(exit?.exit).toBe("done");
   });
 
-  test("sends each write before the program hangs", async () => {
-    const { stdout, exit } = await runInWorker(
+  test("sends each write before the program hangs", () => {
+    const { stdout, exit } = runInWorker(
       `console.log("start"); while (true) {}`,
-      300
+      { waitMs: 300 }
     );
     expect(stdout).toBe("start\n");
     expect(exit).toBeUndefined();
   });
 
-  test("stops writing at the output budget", async () => {
-    const { stdout, exit } = await runInWorker(
+  test("stops writing at the output budget", () => {
+    const { stdout, exit } = runInWorker(
       `console.log("x".repeat(20000)); console.log("more");`
     );
     expect(stdout).toHaveLength(OUTPUT_LIMIT_WITH_OVERFLOW_SENTINEL);
     expect(exit?.exit).toBe("done");
   });
 
-  test("reports an uncaught error as the exit reason", async () => {
-    const { exit } = await runInWorker(`throw new Error("boom");`);
+  test("reports an uncaught error as the exit reason", () => {
+    const { exit } = runInWorker(`throw new Error("boom");`);
     expect(exit?.exit).toBe("error");
     expect(String(exit?.detail)).toStartWith("Uncaught Error: boom");
   });
 
-  test("caps the exit reason", async () => {
-    const { exit } = await runInWorker(`throw new Error("x".repeat(10000));`);
+  test("caps the exit reason", () => {
+    const { exit } = runInWorker(`throw new Error("x".repeat(10000));`);
     expect(String(exit?.detail)).toHaveLength(DETAIL_LIMIT);
   });
 
-  test("gives the program no way to message the frame or spawn workers", async () => {
-    const { stdout } = await runInWorker(
+  test("gives the program no way to message the frame or spawn workers", () => {
+    const { stdout } = runInWorker(
       "console.log(typeof postMessage, typeof self.postMessage, typeof Worker);"
     );
     expect(stdout).toBe("undefined undefined undefined\n");
   });
 });
+
+describe.each(["timer first", "rejection first"] as const)(
+  "sandbox worker with the %s",
+  (order) => {
+    test.each([
+      [
+        "an unawaited async function that throws",
+        "async function main() {\n  console.log('starting');\n  throw new Error('boom');\n}\nmain();",
+        "starting\n",
+        "Uncaught (in promise) Error: boom",
+      ],
+      [
+        "a bare rejection",
+        "Promise.reject(new Error('nope'));",
+        "",
+        "Uncaught (in promise) Error: nope",
+      ],
+      [
+        "a rejection inside a late timer",
+        "setTimeout(() => { Promise.reject(new Error('late')); }, 30);",
+        "",
+        "Uncaught (in promise) Error: late",
+      ],
+      [
+        "a rejection in nested promises",
+        "Promise.resolve().then(() => Promise.resolve().then(() => { throw new Error('deep'); }));",
+        "",
+        "Uncaught (in promise) Error: deep",
+      ],
+    ])("reports %s as an error", (_, code, printed, reason) => {
+      const { stdout, exit } = runInWorker(code, { order });
+      expect(stdout).toBe(printed);
+      expect(exit?.exit).toBe("error");
+      expect(String(exit?.detail)).toStartWith(reason);
+    });
+
+    test.each([
+      [
+        "a handled rejection",
+        "Promise.reject(new Error('x')).catch(() => console.log('caught'));",
+        "caught\n",
+      ],
+      [
+        "an awaited timer",
+        "await new Promise((resolve) => setTimeout(resolve, 20));\nconsole.log('waited');",
+        "waited\n",
+      ],
+    ])("reports %s as done", (_, code, printed) => {
+      const { stdout, exit } = runInWorker(code, { order });
+      expect(stdout).toBe(printed);
+      expect(exit).toEqual({ type: "exit", exit: "done", detail: null });
+    });
+  }
+);
