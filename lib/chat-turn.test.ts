@@ -291,6 +291,47 @@ describe("a turn", () => {
   });
 });
 
+describe("a stop before the response", () => {
+  test("in a saved chat ends the request at once and settles the turn", async () => {
+    const { gate, server } = openChat();
+    await ask(gate, "Hello");
+    await until(() => server.chat.length === 1);
+    const [request] = server.chat;
+
+    gate.chat.stop();
+
+    expect(request.signal?.aborted).toBe(true);
+    await until(() => server.settle.length === 1);
+    expect(server.settle[0].body).toEqual({
+      turnId: request.body.turnId,
+      expectReply: false,
+    });
+  });
+
+  test("in a new chat says it is stopping and waits for the server's answer, however long it takes", async () => {
+    const { gate, server } = openChat([]);
+    await ask(gate, "Hello");
+    await until(() => server.chat.length === 1);
+    const [request] = server.chat;
+
+    jest.useFakeTimers();
+    gate.chat.stop();
+    const status = gate.getStatus();
+    jest.advanceTimersByTime(60_000);
+    jest.useRealTimers();
+
+    expect(status).toEqual({ phase: "running", stopping: true });
+    expect(request.signal?.aborted).toBe(false);
+    expect(server.settle).toHaveLength(0);
+    streamReply(request, { finish: false });
+    await until(() => server.settle.length === 1);
+    expect(request.signal?.aborted).toBe(true);
+    server.settle[0].respond(settled([message("u1", "user", "Hello")], true));
+    await until(() => gate.getStatus().phase === "idle");
+    expect(shown(gate)).toEqual(["user: Hello"]);
+  });
+});
+
 describe("a send while a turn settles", () => {
   const stopBeforeText = async (
     gate: TurnGate,
