@@ -394,7 +394,7 @@ export function Chat({
             </Button>
           </SidebarTrigger>
           <span className="select-none font-serif text-[15px] text-foreground/75 italic tracking-tight">
-            chat<span className="text-accent">.</span>
+            chat<span className="text-primary">.</span>
           </span>
         </header>
 

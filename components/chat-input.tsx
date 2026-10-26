@@ -282,7 +282,7 @@ export function ChatInput({
               className={cn(
                 "inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-full border px-2.5 text-[12px] transition-colors",
                 useSearch
-                  ? "border-accent/40 bg-accent/15 text-foreground"
+                  ? "border-primary/40 bg-primary/15 text-foreground"
                   : "border-foreground/10 text-muted-foreground hover:border-foreground/20 hover:text-foreground"
               )}
               onClick={() => setUseSearch((prev) => !prev)}

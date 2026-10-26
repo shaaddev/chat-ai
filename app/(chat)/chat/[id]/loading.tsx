@@ -9,7 +9,7 @@ export default function Loading() {
       <header className="flex h-14 shrink-0 items-center gap-3 px-4">
         <SidebarTrigger className="rounded-lg" />
         <span className="select-none font-serif text-[15px] text-foreground/75 italic tracking-tight">
-          chat<span className="text-accent">.</span>
+          chat<span className="text-primary">.</span>
         </span>
       </header>
       <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 overflow-hidden px-4 pt-6">

@@ -1,6 +1,6 @@
 import { MotionConfig } from "motion/react";
 import type { Metadata } from "next";
-import { Geist, JetBrains_Mono, Source_Serif_4 } from "next/font/google";
+import { Geist_Mono, Instrument_Sans } from "next/font/google";
 import "./globals.css";
 import { ChatProvider } from "@/components/chat-context";
 import { PerformanceMonitor } from "@/components/performance-monitor";
@@ -27,27 +27,17 @@ export const viewport = {
   initialScale: 1,
 };
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const instrumentSans = Instrument_Sans({
+  variable: "--font-instrument-sans",
   subsets: ["latin"],
   display: "swap",
-  preload: true,
 });
 
-const sourceSerif = Source_Serif_4({
-  variable: "--font-source-serif",
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
   subsets: ["latin"],
   display: "swap",
-  preload: true,
-  weight: ["400", "500", "600", "700"],
-  style: ["normal", "italic"],
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-jetbrains-mono",
-  subsets: ["latin"],
-  display: "swap",
-  preload: true,
+  preload: false,
 });
 
 export default function RootLayout({
@@ -58,17 +48,10 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <link href="https://fonts.googleapis.com" rel="preconnect" />
-        <link
-          crossOrigin="anonymous"
-          href="https://fonts.gstatic.com"
-          rel="preconnect"
-        />
-        <link href="//fonts.googleapis.com" rel="dns-prefetch" />
         <link href="/manifest.json" rel="manifest" />
       </head>
       <body
-        className={`${geistSans.variable} ${sourceSerif.variable} ${jetbrainsMono.variable} bg-background text-foreground antialiased`}
+        className={`${instrumentSans.variable} ${geistMono.variable} bg-background font-sans text-foreground antialiased`}
       >
         <ThemeProvider>
           <MotionConfig reducedMotion="user">
