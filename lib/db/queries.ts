@@ -139,6 +139,26 @@ export async function getMessagesByChatId(chatId: string): Promise<Message[]> {
     .orderBy(asc(message.createdAt), asc(message.id));
 }
 
+export async function getUserMessage({
+  chatId,
+  messageId,
+}: {
+  chatId: string;
+  messageId: string;
+}): Promise<Message | undefined> {
+  const [row] = await getDb()
+    .select()
+    .from(message)
+    .where(
+      and(
+        eq(message.chatId, chatId),
+        eq(message.id, messageId),
+        eq(message.role, "user")
+      )
+    );
+  return row;
+}
+
 // Postgres jsonb rejects U+0000, which Convex accepted and models can emit.
 function stripNul<T>(value: T): T {
   if (typeof value === "string") {
