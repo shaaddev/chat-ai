@@ -333,27 +333,33 @@ interface HastNode {
   tagName?: string;
 }
 
+function isRunnableClosedFence(code: HastNode, source: string): boolean {
+  const className = code.properties?.className;
+  const language = Array.isArray(className)
+    ? LANGUAGE.exec(className.join(" "))?.[1]
+    : undefined;
+  const { start, end } = code.position ?? {};
+  return (
+    language !== undefined &&
+    runnerForFence(language) !== undefined &&
+    start?.offset !== undefined &&
+    end?.offset !== undefined &&
+    isClosedFence(source.slice(start.offset, end.offset))
+  );
+}
+
 // Streamdown parses each block on its own, so the file holds the block's
-// markdown and positions index into it. This runs after sanitizing, which
-// would drop the attribute.
+// markdown and positions index into it. This plugin runs after sanitizing
+// because sanitizing drops unknown attributes.
 export function markClosedFences() {
   return (tree: HastNode, file: { value: unknown }) => {
     const source = String(file.value);
     const visit = (node: HastNode) => {
       for (const child of node.children ?? []) {
-        const { start, end } = child.position ?? {};
-        const className = child.properties?.className;
-        const language = Array.isArray(className)
-          ? LANGUAGE.exec(className.join(" "))?.[1]
-          : undefined;
         if (
           node.tagName === "pre" &&
           child.tagName === "code" &&
-          language !== undefined &&
-          runnerForFence(language) &&
-          start?.offset !== undefined &&
-          end?.offset !== undefined &&
-          isClosedFence(source.slice(start.offset, end.offset))
+          isRunnableClosedFence(child, source)
         ) {
           child.properties = { ...child.properties, dataClosedFence: "" };
         }
@@ -364,9 +370,9 @@ export function markClosedFences() {
   };
 }
 
-// Rendering runnable blocks here, rather than through Streamdown's
-// `plugins.renderers`, avoids the Suspense boundary that path adds around
-// every block, which doubled hydration work in code-heavy chats.
+// Streamdown's `plugins.renderers` path adds a Suspense boundary around each
+// block. Those boundaries doubled hydration work in code-heavy chats, so
+// runnable blocks render from the `code` component instead.
 export function RunnableCode(props: ComponentProps<typeof DefaultCode>) {
   const isIncomplete = useIsCodeFenceIncomplete();
   const language = LANGUAGE.exec(props.className ?? "")?.[1] ?? "";
