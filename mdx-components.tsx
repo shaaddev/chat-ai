@@ -5,7 +5,7 @@ import React, { type ComponentPropsWithoutRef } from "react";
 type AnchorProps = ComponentPropsWithoutRef<"a">;
 
 const CustomLink = ({ href, children, ...otherProps }: AnchorProps) => {
-  const className = "text-blue-500 hover:text-primary/80 hover:underline";
+  const className = "text-primary underline-offset-2 hover:underline";
   if (href?.startsWith("/")) {
     return (
       <Link className={className} href={href} {...otherProps}>
@@ -58,13 +58,13 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     strong: (props) => <strong className="font-medium" {...props} />,
     em: (props) => (
       <code
-        className="rounded border border-black/20 bg-inherit px-1 py-0.5 font-mono text-primary text-sm dark:border-white/20"
+        className="rounded-md bg-code px-1.5 py-px font-mono text-[13px]"
         {...props}
       />
     ),
     blockquote: (props) => (
       <blockquote
-        className="mt-6 border-primary border-l-2 pl-6 text-muted-foreground italic"
+        className="mt-6 border-muted-foreground/40 border-l-2 pl-6 text-muted-foreground"
         {...props}
       />
     ),

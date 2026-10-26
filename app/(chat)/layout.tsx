@@ -13,7 +13,11 @@ export default async function ChatLayout({
   return (
     <SidebarProvider defaultOpen={defaultOpen}>
       <ChatHistory session={session} />
-      <div className="flex min-w-0 flex-1 flex-col">{children}</div>
+      <div className="flex h-dvh min-w-0 flex-1 flex-col md:py-2 md:pr-2 md:peer-data-[state=collapsed]:pl-2">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-card md:rounded-2xl">
+          {children}
+        </div>
+      </div>
     </SidebarProvider>
   );
 }

@@ -35,6 +35,9 @@ import { FileInput } from "./file-input";
 import { ModelsPopover } from "./models-popover";
 import { PreviewAttachment } from "./preview-attachment";
 
+const MIN_TEXTAREA_HEIGHT = 40;
+const MAX_TEXTAREA_HEIGHT = 200;
+
 interface ChatInputProps {
   attachments: Attachment[];
   autoDocumentGeneration: boolean;
@@ -79,7 +82,9 @@ export function ChatInput({
   setCustomSystemPrompt,
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [textareaHeight, setTextareaHeight] = useState("56px");
+  const [textareaHeight, setTextareaHeight] = useState(
+    `${MIN_TEXTAREA_HEIGHT}px`
+  );
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [showSystemPromptDialog, setShowSystemPromptDialog] = useState(false);
   const [systemPromptDraft, setSystemPromptDraft] = useState(
@@ -176,11 +181,14 @@ export function ChatInput({
       return;
     }
 
-    textarea.style.height = "56px";
-    const nextHeight = Math.min(200, Math.max(56, textarea.scrollHeight));
-    if (currentInput.length === 0 && nextHeight === 56) {
-      textarea.style.height = "56px";
-      setTextareaHeight("56px");
+    textarea.style.height = `${MIN_TEXTAREA_HEIGHT}px`;
+    const nextHeight = Math.min(
+      MAX_TEXTAREA_HEIGHT,
+      Math.max(MIN_TEXTAREA_HEIGHT, textarea.scrollHeight)
+    );
+    if (currentInput.length === 0 && nextHeight === MIN_TEXTAREA_HEIGHT) {
+      textarea.style.height = `${MIN_TEXTAREA_HEIGHT}px`;
+      setTextareaHeight(`${MIN_TEXTAREA_HEIGHT}px`);
       return;
     }
 
@@ -217,16 +225,16 @@ export function ChatInput({
 
   return (
     <div className="relative">
-      <div className="flex flex-col overflow-hidden rounded-2xl border border-foreground/10 bg-card shadow-sm transition-shadow focus-within:border-foreground/15 focus-within:shadow-md">
+      <div className="flex flex-col rounded-[20px] border border-transparent bg-secondary/86 px-2.5 py-2 backdrop-blur-[16px] transition-[border-color,box-shadow] duration-200 focus-within:border-primary focus-within:shadow-glow">
         {(attachments.length > 0 || uploadQueue.length > 0) && (
           <div
-            className="flex flex-row gap-2 overflow-x-auto p-3 pb-0"
+            className="flex flex-row gap-2 overflow-x-auto px-0.5 pt-1.5 pb-1.5"
             data-testid="attachments-preview"
           >
             {attachments.map((attachment) => (
               <PreviewAttachment
                 attachment={attachment}
-                className="size-20"
+                className="size-[46px]"
                 key={attachment.url}
                 onRemove={() => handleRemoveAttachment(attachment)}
               />
@@ -234,7 +242,7 @@ export function ChatInput({
             {uploadQueue.map((filename) => (
               <PreviewAttachment
                 attachment={{ url: "", name: filename, contentType: "" }}
-                className="size-20"
+                className="size-[46px]"
                 isUploading={true}
                 key={filename}
               />
@@ -243,8 +251,9 @@ export function ChatInput({
         )}
 
         <textarea
+          aria-label="Message"
           autoFocus
-          className="w-full resize-none border-0 bg-transparent px-4 pt-3.5 pb-0 text-base text-foreground outline-hidden placeholder:text-muted-foreground/50 focus:ring-0 disabled:opacity-50"
+          className="block w-full resize-none border-0 bg-transparent px-2 pt-[7px] pb-[5px] text-base text-foreground leading-[1.6] outline-hidden placeholder:text-muted-foreground focus:ring-0 disabled:opacity-50 md:text-[15px]"
           onChange={handleInput}
           onKeyDown={(e) => {
             if (
@@ -264,15 +273,22 @@ export function ChatInput({
               }
             }
           }}
-          placeholder="Message..."
+          placeholder="Ask anything"
           ref={textareaRef}
           rows={1}
           style={{ height: textareaHeight }}
           value={input}
         />
 
-        <div className="flex items-center justify-between gap-2 px-3 py-2">
-          <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
+        <div className="flex items-center gap-1">
+          <div className="flex min-w-0 flex-1 items-center gap-1">
+            <FileInput
+              isAuthenticated={isAuthenticated}
+              setAttachments={setAttachments}
+              setShowLoginDialog={setShowLoginDialog}
+              setUploadQueue={setUploadQueue}
+              uploadQueue={uploadQueue}
+            />
             <ModelsPopover
               onSelectModel={onSelectModel}
               selectedModelId={selectedModelId}
@@ -280,46 +296,47 @@ export function ChatInput({
             <button
               aria-pressed={useSearch}
               className={cn(
-                "inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-full border px-2.5 text-[12px] transition-colors",
+                "inline-flex h-[34px] shrink-0 cursor-pointer items-center gap-[7px] rounded-[10px] px-2 font-medium text-[13.5px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-2.5",
                 useSearch
-                  ? "border-accent/40 bg-accent/15 text-foreground"
-                  : "border-foreground/10 text-muted-foreground hover:border-foreground/20 hover:text-foreground"
+                  ? "bg-primary/12 text-primary"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
               )}
               onClick={() => setUseSearch((prev) => !prev)}
               title={useSearch ? "Web search on" : "Web search off"}
               type="button"
             >
-              <Globe className="size-3.5" />
-              <span className="sr-only font-medium sm:not-sr-only">Search</span>
+              <Globe aria-hidden className="size-[17px]" />
+              <span className="sr-only sm:not-sr-only">Search</span>
             </button>
             <Popover>
               <PopoverTrigger asChild>
                 <button
+                  aria-label="Chat settings"
                   className={cn(
-                    "inline-flex size-7 cursor-pointer items-center justify-center rounded-full transition-colors",
+                    "inline-flex size-[34px] shrink-0 cursor-pointer items-center justify-center rounded-[10px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     hasActiveSettings
-                      ? "bg-muted text-foreground"
-                      : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                      ? "bg-primary/12 text-primary"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground"
                   )}
                   title="Chat settings"
                   type="button"
                 >
-                  <Settings2 className="size-3.5" />
+                  <Settings2 aria-hidden className="size-[17px]" />
                 </button>
               </PopoverTrigger>
               <PopoverContent
                 align="start"
-                className="w-64 border-border bg-popover p-0"
+                className="w-64 p-1"
                 side="top"
                 sideOffset={8}
               >
-                <div className="flex flex-col divide-y divide-border">
-                  <div className="flex items-center justify-between px-3.5 py-2.5">
+                <div className="flex flex-col">
+                  <div className="flex items-center justify-between px-2.5 py-2">
                     <Label
                       className="cursor-pointer text-sm"
                       htmlFor="document-toggle"
                     >
-                      Auto Document
+                      Auto document
                     </Label>
                     <Switch
                       checked={autoDocumentGeneration}
@@ -329,13 +346,13 @@ export function ChatInput({
                       }
                     />
                   </div>
-                  <div className="flex flex-col gap-1.5 px-3.5 py-2.5">
+                  <div className="flex flex-col gap-1.5 px-2.5 py-2">
                     <div className="flex items-center justify-between">
                       <Label
                         className="cursor-pointer text-sm"
                         htmlFor="system-prompt-toggle"
                       >
-                        Custom Prompt
+                        Custom prompt
                       </Label>
                       <Switch
                         checked={!!customSystemPrompt}
@@ -379,13 +396,6 @@ export function ChatInput({
                 </div>
               </PopoverContent>
             </Popover>
-            <FileInput
-              isAuthenticated={isAuthenticated}
-              setAttachments={setAttachments}
-              setShowLoginDialog={setShowLoginDialog}
-              setUploadQueue={setUploadQueue}
-              uploadQueue={uploadQueue}
-            />
           </div>
 
           {isBusy ? (
@@ -404,15 +414,15 @@ export function ChatInput({
         onOpenChange={setShowSystemPromptDialog}
         open={showSystemPromptDialog}
       >
-        <DialogContent className="border-border bg-popover sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Custom System Prompt</DialogTitle>
+            <DialogTitle>Custom system prompt</DialogTitle>
             <DialogDescription className="text-muted-foreground">
               Tell the AI how it should behave for this chat.
             </DialogDescription>
           </DialogHeader>
           <textarea
-            className="min-h-[120px] w-full resize-y rounded-lg border border-border bg-muted p-3 text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring md:text-sm"
+            className="min-h-[120px] w-full resize-y rounded-xl border border-border bg-card p-3 text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring md:text-sm"
             onChange={(e) => setSystemPromptDraft(e.target.value)}
             placeholder="You are a helpful assistant..."
             rows={5}
@@ -420,13 +430,15 @@ export function ChatInput({
           />
           <DialogFooter>
             <Button
+              className="rounded-lg"
               onClick={() => setShowSystemPromptDialog(false)}
               type="button"
-              variant="outline"
+              variant="ghost"
             >
               Cancel
             </Button>
             <Button
+              className="rounded-lg"
               onClick={() => {
                 const trimmed = systemPromptDraft.trim();
                 const newPrompt = trimmed || undefined;
@@ -470,7 +482,7 @@ function PureStopButton({
   return (
     <button
       aria-label="Stop generating"
-      className="flex size-8 cursor-pointer items-center justify-center rounded-full bg-foreground transition-colors hover:bg-foreground/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-primary text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-secondary"
       data-testid="stop-button"
       onClick={(e) => {
         e.preventDefault();
@@ -479,7 +491,7 @@ function PureStopButton({
       }}
       type="button"
     >
-      <CircleStop aria-hidden className="size-4 text-background" />
+      <CircleStop aria-hidden className="size-[18px]" />
     </button>
   );
 }
@@ -499,12 +511,7 @@ function PureSendButton({
   return (
     <button
       aria-label="Send message"
-      className={cn(
-        "flex size-8 cursor-pointer items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        enabled
-          ? "bg-foreground hover:bg-foreground/80"
-          : "cursor-default bg-muted"
-      )}
+      className="flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-primary text-primary-foreground transition-[background-color,opacity] hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-secondary disabled:cursor-default disabled:opacity-45"
       disabled={!enabled}
       onClick={(e) => {
         e.preventDefault();
@@ -512,13 +519,7 @@ function PureSendButton({
       }}
       type="submit"
     >
-      <ArrowUp
-        aria-hidden
-        className={cn(
-          "size-4",
-          enabled ? "text-background" : "text-muted-foreground/50"
-        )}
-      />
+      <ArrowUp aria-hidden className="size-[18px]" strokeWidth={2.2} />
     </button>
   );
 }

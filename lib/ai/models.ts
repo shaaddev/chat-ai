@@ -9,36 +9,15 @@ export type ModelProvider =
 
 export const PROVIDER_META: Record<
   ModelProvider,
-  { label: string; color: string }
+  { label: string; dot: string }
 > = {
-  google: {
-    label: "Google",
-    color: "bg-blue-500/15 text-blue-400 border-blue-500/20",
-  },
-  openai: {
-    label: "OpenAI",
-    color: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20",
-  },
-  deepseek: {
-    label: "DeepSeek",
-    color: "bg-purple-500/15 text-purple-400 border-purple-500/20",
-  },
-  qwen: {
-    label: "Alibaba",
-    color: "bg-indigo-500/15 text-indigo-400 border-indigo-500/20",
-  },
-  moonshot: {
-    label: "Moonshot",
-    color: "bg-orange-500/15 text-orange-400 border-orange-500/20",
-  },
-  xai: {
-    label: "xAI",
-    color: "bg-red-500/15 text-red-400 border-red-500/20",
-  },
-  meta: {
-    label: "Meta",
-    color: "bg-sky-500/15 text-sky-400 border-sky-500/20",
-  },
+  google: { label: "Google", dot: "bg-provider-google" },
+  openai: { label: "OpenAI", dot: "bg-provider-openai" },
+  deepseek: { label: "DeepSeek", dot: "bg-provider-deepseek" },
+  qwen: { label: "Alibaba", dot: "bg-provider-qwen" },
+  moonshot: { label: "Moonshot", dot: "bg-provider-moonshot" },
+  xai: { label: "xAI", dot: "bg-provider-xai" },
+  meta: { label: "Meta", dot: "bg-provider-meta" },
 };
 
 export type ModelCapability =
@@ -235,14 +214,21 @@ export function findChatModel(
   return CHAT_MODELS.find((model) => model.id === id);
 }
 
-const RETIRED_MODEL_NAMES: Record<string, string> = {
-  "google-model-3-flash": "Gemini 3 Flash",
-  "xai-grok-4-1": "Grok 4.1 Fast",
-  "xai-grok-4": "Grok 4 Fast",
+const RETIRED_MODELS: Record<
+  string,
+  { name: string; provider: ModelProvider }
+> = {
+  "google-model-3-flash": { name: "Gemini 3 Flash", provider: "google" },
+  "xai-grok-4-1": { name: "Grok 4.1 Fast", provider: "xai" },
+  "xai-grok-4": { name: "Grok 4 Fast", provider: "xai" },
 };
 
 export function getModelLabel(id: string): string {
-  return findChatModel(id)?.name ?? RETIRED_MODEL_NAMES[id] ?? id;
+  return findChatModel(id)?.name ?? RETIRED_MODELS[id]?.name ?? id;
+}
+
+export function getModelProvider(id: string): ModelProvider | undefined {
+  return findChatModel(id)?.provider ?? RETIRED_MODELS[id]?.provider;
 }
 
 export function getChatModel(id: ChatModelId): ChatModel {

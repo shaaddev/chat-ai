@@ -74,7 +74,7 @@ export function FileInput({
   };
 
   return (
-    <div className="relative flex flex-row gap-2">
+    <div className="relative flex shrink-0 flex-row">
       <input
         aria-label="Upload files"
         className="sr-only"
@@ -86,17 +86,17 @@ export function FileInput({
       />
       <button
         aria-label="Attach files"
-        className="cursor-pointer text-muted-foreground transition-colors hover:text-foreground"
+        className="grid size-[34px] shrink-0 cursor-pointer place-items-center rounded-[10px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default disabled:opacity-50"
         disabled={isUploading}
         onClick={handlePaperclipClick}
         type="button"
       >
-        <Paperclip className="size-4" />
+        <Paperclip aria-hidden className="size-[17px]" />
       </button>
       {uploadQueue.length > 0 && (
-        <div className="rounded bg-muted p-1 text-foreground text-xs">
-          Uploading {uploadQueue.length} file(s)...
-        </div>
+        <span className="sr-only" role="status">
+          Uploading {uploadQueue.length} file(s)
+        </span>
       )}
     </div>
   );

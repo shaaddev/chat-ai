@@ -16,13 +16,13 @@ export function Login() {
       <div className="flex w-full flex-col">
         <div className="mb-6 flex items-center justify-between">
           <Button
-            className="flex items-center p-0 px-2 text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="flex items-center p-0 px-2 text-muted-foreground"
             onClick={() => router.push("/")}
             size="sm"
             variant="ghost"
           >
             <ArrowLeft className="size-4" />
-            Back to Home
+            Back to home
           </Button>
         </div>
 

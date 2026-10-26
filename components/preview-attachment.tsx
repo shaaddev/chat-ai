@@ -1,10 +1,14 @@
-import { File, Loader, X } from "lucide-react";
+import { FileText, Loader, X } from "lucide-react";
 import Image, { type ImageLoaderProps } from "next/image";
 import type { Attachment } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { ViewAttachmentDialog } from "./view-attachment-dialog";
 
 const passthroughImageLoader = ({ src }: ImageLoaderProps) => src;
+
+function fileKind(contentType: string) {
+  return contentType.startsWith("application/pdf") ? "PDF" : "File";
+}
 
 export const PreviewAttachment = ({
   attachment,
@@ -18,59 +22,59 @@ export const PreviewAttachment = ({
   onRemove?: () => void;
 }) => {
   const { name, url, contentType } = attachment;
+  const isImage = contentType?.startsWith("image") ?? false;
+  const canPreview =
+    isImage || (contentType?.startsWith("application/pdf") ?? false);
+
+  const tile = isImage ? (
+    <div className={cn("relative overflow-hidden rounded-xl", className)}>
+      <Image
+        alt={name ?? "An image attachment"}
+        className="object-cover"
+        fill
+        key={url}
+        loader={passthroughImageLoader}
+        sizes="(max-width: 768px) 100vw, 50vw"
+        src={url}
+        unoptimized
+      />
+    </div>
+  ) : (
+    <div className="flex h-[46px] max-w-60 items-center gap-2.5 rounded-xl bg-secondary py-1.5 pr-3.5 pl-1.5 text-left">
+      <span className="grid size-8 shrink-0 place-items-center rounded-[9px] bg-card text-muted-foreground">
+        {isUploading ? (
+          <Loader
+            aria-hidden
+            className="size-4 animate-spin"
+            data-testid="input-attachment-loader"
+          />
+        ) : (
+          <FileText aria-hidden className="size-4" />
+        )}
+      </span>
+      <span className="flex min-w-0 flex-col leading-tight">
+        <span className="truncate font-medium text-[13px]">{name}</span>
+        <span className="text-muted-foreground text-xs">
+          {isUploading ? "Uploading" : fileKind(contentType ?? "")}
+        </span>
+      </span>
+    </div>
+  );
 
   return (
-    <div
-      className="relative flex flex-col gap-2"
-      data-testid="input-attachment-preview"
-    >
-      <div
-        className={cn(
-          className,
-          "relative flex aspect-video flex-col items-center justify-center rounded-2xl bg-muted",
-          contentType?.startsWith("image") && "bg-transparent"
-        )}
-      >
-        {contentType ? (
-          contentType.startsWith("image") ? (
-            <ViewAttachmentDialog attachment={attachment}>
-              <Image
-                alt={name ?? "An image attachment"}
-                className="rounded-2xl object-cover"
-                fill
-                key={url}
-                loader={passthroughImageLoader}
-                sizes="(max-width: 768px) 100vw, 50vw"
-                src={url}
-                unoptimized
-              />
-            </ViewAttachmentDialog>
-          ) : contentType.startsWith("application/pdf") ? (
-            <ViewAttachmentDialog attachment={attachment}>
-              <div className="flex size-full flex-col items-center justify-center gap-2 rounded-2xl bg-muted">
-                <File className="size-12" />
-                <small className="text-xs text-zinc-500">PDF Attachment</small>
-              </div>
-            </ViewAttachmentDialog>
-          ) : null
-        ) : (
-          <div className="" />
-        )}
-
-        {isUploading && (
-          <div
-            className="absolute animate-spin text-zinc-500"
-            data-testid="input-attachment-loader"
-          >
-            <Loader />
-          </div>
-        )}
-      </div>
+    <div className="relative" data-testid="input-attachment-preview">
+      {canPreview && !isUploading ? (
+        <ViewAttachmentDialog attachment={attachment}>
+          {tile}
+        </ViewAttachmentDialog>
+      ) : (
+        tile
+      )}
 
       {onRemove && !isUploading && (
         <button
           aria-label="Remove attachment"
-          className="absolute -top-1.5 -right-1.5 z-10 flex size-5 cursor-pointer items-center justify-center rounded-full border border-border bg-background text-foreground shadow-sm transition-colors hover:bg-muted"
+          className="absolute -top-1.5 -right-1.5 z-10 flex size-5 cursor-pointer items-center justify-center rounded-full border border-border bg-card text-foreground transition-colors hover:bg-accent"
           data-testid="remove-attachment-button"
           onClick={(e) => {
             e.preventDefault();
@@ -79,7 +83,7 @@ export const PreviewAttachment = ({
           }}
           type="button"
         >
-          <X className="size-3" />
+          <X aria-hidden className="size-3" />
         </button>
       )}
     </div>

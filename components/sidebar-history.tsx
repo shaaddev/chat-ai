@@ -134,7 +134,7 @@ function RenameField({
   return (
     <input
       aria-label="Chat title"
-      className="h-8 w-full rounded-lg border border-border bg-background px-2 text-sm outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+      className="h-9 w-full rounded-[10px] border border-border bg-card px-2.5 text-sm outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
       defaultValue={initialTitle}
       maxLength={100}
       onBlur={(event) => finish(event.currentTarget.value, false)}
@@ -317,13 +317,13 @@ const SKELETON_WIDTHS = ["w-3/4", "w-1/2", "w-5/6", "w-2/3", "w-3/5"];
 
 function SidebarSkeleton() {
   return (
-    <div aria-busy="true" className="space-y-1 px-2 pt-2">
+    <div aria-busy="true" className="px-3">
       <span className="sr-only">Loading chats</span>
-      <div className="h-8 px-2 py-3">
+      <div className="px-2.5 pt-[22px] pb-2.5">
         <div className="h-2 w-12 rounded-full bg-muted" />
       </div>
       {SKELETON_WIDTHS.map((width) => (
-        <div className="flex h-8 items-center px-2" key={width}>
+        <div className="flex h-9 items-center px-2.5" key={width}>
           <div className={`h-3 rounded-full bg-muted ${width}`} />
         </div>
       ))}
@@ -332,7 +332,9 @@ function SidebarSkeleton() {
 }
 
 function SidebarNote({ children }: { children: ReactNode }) {
-  return <p className="px-4 py-2 text-muted-foreground text-xs">{children}</p>;
+  return (
+    <p className="px-[22px] py-2 text-muted-foreground text-xs">{children}</p>
+  );
 }
 
 function SignedInHistory() {
@@ -365,7 +367,7 @@ function SignedInHistory() {
 
   if (list.status === "error") {
     return (
-      <div className="flex items-center justify-between px-4 py-2">
+      <div className="flex items-center justify-between py-2 pr-3 pl-[22px]">
         <p className="text-muted-foreground text-xs">Chats didn't load.</p>
         <Button
           className="h-7 rounded-lg px-2 text-xs"
@@ -387,7 +389,7 @@ function SignedInHistory() {
   }
 
   return (
-    <SidebarMenu className="relative gap-0.5 px-2 pb-2">
+    <SidebarMenu className="relative gap-0 px-3 pb-3">
       <LayoutGroup>
         <AnimatePresence initial={false} mode="popLayout">
           {groups.flatMap((group) => [
@@ -396,7 +398,10 @@ function SignedInHistory() {
               layout="position"
               {...PRESENCE}
             >
-              <SidebarGroupLabel asChild className="mt-2 text-muted-foreground">
+              <SidebarGroupLabel
+                asChild
+                className="h-auto rounded-none px-2.5 pt-[18px] pb-1.5 text-muted-foreground"
+              >
                 <h2>{group.label}</h2>
               </SidebarGroupLabel>
             </motion.li>,

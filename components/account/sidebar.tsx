@@ -3,7 +3,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { authClient } from "@/lib/auth-client";
 
 export function AccountSidebar({
@@ -12,7 +11,7 @@ export function AccountSidebar({
   setActiveSection: (section: string) => void;
 }) {
   const sidebarItems = [
-    { id: "profile", label: "Edit Profile", icon: UserIcon },
+    { id: "profile", label: "Edit profile", icon: UserIcon },
     { id: "appearance", label: "Appearance", icon: Palette },
     { id: "usage", label: "Usage", icon: History },
   ];
@@ -37,15 +36,14 @@ export function AccountSidebar({
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <h2 className="font-bold text-2xl">Account</h2>
+        <h2 className="font-semibold text-2xl tracking-tight">Account</h2>
         <p className="text-muted-foreground">Manage your account settings</p>
       </div>
 
-      <Separator />
-      <nav className="flex flex-col space-y-2">
+      <nav className="flex flex-col gap-0.5">
         {sidebarItems.map((item) => (
           <Button
-            className="cursor-pointer justify-start rounded-2xl"
+            className="h-9 cursor-pointer justify-start rounded-[10px]"
             key={item.id}
             onClick={() => setActiveSection(item.id)}
             variant="ghost"
@@ -54,19 +52,23 @@ export function AccountSidebar({
             {item.label}
           </Button>
         ))}
-        <Button asChild className="justify-start rounded-2xl" variant="ghost">
+        <Button
+          asChild
+          className="h-9 justify-start rounded-[10px]"
+          variant="ghost"
+        >
           <Link href="/">
             <HomeIcon className="mr-2 h-4 w-4" />
-            Back to Home
+            Back to home
           </Link>
         </Button>
         <Button
-          className="justify-start rounded-2xl text-destructive hover:cursor-pointer hover:bg-destructive/10 hover:text-destructive"
+          className="h-9 justify-start rounded-[10px] text-destructive hover:cursor-pointer hover:bg-destructive/10 hover:text-destructive"
           onClick={handleLogout}
           variant="ghost"
         >
           <LogOutIcon className="mr-2 h-4 w-4" />
-          Log Out
+          Log out
         </Button>
       </nav>
     </div>

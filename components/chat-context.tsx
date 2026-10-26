@@ -410,6 +410,27 @@ export function useChatList(): ChatList {
   return { status: error ? "error" : "loading" };
 }
 
+export function useChatTitle(chatId: string): string | undefined {
+  const context = useContext(ChatListStateContext);
+  if (context === undefined) {
+    throw new Error("useChatTitle must be used within a ChatProvider");
+  }
+  // On mobile the sidebar, and its list request, stay unmounted while the
+  // sheet is closed. This reader fetches only when the list is refreshed.
+  const { data } = useSWR(CHATS_KEY, fetchChats, {
+    revalidateOnMount: false,
+    revalidateOnFocus: false,
+  });
+  const edit = context.pendingEdits.get(chatId);
+  if (edit?.kind === "rename") {
+    return edit.title;
+  }
+  if (edit?.kind === "delete") {
+    return;
+  }
+  return data?.find((chat) => chat.id === chatId)?.title;
+}
+
 export function useChatDraft() {
   const context = useContext(ChatDraftContext);
   if (context === undefined) {

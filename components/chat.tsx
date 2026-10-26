@@ -1,15 +1,14 @@
 "use client";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import { PanelLeft } from "lucide-react";
 import dynamic from "next/dynamic";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   useChat as useChatContext,
   useChatDraft,
+  useChatTitle,
 } from "@/components/chat-context";
-import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import {
   type ChatModelId,
@@ -20,9 +19,10 @@ import {
 import type { Session } from "@/lib/auth";
 import { extractSources, type Source } from "@/lib/sources";
 import type { Attachment, ChatMessage, DocumentDraft } from "@/lib/types";
-import { fetchWithErrorHandlers, generateUUID } from "@/lib/utils";
+import { cn, fetchWithErrorHandlers, generateUUID } from "@/lib/utils";
 import { ChatInput } from "./chat-input";
 import { Messages } from "./chat-messages";
+import { EmptyGreeting, SuggestionChips } from "./empty-chat-state";
 
 const DRAFT_SAVE_DELAY_MS = 200;
 const DOCUMENT_TITLE_MAX_LENGTH = 80;
@@ -32,7 +32,7 @@ const LazyDocumentSheet = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="fixed inset-y-0 right-0 z-50 block w-full max-w-xl border-border border-l bg-background/95 p-6 backdrop-blur">
+      <div className="fixed inset-y-0 right-0 z-50 block w-full max-w-xl bg-card p-6">
         <div className="animate-pulse space-y-4">
           <div className="h-5 w-40 rounded bg-muted" />
           <div className="h-4 w-64 rounded bg-muted" />
@@ -162,6 +162,24 @@ function seedChatModelCookie(modelId: ChatModelId) {
   window.cookieStore.set("chat-model", modelId).catch(() => undefined);
 }
 
+function ChatHeaderComponent({
+  chatId,
+  savedTitle,
+}: {
+  chatId: string;
+  savedTitle: string | undefined;
+}) {
+  const title = useChatTitle(chatId) ?? savedTitle ?? "New chat";
+  return (
+    <header className="flex h-[50px] shrink-0 items-center gap-1.5 px-2 md:h-12 md:px-3.5">
+      <SidebarTrigger className="size-9 rounded-[10px] text-muted-foreground" />
+      <h1 className="min-w-0 truncate font-medium text-sm">{title}</h1>
+    </header>
+  );
+}
+
+const ChatHeader = memo(ChatHeaderComponent);
+
 interface ChatRequestSettings {
   autoDocumentGeneration: boolean;
   customSystemPrompt: string | undefined;
@@ -174,6 +192,7 @@ interface ChatProps {
   initialChatModel: string;
   initialMessages: ChatMessage[];
   initialSystemPrompt?: string;
+  initialTitle?: string;
   session: Session | null;
 }
 
@@ -183,6 +202,7 @@ export function Chat({
   initialMessages,
   session,
   initialSystemPrompt,
+  initialTitle,
 }: ChatProps) {
   const [isAuthenticated] = useState(!!session);
   const { setChatLoading, refreshChats } = useChatContext();
@@ -381,24 +401,14 @@ export function Chat({
   );
 
   const isRightPanelOpen = isDocumentSheetOpen || isSourcesPanelOpen;
-  const messageWidthClass = isRightPanelOpen ? "max-w-2xl" : "max-w-3xl";
+  const isEmpty = messages.length === 0;
 
   return (
-    <div className="flex h-dvh w-full bg-background text-foreground">
+    <div className="flex h-full min-h-0 w-full">
       <div className="flex w-full min-w-0 flex-1 flex-col">
-        <header className="flex h-14 shrink-0 items-center gap-3 px-4">
-          <SidebarTrigger className="rounded-lg">
-            <Button className="size-8" size="icon" variant="ghost">
-              <PanelLeft className="size-4" />
-              <span className="sr-only">Toggle sidebar</span>
-            </Button>
-          </SidebarTrigger>
-          <span className="select-none font-serif text-[15px] text-foreground/75 italic tracking-tight">
-            chat<span className="text-accent">.</span>
-          </span>
-        </header>
+        <ChatHeader chatId={id} savedTitle={initialTitle} />
 
-        <div className="flex w-full flex-1 flex-col overflow-hidden">
+        <div className="relative flex min-h-0 w-full flex-1 flex-col">
           <Messages
             chatId={id}
             documentDraft={documentDraft}
@@ -406,11 +416,18 @@ export function Chat({
             isNarrow={isRightPanelOpen}
             messages={messages}
             onOpenDocumentBuilder={openDocumentBuilder}
-            onSuggestionClick={handleSuggestionClick}
             status={status}
           />
 
-          <div className={`mx-auto w-full px-4 pt-2 pb-5 ${messageWidthClass}`}>
+          <div
+            className={cn(
+              "mx-auto w-full px-2.5 pb-2.5 md:px-6 md:pb-[18px]",
+              isRightPanelOpen ? "md:max-w-[720px]" : "md:max-w-[768px]",
+              isEmpty &&
+                "absolute inset-0 flex flex-col justify-center gap-[22px] pb-[calc(4vh+34px)] md:pb-[calc(10vh+42px)]"
+            )}
+          >
+            {isEmpty ? <EmptyGreeting name={session?.user.name} /> : null}
             <MemoizedChatInput
               attachments={attachments}
               autoDocumentGeneration={autoDocumentGeneration}
@@ -432,9 +449,9 @@ export function Chat({
               stop={stop}
               useSearch={useSearch}
             />
-            <p className="mt-2 select-none text-center text-muted-foreground text-xs">
-              AI can be wrong. Verify important info.
-            </p>
+            {isEmpty ? (
+              <SuggestionChips onSuggestionClick={handleSuggestionClick} />
+            ) : null}
           </div>
         </div>
       </div>
