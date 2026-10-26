@@ -353,7 +353,8 @@ describe.skipIf(!hasTestDatabase)(
     });
 
     // Turns that land in one millisecond push each other's stamps ahead of
-    // the clock, so a row stamped later than now stands in for that tie.
+    // the clock. A row stamped later than now puts the next row on that
+    // same stamp unless the next row steps past it.
     const stampAheadOfTheClock = async (chatId: string) => {
       await testDatabase.db.insert(stream).values({
         id: crypto.randomUUID(),
@@ -362,12 +363,22 @@ describe.skipIf(!hasTestDatabase)(
       });
     };
 
+    const stamps = async (chatId: string) =>
+      (
+        await testDatabase.db
+          .select({ createdAt: stream.createdAt })
+          .from(stream)
+          .where(eq(stream.chatId, chatId))
+      ).map(({ createdAt }) => createdAt.getTime());
+
     test("a turn becomes the latest even when an earlier row is stamped ahead of the clock", async () => {
       const { chatId, userId } = await answeredChat();
       await stampAheadOfTheClock(chatId);
 
       const turnId = await ask(chatId, userId, "Tell me a story");
+      const stamped = await stamps(chatId);
 
+      expect(new Set(stamped).size).toBe(stamped.length);
       expect(await getLatestStreamId(chatId)).toBe(turnId);
     });
 
@@ -378,7 +389,9 @@ describe.skipIf(!hasTestDatabase)(
 
       await settleTurn({ chatId, userId, turnId });
       await answer(chatId, turnId, "Once upon a time");
+      const stamped = await stamps(chatId);
 
+      expect(new Set(stamped).size).toBe(stamped.length);
       expect(await thread(chatId)).toEqual([
         "First question",
         "First answer",
@@ -460,10 +473,10 @@ describe.skipIf(!hasTestDatabase)(
       const unseen = crypto.randomUUID();
 
       const first = await settleTurn({ chatId, userId, turnId: unseen });
+      const pending = await isReplyPending({ chatId, userId, turnId: unseen });
       const rowsAfterFirst = await streamRows(chatId);
       const second = await settleTurn({ chatId, userId, turnId: unseen });
       const rowsAfterSecond = await streamRows(chatId);
-      const pending = await isReplyPending({ chatId, userId, turnId: unseen });
       const next = await ask(chatId, userId, "A new question");
       await answer(chatId, next, "A new answer");
 

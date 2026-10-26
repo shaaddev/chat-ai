@@ -263,15 +263,45 @@ describe("a turn", () => {
 
     await gate.start(() => ({ kind: "regenerate" }));
     await until(() => server.chat.length === 1);
-    expect(server.chat[0].body.trigger).toBe("regenerate-message");
-    streamReply(server.chat[0], { finish: true });
+    const [request] = server.chat;
+    streamReply(request, { finish: true });
     await until(() => gate.getStatus().phase === "idle");
 
+    expect(request.body).toMatchObject({
+      trigger: "regenerate-message",
+      message: { id: "u0" },
+    });
+    expect(request.body.turnId).toMatch(UUID);
     expect(shown(gate)).toEqual([
       "user: Earlier question",
       "assistant: Earlier answer",
     ]);
     expect(calls).toEqual(["finished, kept the old reply"]);
+  });
+
+  test("that edits a message sends its id with the edited text and shows the new reply", async () => {
+    const { gate, server } = openChat();
+
+    await gate.start(() => ({
+      kind: "edit",
+      messageId: "u0",
+      text: "Edited question",
+    }));
+    await until(() => server.chat.length === 1);
+    const [request] = server.chat;
+    streamReply(request, { text: "Edited answer", finish: true });
+    await until(() => gate.getStatus().phase === "idle");
+
+    expect(request.body).toMatchObject({
+      trigger: "submit-message",
+      messageId: "u0",
+      message: { parts: [{ type: "text", text: "Edited question" }] },
+    });
+    expect(request.body.turnId).toMatch(UUID);
+    expect(shown(gate)).toEqual([
+      "user: Edited question",
+      "assistant: Edited answer",
+    ]);
   });
 
   test("that ends after its chat closed is still settled, so its text can go back to that chat", async () => {
