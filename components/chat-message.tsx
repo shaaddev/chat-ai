@@ -10,15 +10,15 @@ import {
   getReasoningText,
 } from "@/lib/message-display";
 import { extractSources, getFaviconUrl, type Source } from "@/lib/sources";
-import type { Attachment, ChatMessage } from "@/lib/types";
+import type { ChatMessage } from "@/lib/types";
 import { cn, sanitizeText } from "@/lib/utils";
 import { Markdown } from "./markdown";
 import { ActionButton, CopyButton, MessageActions } from "./message-actions";
+import { MessageAttachments } from "./message-attachments";
 import { MessageContent } from "./message-content";
 import { MessageEditor } from "./message-editor";
 import { MessageReasoning } from "./message-reasoning";
 import { ProviderDot } from "./model-helpful-tooltips";
-import { PreviewAttachment } from "./preview-attachment";
 
 const passthroughImageLoader = ({ src }: ImageLoaderProps) => src;
 
@@ -40,37 +40,6 @@ interface MessageProps {
   isStreaming: boolean;
   message: ChatMessage;
   reply?: ReplyControls;
-}
-
-function getAttachmentName(part: Record<string, unknown>) {
-  if (typeof part.filename === "string" && part.filename.length > 0) {
-    return part.filename;
-  }
-
-  if (typeof part.name === "string" && part.name.length > 0) {
-    return part.name;
-  }
-
-  return "file";
-}
-
-function getAttachmentsFromMessage(message: ChatMessage): Attachment[] {
-  const attachments: Attachment[] = [];
-
-  for (const part of message.parts) {
-    if (part.type !== "file") {
-      continue;
-    }
-
-    const filePart = part as Record<string, unknown>;
-    attachments.push({
-      name: getAttachmentName(filePart),
-      contentType: typeof part.mediaType === "string" ? part.mediaType : "",
-      url: part.url,
-    });
-  }
-
-  return attachments;
 }
 
 function getMessageText(message: ChatMessage) {
@@ -173,7 +142,6 @@ function PureChatMessage({
   message,
   reply,
 }: MessageProps) {
-  const attachments = getAttachmentsFromMessage(message);
   const isAssistant = message.role === "assistant";
   const lastPartIndex = message.parts.length - 1;
   const text = getMessageText(message);
@@ -212,23 +180,7 @@ function PureChatMessage({
             text={reasoningText}
           />
         ) : null}
-        {attachments.length > 0 && (
-          <div
-            className={cn(
-              "flex flex-wrap items-end gap-2.5",
-              isAssistant ? "mb-2.5 justify-start" : "justify-end"
-            )}
-            data-testid="message-attachments"
-          >
-            {attachments.map((attachment) => (
-              <PreviewAttachment
-                attachment={attachment}
-                className="h-28 w-[184px]"
-                key={attachment.url}
-              />
-            ))}
-          </div>
-        )}
+        <MessageAttachments message={message} />
         {isEditing && edit ? (
           <MessageEditor
             initialText={text}

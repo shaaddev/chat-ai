@@ -18,7 +18,7 @@ import {
 } from "@/lib/ai/models";
 import type { Session } from "@/lib/auth";
 import { extractSources, type Source } from "@/lib/sources";
-import type { Attachment, ChatMessage, DocumentDraft } from "@/lib/types";
+import type { ChatMessage, DocumentDraft } from "@/lib/types";
 import {
   cn,
   fetchWithErrorHandlers,
@@ -218,7 +218,6 @@ export function Chat({
   );
 
   const [input, setInput] = useState("");
-  const [attachments, setAttachments] = useState<Attachment[]>([]);
   // Web search defaults ON. The actual user-preferred default is hydrated
   // from localStorage on mount via `getChatInputState` below.
   const [useSearch, setUseSearch] = useState(true);
@@ -251,7 +250,6 @@ export function Chat({
   useEffect(() => {
     const persistedState = getChatInputState(id);
     setInput(persistedState.input);
-    setAttachments(persistedState.attachments);
     setUseSearch(persistedState.useSearch);
     setAutoDocumentGeneration(persistedState.autoDocumentGeneration);
   }, [getChatInputState, id]);
@@ -396,21 +394,13 @@ export function Chat({
     const timeoutId = window.setTimeout(() => {
       setChatInputState(id, {
         input,
-        attachments,
         useSearch,
         autoDocumentGeneration,
       });
     }, DRAFT_SAVE_DELAY_MS);
 
     return () => window.clearTimeout(timeoutId);
-  }, [
-    attachments,
-    useSearch,
-    autoDocumentGeneration,
-    id,
-    input,
-    setChatInputState,
-  ]);
+  }, [useSearch, autoDocumentGeneration, id, input, setChatInputState]);
 
   const prevStatusRef = useRef(status);
   const selectedModel = getChatModel(selectedModelId);
@@ -484,7 +474,6 @@ export function Chat({
           >
             {isEmpty ? <EmptyGreeting name={session?.user.name} /> : null}
             <MemoizedChatInput
-              attachments={attachments}
               autoDocumentGeneration={autoDocumentGeneration}
               chatId={id}
               clearChatInputState={clearChatInputState}
@@ -494,7 +483,6 @@ export function Chat({
               onSelectModel={handleSelectModel}
               selectedModelId={selectedModelId}
               sendMessage={sendMessage}
-              setAttachments={setAttachments}
               setAutoDocumentGeneration={setAutoDocumentGeneration}
               setCustomSystemPrompt={setCustomSystemPrompt}
               setInput={setInput}

@@ -3,6 +3,7 @@ import { UploadThingError, UTApi } from "uploadthing/server";
 import type { UploadedFileData } from "uploadthing/types";
 import { auth } from "@/app/auth";
 import { saveUpload } from "@/lib/db/queries";
+import { ATTACHMENT_MAX_SIZE, type AttachmentMediaType } from "./attachments";
 
 export const utapi = new UTApi();
 
@@ -37,18 +38,20 @@ async function recordUpload({
   return { uploadedBy: metadata.userId };
 }
 
+const attachmentFile = {
+  maxFileSize: ATTACHMENT_MAX_SIZE,
+  maxFileCount: 1,
+  acl: "public-read",
+} as const;
+
 export const ourFileRouter = {
-  imageUploader: f({
-    image: {
-      maxFileSize: "8MB",
-      maxFileCount: 2,
-      acl: "public-read",
-    },
-    pdf: {
-      maxFileSize: "8MB",
-      maxFileCount: 2,
-    },
-  })
+  attachmentUploader: f({
+    "image/png": attachmentFile,
+    "image/jpeg": attachmentFile,
+    "image/webp": attachmentFile,
+    "image/gif": attachmentFile,
+    "application/pdf": attachmentFile,
+  } satisfies Record<AttachmentMediaType, typeof attachmentFile>)
     .middleware(requireUser)
     .onUploadComplete(recordUpload),
   documentUploader: f({

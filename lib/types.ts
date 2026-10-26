@@ -4,6 +4,7 @@ import type { ExportFormat } from "@/lib/document-export";
 export interface Attachment {
   contentType: string;
   name: string;
+  size?: number;
   url: string;
 }
 

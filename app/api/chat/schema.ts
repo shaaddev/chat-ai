@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { CHAT_MODEL_IDS } from "@/lib/ai/models";
 import type { UserTurn } from "@/lib/db/queries";
+import {
+  ATTACHMENT_MAX_BYTES,
+  ATTACHMENT_MEDIA_TYPES,
+} from "@/lib/uploadthing/attachments";
 
 const textPartSchema = z.object({
   type: z.enum(["text"]),
@@ -9,13 +13,9 @@ const textPartSchema = z.object({
 
 const filePartSchema = z.object({
   type: z.enum(["file"]),
-  mediaType: z.enum([
-    "image/jpeg",
-    "image/png",
-    "application/pdf",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  ]),
-  name: z.string().min(1).max(100),
+  mediaType: z.enum(ATTACHMENT_MEDIA_TYPES),
+  filename: z.string().min(1).max(255),
+  size: z.number().int().nonnegative().max(ATTACHMENT_MAX_BYTES),
   url: z.string().url(),
 });
 

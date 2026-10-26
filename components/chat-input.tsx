@@ -28,20 +28,32 @@ import {
 } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import type { ChatModelId } from "@/lib/ai/models";
-import type { Attachment, ChatMessage } from "@/lib/types";
+import type { ChatMessage } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import {
+  AttachmentTrayList,
+  getAttachmentTray,
+  useTrayReadiness,
+} from "./attachment-tray";
 import { LoginContent } from "./auth/login-content";
 import { FileInput } from "./file-input";
 import { ModelsPopover } from "./models-popover";
-import { PreviewAttachment } from "./preview-attachment";
 
 const MIN_TEXTAREA_HEIGHT = 40;
 const MAX_TEXTAREA_HEIGHT = 200;
 
+function pastedFiles(clipboard: DataTransfer): File[] {
+  // Office apps copy a picture of the selection next to its text and HTML.
+  // That paste is text, so only attach files when no rich text came along.
+  const isRichText =
+    clipboard.types.includes("text/html") &&
+    clipboard.getData("text/plain").trim().length > 0;
+  return isRichText ? [] : Array.from(clipboard.files);
+}
+
 interface ChatInputProps {
-  attachments: Attachment[];
   autoDocumentGeneration: boolean;
-  chatId: string | undefined;
+  chatId: string;
   clearChatInputState: (chatId: string) => void;
   customSystemPrompt?: string;
   input: string;
@@ -49,7 +61,6 @@ interface ChatInputProps {
   onSelectModel: (modelId: ChatModelId) => void;
   selectedModelId: ChatModelId;
   sendMessage: UseChatHelpers<ChatMessage>["sendMessage"];
-  setAttachments: Dispatch<SetStateAction<Attachment[]>>;
   setAutoDocumentGeneration: Dispatch<SetStateAction<boolean>>;
   setCustomSystemPrompt: Dispatch<SetStateAction<string | undefined>>;
   setInput: Dispatch<SetStateAction<string>>;
@@ -70,8 +81,6 @@ export function ChatInput({
   onSelectModel,
   selectedModelId,
   isAuthenticated,
-  attachments,
-  setAttachments,
   setMessages,
   useSearch,
   setUseSearch,
@@ -91,10 +100,25 @@ export function ChatInput({
     customSystemPrompt ?? ""
   );
   const { addOptimisticChat, setChatLoading } = useChat();
-  const [uploadQueue, setUploadQueue] = useState<string[]>([]);
+  const tray = getAttachmentTray(chatId);
+  const trayReadiness = useTrayReadiness(tray);
+  const hasText = input.trim().length > 0;
+  const canSend =
+    trayReadiness !== "uploading" && (hasText || trayReadiness === "ready");
+
+  const attachFiles = useCallback(
+    (files: File[]) => {
+      if (isAuthenticated) {
+        tray.add(files);
+      } else {
+        setShowLoginDialog(true);
+      }
+    },
+    [isAuthenticated, tray]
+  );
 
   const submitForm = useCallback(() => {
-    if (!chatId) {
+    if (!canSend) {
       return;
     }
 
@@ -114,20 +138,26 @@ export function ChatInput({
       updatedAt: new Date(),
     });
 
+    const fileParts = tray.getItems().flatMap((item) =>
+      item.status === "done"
+        ? [
+            {
+              type: "file" as const,
+              mediaType: item.mediaType,
+              filename: item.name,
+              size: item.size,
+              url: item.url,
+            },
+          ]
+        : []
+    );
+
     try {
       sendMessage({
         role: "user",
         parts: [
-          ...attachments.map((attachment) => ({
-            type: "file" as const,
-            name: attachment.name,
-            mediaType: attachment.contentType,
-            url: attachment.url,
-          })),
-          {
-            type: "text",
-            text: input,
-          },
+          ...fileParts,
+          ...(hasText ? [{ type: "text" as const, text: input }] : []),
         ],
       });
     } catch (error) {
@@ -136,19 +166,20 @@ export function ChatInput({
     }
 
     clearChatInputState(chatId);
-    setAttachments([]);
+    tray.clear();
     setInput("");
     // Note: we intentionally do NOT reset useSearch — it persists across
     // submissions and is the user's global preference.
   }, [
+    canSend,
     sendMessage,
     setInput,
     chatId,
     isAuthenticated,
     addOptimisticChat,
     setChatLoading,
-    attachments,
-    setAttachments,
+    tray,
+    hasText,
     input,
     clearChatInputState,
   ]);
@@ -200,55 +231,20 @@ export function ChatInput({
     setInput(e.target.value);
   };
 
-  const handleRemoveAttachment = useCallback(
-    (attachment: Attachment) => {
-      setAttachments((current) =>
-        current.filter((item) => item.url !== attachment.url)
-      );
-
-      if (!attachment.url) {
-        return;
-      }
-
-      fetch("/api/files/delete", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: attachment.url }),
-      }).catch(() => {
-        // Best-effort storage cleanup; the local state is already updated.
-      });
-    },
-    [setAttachments]
-  );
+  const handlePaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const files = pastedFiles(event.clipboardData);
+    if (files.length > 0) {
+      event.preventDefault();
+      attachFiles(files);
+    }
+  };
 
   const hasActiveSettings = !!customSystemPrompt || autoDocumentGeneration;
 
   return (
     <div className="relative">
       <div className="flex flex-col rounded-[20px] border border-transparent bg-secondary/86 px-2.5 py-2 backdrop-blur-[16px] transition-[border-color,box-shadow] duration-200 focus-within:border-primary focus-within:shadow-glow">
-        {(attachments.length > 0 || uploadQueue.length > 0) && (
-          <div
-            className="flex flex-row gap-2 overflow-x-auto px-0.5 pt-1.5 pb-1.5"
-            data-testid="attachments-preview"
-          >
-            {attachments.map((attachment) => (
-              <PreviewAttachment
-                attachment={attachment}
-                className="size-[46px]"
-                key={attachment.url}
-                onRemove={() => handleRemoveAttachment(attachment)}
-              />
-            ))}
-            {uploadQueue.map((filename) => (
-              <PreviewAttachment
-                attachment={{ url: "", name: filename, contentType: "" }}
-                className="size-[46px]"
-                isUploading={true}
-                key={filename}
-              />
-            ))}
-          </div>
-        )}
+        <AttachmentTrayList tray={tray} />
 
         <textarea
           aria-label="Message"
@@ -273,6 +269,7 @@ export function ChatInput({
               }
             }
           }}
+          onPaste={handlePaste}
           placeholder="Ask anything"
           ref={textareaRef}
           rows={1}
@@ -282,13 +279,7 @@ export function ChatInput({
 
         <div className="flex items-center gap-1">
           <div className="flex min-w-0 flex-1 items-center gap-1">
-            <FileInput
-              isAuthenticated={isAuthenticated}
-              setAttachments={setAttachments}
-              setShowLoginDialog={setShowLoginDialog}
-              setUploadQueue={setUploadQueue}
-              uploadQueue={uploadQueue}
-            />
+            <FileInput onFiles={attachFiles} />
             <ModelsPopover
               onSelectModel={onSelectModel}
               selectedModelId={selectedModelId}
@@ -401,11 +392,7 @@ export function ChatInput({
           {isBusy ? (
             <StopButton setMessages={setMessages} stop={stop} />
           ) : (
-            <SendButton
-              input={input}
-              submitForm={submitForm}
-              uploadQueue={uploadQueue}
-            />
+            <SendButton canSend={canSend} submitForm={submitForm} />
           )}
         </div>
       </div>
@@ -500,19 +487,16 @@ const StopButton = memo(PureStopButton);
 
 function PureSendButton({
   submitForm,
-  input,
-  uploadQueue,
+  canSend,
 }: {
   submitForm: () => void;
-  input: string;
-  uploadQueue: string[];
+  canSend: boolean;
 }) {
-  const enabled = input.trim().length > 0 && uploadQueue.length === 0;
   return (
     <button
       aria-label="Send message"
       className="flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-primary text-primary-foreground transition-[background-color,opacity] hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-secondary disabled:cursor-default disabled:opacity-45"
-      disabled={!enabled}
+      disabled={!canSend}
       onClick={(e) => {
         e.preventDefault();
         submitForm();

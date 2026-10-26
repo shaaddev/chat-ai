@@ -12,7 +12,6 @@ import {
 } from "react";
 import { toast } from "sonner";
 import useSWR, { useSWRConfig } from "swr";
-import type { Attachment } from "@/lib/types";
 
 const CHATS_KEY = "/api/chats";
 const UNDO_WINDOW_MS = 5000;
@@ -49,7 +48,6 @@ type PendingEdits = ReadonlyMap<
 >;
 
 interface ChatInputState {
-  attachments: Attachment[];
   autoDocumentGeneration: boolean;
   input: string;
   useSearch: boolean;
@@ -109,7 +107,6 @@ function persistUseSearch(value: boolean) {
 
 const DEFAULT_CHAT_INPUT_STATE: ChatInputState = {
   input: "",
-  attachments: [],
   useSearch: true,
   autoDocumentGeneration: false,
 };
