@@ -10,6 +10,7 @@
     "start": "next start",
     "email:dev": "email dev",
     "check": "ultracite check",
+    "typecheck": "tsc --noEmit",
     "biome:check": "biome check --write",
     "fix": "ultracite fix"
   },

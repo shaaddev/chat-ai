@@ -561,12 +561,7 @@ export async function POST(req: Request) {
                             : undefined,
                       };
                     })
-                    .filter(
-                      (
-                        entry
-                      ): entry is { id: string; url: string; title?: string } =>
-                        entry !== null
-                    );
+                    .filter((entry) => entry !== null);
 
                   if (normalized.length > 0) {
                     dataStream.write({

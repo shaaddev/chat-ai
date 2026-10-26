@@ -20,9 +20,6 @@ const nextConfig: NextConfig = {
       "@radix-ui/react-slot",
     ],
   },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
   images: {
     formats: ["image/webp", "image/avif"],
     minimumCacheTTL: 60,
