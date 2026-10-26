@@ -32,6 +32,7 @@ const post = self.postMessage.bind(self);
 const nativeSetTimeout = self.setTimeout.bind(self);
 const nativeClearTimeout = self.clearTimeout.bind(self);
 const nativeSetInterval = self.setInterval.bind(self);
+const nativeQueueMicrotask = self.queueMicrotask.bind(self);
 const nativeReject = Promise.reject.bind(Promise);
 const nativeFinally = Promise.prototype.finally;
 const NativePromise = Promise;
@@ -212,7 +213,7 @@ async function runJavaScript(code) {
   counted(Blob.prototype, ["text", "arrayBuffer", "bytes"]);
   counted(Response.prototype, ["text", "json", "arrayBuffer", "blob", "formData", "bytes"]);
   // WebKit reports a throw from compiled code as "Script error." with no
-  // error object, so a timer reports its own.
+  // error object, so a timer or microtask reports its own.
   const call = (callback, args) => {
     try {
       callback(...args);
@@ -234,6 +235,7 @@ async function runJavaScript(code) {
     timers.add(id);
     return id;
   };
+  self.queueMicrotask = (callback) => nativeQueueMicrotask(typeof callback === "function" ? () => call(callback, []) : callback);
   self.clearTimeout = self.clearInterval = (id) => {
     if (!timers.delete(id)) return;
     nativeClearTimeout(id);
