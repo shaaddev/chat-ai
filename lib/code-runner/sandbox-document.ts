@@ -60,6 +60,10 @@ function refuseNetwork() {
 function begin() {
   budget = OUTPUT_LIMIT_WITH_OVERFLOW_SENTINEL;
   finished = false;
+  self.close = () => {
+    flushPython();
+    exit("done");
+  };
   self.fetch = () => Promise.reject(new TypeError(NO_NETWORK));
   for (const name of ["XMLHttpRequest", "WebSocket", "EventSource", "importScripts"]) {
     self[name] = refuseNetwork;
@@ -230,7 +234,6 @@ async function runJavaScript(code) {
     timers.add(id);
     return id;
   };
-  self.close = () => exit("done");
   self.clearTimeout = self.clearInterval = (id) => {
     if (!timers.delete(id)) return;
     nativeClearTimeout(id);
