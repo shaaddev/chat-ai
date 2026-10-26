@@ -2,12 +2,13 @@ import { code } from "@streamdown/code";
 import Link from "next/link";
 import { memo } from "react";
 import {
+  defaultRehypePlugins,
   Streamdown,
   type StreamdownProps,
   type ThemeRegistrationAny,
 } from "streamdown";
 import "streamdown/styles.css";
-import { RunnableCode } from "./runnable-code-block";
+import { markClosedFences, RunnableCode } from "./runnable-code-block";
 
 type Components = StreamdownProps["components"];
 
@@ -31,6 +32,11 @@ const runnableComponents: Partial<Components> = {
   ...components,
   code: RunnableCode,
 };
+
+const runnableRehypePlugins: StreamdownProps["rehypePlugins"] = [
+  ...Object.values(defaultRehypePlugins),
+  markClosedFences,
+];
 
 const plugins: StreamdownProps["plugins"] = { code };
 
@@ -136,6 +142,7 @@ function NonMemoizedMarkdown({
       lineNumbers={false}
       parseIncompleteMarkdown={isStreaming}
       plugins={plugins}
+      rehypePlugins={runnable ? runnableRehypePlugins : undefined}
       shikiTheme={shikiTheme}
     >
       {children}

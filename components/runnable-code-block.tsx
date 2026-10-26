@@ -191,11 +191,13 @@ function RunOutput({
 }
 
 function RunnableCodeBlock({
+  canRun,
   code,
   isIncomplete,
   language,
   runner,
 }: {
+  canRun: boolean;
   code: string;
   isIncomplete: boolean;
   language: string;
@@ -233,14 +235,14 @@ function RunnableCodeBlock({
         language={language}
         lineNumbers={lineNumbers}
       >
-        {isIncomplete ? null : (
+        {canRun ? (
           <RunButton
             active={active}
             label={runner.label}
             onClick={toggleRun}
             ref={runButtonRef}
           />
-        )}
+        ) : null}
         <CodeBlockCopyButton />
       </CodeBlock>
       {open ? (
@@ -266,6 +268,60 @@ function codeText(children: ReactNode): string {
     : "";
 }
 
+const OPENING_FENCE = /^[ \t]*(`{3,}|~{3,})/;
+const CLOSING_FENCE = /\n[ \t>]*(`{3,}|~{3,})[ \t]*$/;
+
+// A fence the reply never closed runs to the end of its block, so its
+// source ends with code rather than a closing fence.
+function isClosedFence(source: string): boolean {
+  const open = OPENING_FENCE.exec(source)?.[1];
+  const close = CLOSING_FENCE.exec(source)?.[1];
+  return (
+    open !== undefined &&
+    close !== undefined &&
+    close[0] === open[0] &&
+    close.length >= open.length
+  );
+}
+
+interface HastNode {
+  children?: HastNode[];
+  position?: { start: { offset?: number }; end: { offset?: number } };
+  properties?: Record<string, unknown>;
+  tagName?: string;
+}
+
+// Streamdown parses each block on its own, so the file holds the block's
+// markdown and positions index into it. This runs after sanitizing, which
+// would drop the attribute.
+export function markClosedFences() {
+  return (tree: HastNode, file: { value: unknown }) => {
+    const source = String(file.value);
+    const visit = (node: HastNode) => {
+      for (const child of node.children ?? []) {
+        const { start, end } = child.position ?? {};
+        const className = child.properties?.className;
+        const language = Array.isArray(className)
+          ? LANGUAGE.exec(className.join(" "))?.[1]
+          : undefined;
+        if (
+          node.tagName === "pre" &&
+          child.tagName === "code" &&
+          language !== undefined &&
+          runnerForFence(language) &&
+          start?.offset !== undefined &&
+          end?.offset !== undefined &&
+          isClosedFence(source.slice(start.offset, end.offset))
+        ) {
+          child.properties = { ...child.properties, dataClosedFence: "" };
+        }
+        visit(child);
+      }
+    };
+    visit(tree);
+  };
+}
+
 // Rendering runnable blocks here, rather than through Streamdown's
 // `plugins.renderers`, avoids the Suspense boundary that path adds around
 // every block, which doubled hydration work in code-heavy chats.
@@ -278,6 +334,7 @@ export function RunnableCode(props: ComponentProps<typeof DefaultCode>) {
   }
   return (
     <RunnableCodeBlock
+      canRun={"data-closed-fence" in props && !isIncomplete}
       code={codeText(props.children)}
       isIncomplete={isIncomplete}
       language={language}
