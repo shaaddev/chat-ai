@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { auth } from "@/app/auth";
-import {
-  deleteFilesFromUploadThing,
-  extractFileKey,
-} from "@/lib/uploadthing/utils";
+import { deleteUploads } from "@/lib/db/queries";
+import { deleteFilesFromUploadThing } from "@/lib/uploadthing/utils";
+
+const deleteRequestBodySchema = z.object({ url: z.string().url() });
 
 export async function DELETE(req: Request) {
   try {
@@ -13,19 +14,27 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { url } = (await req.json()) as { url?: string };
+    const parsed = deleteRequestBodySchema.safeParse(
+      await req.json().catch(() => null)
+    );
 
-    if (!url) {
-      return NextResponse.json({ error: "Missing file url" }, { status: 400 });
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Send the url of the file to delete." },
+        { status: 400 }
+      );
     }
 
-    const fileKey = extractFileKey(url);
+    const fileKeys = await deleteUploads({
+      userId: session.user.id,
+      urls: [parsed.data.url],
+    });
 
-    if (!fileKey) {
-      return NextResponse.json({ error: "Invalid file url" }, { status: 400 });
+    if (fileKeys.length === 0) {
+      return NextResponse.json({ error: "File not found" }, { status: 404 });
     }
 
-    const { success, failed } = await deleteFilesFromUploadThing([fileKey]);
+    const { success, failed } = await deleteFilesFromUploadThing(fileKeys);
 
     return NextResponse.json({ ok: true, deleted: success, failed });
   } catch (error) {

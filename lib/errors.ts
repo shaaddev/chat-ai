@@ -15,7 +15,8 @@ export type Surface =
   | "history"
   | "vote"
   | "document"
-  | "suggestions";
+  | "suggestions"
+  | "upload";
 
 export type ErrorCode = `${ErrorType}:${Surface}`;
 
@@ -31,6 +32,7 @@ export const visibilityBySurface: Record<Surface, ErrorVisibility> = {
   vote: "response",
   document: "response",
   suggestions: "response",
+  upload: "response",
 };
 
 export class ChatSDKError extends Error {
@@ -106,6 +108,9 @@ export function getMessageByErrorCode(errorCode: ErrorCode): string {
       return "You need to sign in to view this document. Please sign in and try again.";
     case "bad_request:document":
       return "The request to create or update the document was invalid. Please check your input and try again.";
+
+    case "forbidden:upload":
+      return "An attached file is not one of your uploads. Remove it and upload the file again.";
 
     default:
       return "Something went wrong. Please try again later.";

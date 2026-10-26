@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { auth } from "@/app/auth";
 import {
   canReadChat,
@@ -7,10 +7,7 @@ import {
   getMessagesByChatId,
   updateChat,
 } from "@/lib/db/queries";
-import {
-  deleteFilesFromUploadThing,
-  extractFileKeysFromMessages,
-} from "@/lib/uploadthing/utils";
+import { deleteFilesFromUploadThing } from "@/lib/uploadthing/utils";
 import { convertToUIMessages } from "@/lib/utils";
 import { patchRequestBodySchema } from "./schema";
 
@@ -72,17 +69,15 @@ export async function DELETE(_req: Request, { params }: Params) {
     return unauthorized();
   }
 
-  const messages = await deleteChat({ id, userId: session.user.id });
-  if (!messages) {
+  const deleted = await deleteChat({ id, userId: session.user.id });
+  if (!deleted) {
     return notFound();
   }
 
-  const fileKeys = extractFileKeysFromMessages(messages);
-  if (fileKeys.length > 0) {
-    deleteFilesFromUploadThing(fileKeys).catch((error) => {
-      console.error("Background file deletion failed:", error);
-    });
+  const { uploadKeys } = deleted;
+  if (uploadKeys.length > 0) {
+    after(deleteFilesFromUploadThing(uploadKeys));
   }
 
-  return NextResponse.json({ success: true, deletedFiles: fileKeys.length });
+  return NextResponse.json({ success: true, deletedFiles: uploadKeys.length });
 }

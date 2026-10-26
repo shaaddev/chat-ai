@@ -1,10 +1,41 @@
 import { createUploadthing, type FileRouter } from "uploadthing/next";
 import { UploadThingError, UTApi } from "uploadthing/server";
+import type { UploadedFileData } from "uploadthing/types";
 import { auth } from "@/app/auth";
+import { saveUpload } from "@/lib/db/queries";
 
 export const utapi = new UTApi();
 
 const f = createUploadthing();
+
+async function requireUser() {
+  const session = await auth();
+
+  if (!session) {
+    throw new UploadThingError("Unauthorized");
+  }
+
+  return { userId: session.user.id };
+}
+
+async function recordUpload({
+  metadata,
+  file,
+}: {
+  metadata: { userId: string };
+  file: UploadedFileData;
+}) {
+  await saveUpload({
+    key: file.key,
+    userId: metadata.userId,
+    url: file.ufsUrl,
+    name: file.name,
+    mediaType: file.type,
+    size: file.size,
+  });
+
+  return { uploadedBy: metadata.userId };
+}
 
 export const ourFileRouter = {
   imageUploader: f({
@@ -18,22 +49,8 @@ export const ourFileRouter = {
       maxFileCount: 2,
     },
   })
-    .middleware(async () => {
-      const session = await auth();
-
-      if (!session) {
-        throw new UploadThingError("Unauthorized");
-      }
-
-      return { userId: session?.user.id };
-    })
-    .onUploadComplete(async ({ metadata, file }) => {
-      console.log("Upload complete for userId: ", metadata.userId);
-
-      console.log("File Url", file.ufsUrl);
-
-      return { uploadedBy: metadata.userId };
-    }),
+    .middleware(requireUser)
+    .onUploadComplete(recordUpload),
   documentUploader: f({
     pdf: {
       maxFileSize: "8MB",
@@ -44,21 +61,8 @@ export const ourFileRouter = {
       maxFileCount: 1,
     },
   })
-    .middleware(async () => {
-      const session = await auth();
-
-      if (!session) {
-        throw new UploadThingError("Unauthorized");
-      }
-
-      return { userId: session?.user.id };
-    })
-    .onUploadComplete(async ({ metadata, file }) => {
-      console.log("Document upload complete for userId: ", metadata.userId);
-      console.log("File Url", file.ufsUrl);
-
-      return { uploadedBy: metadata.userId };
-    }),
+    .middleware(requireUser)
+    .onUploadComplete(recordUpload),
 } satisfies FileRouter;
 
 export type OurFileRouter = typeof ourFileRouter;

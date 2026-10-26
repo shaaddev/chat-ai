@@ -26,8 +26,10 @@ import {
   createStreamId,
   getChatById,
   getMessagesByChatId,
+  ownsUploads,
   saveChat,
   saveMessages,
+  saveUpload,
   updateChat,
 } from "@/lib/db/queries";
 import { ChatSDKError } from "@/lib/errors";
@@ -44,47 +46,6 @@ export const maxDuration = 60;
 const DATA_URL_REGEX = /^data:(image\/[^;]+);base64,(.+)$/;
 const OPENROUTER_CHAT_COMPLETIONS_URL =
   "https://openrouter.ai/api/v1/chat/completions";
-
-function getUploadThingUrlFromResult(result: unknown): string | undefined {
-  const extract = (obj: unknown): string | undefined => {
-    if (!obj || typeof obj !== "object") {
-      return undefined;
-    }
-    const rec = obj as Record<string, unknown>;
-    const { data } = rec;
-    if (data && typeof data === "object") {
-      const drec = data as Record<string, unknown>;
-      const ufs = drec.ufsUrl;
-      if (typeof ufs === "string") {
-        return ufs;
-      }
-      const { url } = drec;
-      if (typeof url === "string") {
-        return url;
-      }
-    }
-    const ufs = rec.ufsUrl;
-    if (typeof ufs === "string") {
-      return ufs;
-    }
-    const { url } = rec;
-    if (typeof url === "string") {
-      return url;
-    }
-    return undefined;
-  };
-
-  if (Array.isArray(result)) {
-    for (const item of result) {
-      const found = extract(item);
-      if (found) {
-        return found;
-      }
-    }
-    return undefined;
-  }
-  return extract(result);
-}
 
 function detectDocumentIntent(
   text: string,
@@ -232,19 +193,31 @@ async function requestImage(slug: string, prompt: string): Promise<string> {
   return imageDataUrl;
 }
 
-async function uploadImage(bytes: Uint8Array<ArrayBuffer>, mediaType: string) {
+async function uploadImage(
+  bytes: Uint8Array<ArrayBuffer>,
+  mediaType: string,
+  userId: string
+) {
   const extension = mediaType.split("/")[1] || "png";
   const file = new File([bytes], `image-${Date.now()}.${extension}`, {
     type: mediaType,
   });
-  const url = getUploadThingUrlFromResult(await utapi.uploadFiles(file));
-  if (!url) {
-    throw new Error("Image generation produced no upload URL");
+  const { data, error } = await utapi.uploadFiles(file);
+  if (error) {
+    throw new Error(`Image upload failed: ${error.message}`);
   }
-  return { url, mediaType };
+  await saveUpload({
+    key: data.key,
+    userId,
+    url: data.ufsUrl,
+    name: data.name,
+    mediaType: data.type,
+    size: data.size,
+  });
+  return { url: data.ufsUrl, mediaType };
 }
 
-async function storeGeneratedImage(imageUrl: string) {
+async function storeGeneratedImage(imageUrl: string, userId: string) {
   if (imageUrl.startsWith("data:")) {
     const dataUrlMatch = imageUrl.match(DATA_URL_REGEX);
     if (!dataUrlMatch) {
@@ -253,7 +226,8 @@ async function storeGeneratedImage(imageUrl: string) {
     const [, mediaType, base64] = dataUrlMatch;
     return await uploadImage(
       new Uint8Array(Buffer.from(base64, "base64")),
-      mediaType
+      mediaType,
+      userId
     );
   }
 
@@ -265,7 +239,8 @@ async function storeGeneratedImage(imageUrl: string) {
     const mediaType = imageResponse.headers.get("content-type") || "image/png";
     return await uploadImage(
       new Uint8Array(await imageResponse.arrayBuffer()),
-      mediaType
+      mediaType,
+      userId
     );
   } catch (error) {
     console.error("Failed to download/upload external image:", error);
@@ -279,11 +254,18 @@ async function writeGeneratedImage(
     model,
     prompt,
     metadata,
-  }: { model: ChatModel; prompt: string; metadata: ChatMessageMetadata }
+    userId,
+  }: {
+    model: ChatModel;
+    prompt: string;
+    metadata: ChatMessageMetadata;
+    userId: string;
+  }
 ) {
   try {
     const image = await storeGeneratedImage(
-      await requestImage(model.slug, prompt)
+      await requestImage(model.slug, prompt),
+      userId
     );
     writer.write({ type: "start", messageMetadata: metadata });
     writer.write({ type: "file", url: image.url, mediaType: image.mediaType });
@@ -366,6 +348,13 @@ export async function POST(req: Request) {
       return new Response("Unauthorized", { status: 401 });
     }
 
+    const fileUrls = message.parts.flatMap((part) =>
+      part.type === "file" ? [part.url] : []
+    );
+    if (!(await ownsUploads({ userId, urls: fileUrls }))) {
+      return new ChatSDKError("forbidden:upload").toResponse();
+    }
+
     let titleSaved: Promise<void> | undefined;
     if (!existingChat) {
       await saveChat({
@@ -412,6 +401,7 @@ export async function POST(req: Request) {
             model,
             prompt: latestUserText,
             metadata,
+            userId,
           });
           await waitForTitle(titleSaved);
           return;

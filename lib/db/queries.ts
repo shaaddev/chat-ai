@@ -1,8 +1,15 @@
 import "server-only";
 
-import { and, asc, desc, eq, sql } from "drizzle-orm";
-import { getDb } from ".";
-import { type Chat, chat, type Message, message, stream } from "./schema";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { type Database, getDb } from ".";
+import {
+  type Chat,
+  chat,
+  type Message,
+  message,
+  stream,
+  upload,
+} from "./schema";
 
 export async function getChatsByUserId(userId: string): Promise<Chat[]> {
   return await getDb()
@@ -55,25 +62,79 @@ export async function updateChat({
   return updated.length > 0;
 }
 
+type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
+
+async function lockOwnedChat(tx: Transaction, chatId: string, userId: string) {
+  const [owned] = await tx
+    .select({ id: chat.id })
+    .from(chat)
+    .where(and(eq(chat.id, chatId), eq(chat.userId, userId)))
+    .for("update");
+  return owned !== undefined;
+}
+
 export async function deleteChat({
   id,
   userId,
 }: {
   id: string;
   userId: string;
-}): Promise<Pick<Message, "parts">[] | null> {
+}): Promise<{ uploadKeys: string[] } | null> {
   return await getDb().transaction(async (tx) => {
-    const parts = await tx
-      .select({ parts: message.parts })
-      .from(message)
-      .innerJoin(chat, eq(chat.id, message.chatId))
-      .where(and(eq(message.chatId, id), eq(chat.userId, userId)));
-    const deleted = await tx
-      .delete(chat)
-      .where(and(eq(chat.id, id), eq(chat.userId, userId)))
-      .returning({ id: chat.id });
-    return deleted.length > 0 ? parts : null;
+    if (!(await lockOwnedChat(tx, id, userId))) {
+      return null;
+    }
+    const fileUrls = sql`(
+      select part->>'url' from ${message}
+      cross join lateral jsonb_array_elements(${message.parts}) as part
+      where ${message.chatId} = ${id} and part->>'type' = 'file'
+    )`;
+    const uploads = await tx
+      .delete(upload)
+      .where(and(eq(upload.userId, userId), inArray(upload.url, fileUrls)))
+      .returning({ key: upload.key });
+    await tx.delete(chat).where(eq(chat.id, id));
+    return { uploadKeys: uploads.map(({ key }) => key) };
   });
+}
+
+export async function saveUpload(row: typeof upload.$inferInsert) {
+  await getDb()
+    .insert(upload)
+    .values(row)
+    .onConflictDoNothing({ target: upload.key });
+}
+
+export async function ownsUploads({
+  userId,
+  urls,
+}: {
+  userId: string;
+  urls: string[];
+}): Promise<boolean> {
+  const wanted = [...new Set(urls)];
+  if (wanted.length === 0) {
+    return true;
+  }
+  const owned = await getDb()
+    .selectDistinct({ url: upload.url })
+    .from(upload)
+    .where(and(eq(upload.userId, userId), inArray(upload.url, wanted)));
+  return owned.length === wanted.length;
+}
+
+export async function deleteUploads({
+  userId,
+  urls,
+}: {
+  userId: string;
+  urls: string[];
+}): Promise<string[]> {
+  const deleted = await getDb()
+    .delete(upload)
+    .where(and(eq(upload.userId, userId), inArray(upload.url, urls)))
+    .returning({ key: upload.key });
+  return deleted.map(({ key }) => key);
 }
 
 export async function getMessagesByChatId(chatId: string): Promise<Message[]> {
