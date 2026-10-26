@@ -207,6 +207,10 @@ export async function saveUserTurn({
 // Thrown inside the transaction so a new chat and the deletes roll back too.
 class MessageIdTakenError extends Error {}
 
+// The database clock, so app servers with skewed clocks agree on turn order.
+// Not now(): it is fixed at transaction start, before the chat row lock.
+const databaseNow = sql`clock_timestamp()`;
+
 const messagePosition = sql`(${message.createdAt}, ${message.id})`;
 const positionOf = (messageId: string) =>
   sql`(select ${message.createdAt}, ${message.id} from ${message} where ${message.id} = ${messageId})`;
@@ -263,7 +267,6 @@ async function saveUserTurnOrThrow({
           );
       }
     }
-    const now = new Date();
     if (turn.type !== "regenerate") {
       const inserted = await tx
         .insert(message)
@@ -272,7 +275,7 @@ async function saveUserTurnOrThrow({
           chatId,
           role: "user",
           parts: stripNul(turn.message.parts),
-          createdAt: now,
+          createdAt: databaseNow,
         })
         .onConflictDoNothing({ target: message.id })
         .returning({ id: message.id });
@@ -280,8 +283,13 @@ async function saveUserTurnOrThrow({
         throw new MessageIdTakenError();
       }
     }
-    await tx.insert(stream).values({ id: streamId, chatId, createdAt: now });
-    await tx.update(chat).set({ updatedAt: now }).where(eq(chat.id, chatId));
+    await tx
+      .insert(stream)
+      .values({ id: streamId, chatId, createdAt: databaseNow });
+    await tx
+      .update(chat)
+      .set({ updatedAt: databaseNow })
+      .where(eq(chat.id, chatId));
     const history = await tx
       .select()
       .from(message)
@@ -328,7 +336,6 @@ export async function saveReplyIfLatestTurn({
           )
         );
     }
-    const now = new Date();
     await tx
       .insert(message)
       .values({
@@ -336,10 +343,13 @@ export async function saveReplyIfLatestTurn({
         parts: stripNul(reply.parts),
         chatId,
         role: "assistant",
-        createdAt: now,
+        createdAt: databaseNow,
       })
       .onConflictDoNothing({ target: message.id });
-    await tx.update(chat).set({ updatedAt: now }).where(eq(chat.id, chatId));
+    await tx
+      .update(chat)
+      .set({ updatedAt: databaseNow })
+      .where(eq(chat.id, chatId));
   });
 }
 
