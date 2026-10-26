@@ -138,4 +138,26 @@ describe("run state", () => {
     );
     expect(runReducer(finished, { type: "clear" })).toEqual(INITIAL_RUN_STATE);
   });
+
+  const late: RunAction[] = [
+    { type: "loading" },
+    { type: "started", at: 5 },
+    { type: "output", chunks: [out("late\n")] },
+    { type: "exit", exit: "done", at: 6, detail: null },
+  ];
+
+  test.each(["done", "error", "timed-out", "stopped"] as const)(
+    "ignores events that arrive after the run ends as %s",
+    (exit) => {
+      const ended = reduce([
+        { type: "run", at: 0 },
+        { type: "exit", exit, at: 4, detail: null },
+      ]);
+      expect(late.reduce(runReducer, ended)).toBe(ended);
+    }
+  );
+
+  test("ignores events that arrive after Clear", () => {
+    expect(late.reduce(runReducer, INITIAL_RUN_STATE)).toBe(INITIAL_RUN_STATE);
+  });
 });
