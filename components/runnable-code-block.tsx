@@ -105,16 +105,18 @@ function RunButton({
       type="button"
     >
       {/* The icons are CSS shapes because an SVG icon in each of 200 Run
-          buttons pushed time to interactive back by about 190 ms. */}
+          buttons pushed time to interactive back by about 190 ms. Forced
+          colors would paint their background as Canvas, so they opt out
+          and take the button's text color. */}
       {active ? (
         <span
           aria-hidden="true"
-          className="size-2.5 rounded-[2px] bg-current"
+          className="size-2.5 rounded-[2px] bg-current forced-color-adjust-none forced-colors:bg-[ButtonText]"
         />
       ) : (
         <span
           aria-hidden="true"
-          className="size-3.5 bg-current"
+          className="size-3.5 bg-current forced-color-adjust-none forced-colors:bg-[ButtonText]"
           data-run-icon=""
         />
       )}
