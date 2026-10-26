@@ -23,13 +23,12 @@ import {
   getLanguageModel,
 } from "@/lib/ai/providers";
 import {
-  createStreamId,
   getChatById,
-  getMessagesByChatId,
   ownsUploads,
   saveChat,
-  saveMessages,
+  saveReplyIfLatestTurn,
   saveUpload,
+  saveUserTurn,
   updateChat,
 } from "@/lib/db/queries";
 import { ChatSDKError } from "@/lib/errors";
@@ -40,7 +39,11 @@ import {
   generateUUID,
   hasVisibleContent,
 } from "@/lib/utils";
-import { type PostRequestBody, postRequestBodySchema } from "./schema";
+import {
+  type PostRequestBody,
+  postRequestBodySchema,
+  toUserTurn,
+} from "./schema";
 
 export const maxDuration = 60;
 const DATA_URL_REGEX = /^data:(image\/[^;]+);base64,(.+)$/;
@@ -309,6 +312,15 @@ async function saveGeneratedTitle({
   }
 }
 
+function getUserText(parts: ChatMessage["parts"]) {
+  return parts
+    .filter((part) => part.type === "text")
+    .map((part) => part.text)
+    .join("\n")
+    .trim()
+    .slice(0, 10_000);
+}
+
 export async function POST(req: Request) {
   let requestBody: PostRequestBody;
 
@@ -327,15 +339,8 @@ export async function POST(req: Request) {
       autoDocumentGeneration,
       customSystemPrompt,
     } = requestBody;
-    const message: ChatMessage = requestBody.message;
+    const turn = toUserTurn(requestBody);
     const model = getChatModel(selectedChatModel);
-
-    const latestUserText = message.parts
-      .filter((part) => part.type === "text")
-      .map((part) => part.text)
-      .join("\n")
-      .trim()
-      .slice(0, 10_000);
 
     const session = await auth();
     if (!session) {
@@ -348,19 +353,27 @@ export async function POST(req: Request) {
       return new Response("Unauthorized", { status: 401 });
     }
 
-    const fileUrls = message.parts.flatMap((part) =>
-      part.type === "file" ? [part.url] : []
-    );
-    if (!(await ownsUploads({ userId, urls: fileUrls }))) {
-      return new ChatSDKError("forbidden:upload").toResponse();
+    if (turn.type !== "regenerate") {
+      const fileUrls = turn.message.parts.flatMap((part) =>
+        part.type === "file" ? [part.url] : []
+      );
+      if (!(await ownsUploads({ userId, urls: fileUrls }))) {
+        return new ChatSDKError("forbidden:upload").toResponse();
+      }
     }
 
     let titleSaved: Promise<void> | undefined;
     if (!existingChat) {
+      if (turn.type !== "append") {
+        return new ChatSDKError("not_found:chat").toResponse();
+      }
+      const message: ChatMessage = { ...turn.message, role: "user" };
       await saveChat({
         id,
         userId,
-        title: latestUserText.slice(0, CHAT_TITLE_MAX_LENGTH) || "New chat",
+        title:
+          getUserText(message.parts).slice(0, CHAT_TITLE_MAX_LENGTH) ||
+          "New chat",
         systemPrompt: customSystemPrompt,
       });
       // A promise, not a callback: a callback would only start once the
@@ -372,16 +385,16 @@ export async function POST(req: Request) {
       after(titleSaved);
     }
 
-    const history = existingChat
-      ? convertToUIMessages(await getMessagesByChatId(id))
-      : [];
-
-    await Promise.all([
-      saveMessages(id, [
-        { id: message.id, role: "user", parts: message.parts, model: null },
-      ]),
-      createStreamId({ streamId: generateUUID(), chatId: id }),
-    ]);
+    const streamId = generateUUID();
+    const saved = await saveUserTurn({ chatId: id, userId, streamId, turn });
+    if (!saved) {
+      return new ChatSDKError(
+        "bad_request:api",
+        "Only a user message in this chat can be edited or regenerated."
+      ).toResponse();
+    }
+    const history = convertToUIMessages(saved);
+    const latestUserText = getUserText(history.at(-1)?.parts ?? []);
 
     const documentIntent = detectDocumentIntent(
       latestUserText,
@@ -414,7 +427,7 @@ export async function POST(req: Request) {
             customSystemPrompt:
               customSystemPrompt ?? existingChat?.systemPrompt ?? undefined,
           }),
-          messages: await convertToModelMessages([...history, message]),
+          messages: await convertToModelMessages(history),
           experimental_transform: smoothStream({ chunking: "word" }),
           stopWhen: isStepCount(5),
           maxOutputTokens: 5000,
@@ -437,14 +450,15 @@ export async function POST(req: Request) {
           return;
         }
         try {
-          await saveMessages(id, [
-            {
+          await saveReplyIfLatestTurn({
+            chatId: id,
+            streamId,
+            reply: {
               id: responseMessage.id,
-              role: "assistant",
               parts: responseMessage.parts,
               model: model.id,
             },
-          ]);
+          });
         } catch (error) {
           console.error("Failed to save the assistant message", error);
         }

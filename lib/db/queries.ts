@@ -161,51 +161,118 @@ function stripNul<T>(value: T): T {
   return value;
 }
 
-export async function saveMessages(
-  chatId: string,
-  messages: Omit<typeof message.$inferInsert, "chatId" | "createdAt">[]
-) {
-  if (messages.length === 0) {
-    return;
-  }
-  const now = Date.now();
-  await getDb().transaction(async (tx) => {
-    await tx
-      .insert(message)
-      .values(
-        messages.map((m, index) => ({
-          ...m,
-          parts: stripNul(m.parts),
-          chatId,
-          createdAt: new Date(now + index),
-        }))
-      )
-      .onConflictDoNothing({ target: message.id });
-    await tx
-      .update(chat)
-      .set({ updatedAt: new Date() })
-      .where(eq(chat.id, chatId));
-  });
-}
+type NewMessage = Pick<Message, "id" | "parts">;
 
-export async function createStreamId({
-  streamId,
-  chatId,
-}: {
-  streamId: string;
-  chatId: string;
-}) {
-  await getDb().insert(stream).values({ id: streamId, chatId });
-}
+export type UserTurn =
+  | { type: "append"; message: NewMessage }
+  | { type: "edit"; userMessageId: string; message: NewMessage }
+  | { type: "regenerate"; userMessageId: string };
 
-export async function getLatestStreamId(
-  chatId: string
-): Promise<string | undefined> {
-  const [row] = await getDb()
+async function latestStreamId(db: Database | Transaction, chatId: string) {
+  const [row] = await db
     .select({ id: stream.id })
     .from(stream)
     .where(eq(stream.chatId, chatId))
     .orderBy(desc(stream.createdAt))
     .limit(1);
   return row?.id;
+}
+
+export async function saveUserTurn({
+  chatId,
+  userId,
+  streamId,
+  turn,
+}: {
+  chatId: string;
+  userId: string;
+  streamId: string;
+  turn: UserTurn;
+}): Promise<Message[] | null> {
+  return await getDb().transaction(async (tx) => {
+    if (!(await lockOwnedChat(tx, chatId, userId))) {
+      return null;
+    }
+    if (turn.type !== "append") {
+      const [kept] = await tx
+        .select({ id: message.id })
+        .from(message)
+        .where(
+          and(
+            eq(message.chatId, chatId),
+            eq(message.id, turn.userMessageId),
+            eq(message.role, "user")
+          )
+        );
+      if (!kept) {
+        return null;
+      }
+      const position = sql`(${message.createdAt}, ${message.id})`;
+      const keptPosition = sql`(select ${message.createdAt}, ${message.id} from ${message} where ${message.id} = ${kept.id})`;
+      const replaced =
+        turn.type === "edit"
+          ? sql`${position} >= ${keptPosition}`
+          : sql`${position} > ${keptPosition}`;
+      await tx.delete(message).where(and(eq(message.chatId, chatId), replaced));
+    }
+    const now = new Date();
+    if (turn.type !== "regenerate") {
+      await tx
+        .insert(message)
+        .values({
+          id: turn.message.id,
+          chatId,
+          role: "user",
+          parts: stripNul(turn.message.parts),
+          createdAt: now,
+        })
+        .onConflictDoNothing({ target: message.id });
+    }
+    await tx.insert(stream).values({ id: streamId, chatId, createdAt: now });
+    await tx.update(chat).set({ updatedAt: now }).where(eq(chat.id, chatId));
+    return await tx
+      .select()
+      .from(message)
+      .where(eq(message.chatId, chatId))
+      .orderBy(asc(message.createdAt), asc(message.id));
+  });
+}
+
+export async function saveReplyIfLatestTurn({
+  chatId,
+  streamId,
+  reply,
+}: {
+  chatId: string;
+  streamId: string;
+  reply: NewMessage & Pick<Message, "model">;
+}) {
+  await getDb().transaction(async (tx) => {
+    await tx
+      .select({ id: chat.id })
+      .from(chat)
+      .where(eq(chat.id, chatId))
+      .for("update");
+    if ((await latestStreamId(tx, chatId)) !== streamId) {
+      return;
+    }
+    const now = new Date();
+    await tx
+      .insert(message)
+      .values({
+        ...reply,
+        parts: stripNul(reply.parts),
+        chatId,
+        role: "assistant",
+        createdAt: now,
+      })
+      .onConflictDoNothing({ target: message.id });
+    await tx.update(chat).set({ updatedAt: now }).where(eq(chat.id, chatId));
+  });
+}
+
+export async function getLatestStreamId(
+  chatId: string
+): Promise<string | undefined> {
+  return await latestStreamId(getDb(), chatId);
 }
