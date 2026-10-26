@@ -89,12 +89,19 @@ export const isActive = (status: RunStatus): boolean =>
   status.kind === "loading" || status.kind === "running";
 
 export function runReducer(state: RunState, action: RunAction): RunState {
+  if (action.type === "run") {
+    return {
+      status: { kind: "running", startedAt: action.at },
+      output: EMPTY_OUTPUT,
+    };
+  }
+  if (action.type === "clear") {
+    return INITIAL_RUN_STATE;
+  }
+  if (!isActive(state.status)) {
+    return state;
+  }
   switch (action.type) {
-    case "run":
-      return {
-        status: { kind: "running", startedAt: action.at },
-        output: EMPTY_OUTPUT,
-      };
     case "loading":
       return { ...state, status: { kind: "loading" } };
     case "started":
@@ -113,8 +120,6 @@ export function runReducer(state: RunState, action: RunAction): RunState {
           detail: action.detail,
         },
       };
-    case "clear":
-      return INITIAL_RUN_STATE;
     default:
       return state;
   }
