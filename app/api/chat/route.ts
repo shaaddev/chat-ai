@@ -298,6 +298,20 @@ async function writeGeneratedImage(
   }
 }
 
+const TITLE_WAIT_MS = 3000;
+
+// The client refreshes the sidebar when a stream ends, so a new chat's
+// stream waits briefly for its title. A slow title still saves afterward.
+async function waitForTitle(titleSaved: Promise<void> | undefined) {
+  if (!titleSaved) {
+    return;
+  }
+  await Promise.race([
+    titleSaved,
+    new Promise((resolve) => setTimeout(resolve, TITLE_WAIT_MS)),
+  ]);
+}
+
 async function saveGeneratedTitle({
   chatId,
   userId,
@@ -399,7 +413,7 @@ export async function POST(req: Request) {
             prompt: latestUserText,
             metadata,
           });
-          await titleSaved;
+          await waitForTitle(titleSaved);
           return;
         }
 
@@ -425,9 +439,7 @@ export async function POST(req: Request) {
               part.type === "start" ? metadata : undefined,
           })
         );
-        // The client refreshes the sidebar when the stream ends, so a new
-        // chat's stream stays open until its generated title is saved.
-        await titleSaved;
+        await waitForTitle(titleSaved);
       },
       generateId: generateUUID,
       onEnd: async ({ responseMessage }) => {

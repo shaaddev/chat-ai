@@ -13,6 +13,7 @@ const openrouter = createOpenRouter({
 const WEB_SEARCH_MAX_RESULTS = 5;
 
 export const CHAT_TITLE_MAX_LENGTH = 80;
+const TITLE_TIMEOUT_MS = 10_000;
 
 export function getLanguageModel(
   slug: string,
@@ -41,6 +42,7 @@ export async function generateChatTitle(message: ChatMessage) {
     instructions: titlePrompt,
     prompt: `<message>${messageText(message)}</message>`,
     temperature: 0,
+    abortSignal: AbortSignal.timeout(TITLE_TIMEOUT_MS),
   });
   return text
     .trim()
