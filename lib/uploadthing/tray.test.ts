@@ -295,6 +295,27 @@ describe("attachment tray", () => {
     expect(discarded).toEqual([]);
   });
 
+  test("files past the per-message limit hold the send until enough are removed", () => {
+    const { tray } = setup();
+    tray.restore(
+      Array.from({ length: ATTACHMENT_MAX_COUNT + 2 }, (_, index) => ({
+        filename: `file-${index}.png`,
+        mediaType: "image/png" as const,
+        size: 1,
+        url: `u${index}`,
+      }))
+    );
+
+    const twoOver = readiness(tray.getItems());
+    tray.remove(tray.getItems()[0].id);
+    const oneOver = readiness(tray.getItems());
+    tray.remove(tray.getItems()[0].id);
+
+    expect(twoOver).toBe("over-limit");
+    expect(oneOver).toBe("over-limit");
+    expect(readiness(tray.getItems())).toBe("ready");
+  });
+
   test("a send carries only the finished uploads", async () => {
     const { tray, uploads } = setup();
     tray.add([image("done.png"), pdf("pending.pdf")]);
