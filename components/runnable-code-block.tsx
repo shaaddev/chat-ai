@@ -87,16 +87,18 @@ function RunButton({
 }
 
 function RunOutput({
+  label,
   state: { status, output },
   onClear,
 }: {
+  label: string;
   state: RunState;
   onClear: () => void;
 }) {
   const active = isActive(status);
   const detail = "detail" in status ? status.detail : null;
   const shown = output.length + (detail?.length ?? 0);
-  const scrollRef = useRef<HTMLPreElement>(null);
+  const scrollRef = useRef<HTMLElement>(null);
   const followRef = useRef(true);
 
   useLayoutEffect(() => {
@@ -108,7 +110,7 @@ function RunOutput({
     }
   }, [shown]);
 
-  const onScroll = (event: UIEvent<HTMLPreElement>) => {
+  const onScroll = (event: UIEvent<HTMLElement>) => {
     const element = event.currentTarget;
     followRef.current =
       element.scrollHeight - element.scrollTop - element.clientHeight < 8;
@@ -141,34 +143,39 @@ function RunOutput({
         )}
       </div>
       {shown > 0 ? (
-        <pre
-          className="max-h-72 overflow-auto whitespace-pre-wrap break-words px-4 pt-0.5 pb-3 font-mono text-[13px] text-foreground leading-[1.55]"
+        <section
+          aria-label={`${label} output`}
+          className="max-h-72 overflow-auto rounded-b-xl outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-inset"
           onScroll={onScroll}
           ref={scrollRef}
+          // biome-ignore lint/a11y/noNoninteractiveTabindex: Safari does not let the keyboard reach a scroll container, so long output would be unreadable without a tab stop.
+          tabIndex={0}
         >
-          {output.chunks.map((chunk, index) => (
-            <span
-              className={
-                chunk.stream === "stderr" ? "text-destructive" : undefined
-              }
-              data-stream={chunk.stream}
-              key={index}
-            >
-              {chunk.text}
-            </span>
-          ))}
-          {output.truncated ? (
-            <span className="my-1 block font-sans text-muted-foreground text-xs">
-              Output truncated at {OUTPUT_LIMIT.toLocaleString("en-US")}{" "}
-              characters.
-            </span>
-          ) : null}
-          {detail ? (
-            <span className="block text-destructive" data-stream="stderr">
-              {detail}
-            </span>
-          ) : null}
-        </pre>
+          <pre className="whitespace-pre-wrap break-words px-4 pt-0.5 pb-3 font-mono text-[13px] text-foreground leading-[1.55]">
+            {output.chunks.map((chunk, index) => (
+              <span
+                className={
+                  chunk.stream === "stderr" ? "text-destructive" : undefined
+                }
+                data-stream={chunk.stream}
+                key={index}
+              >
+                {chunk.text}
+              </span>
+            ))}
+            {output.truncated ? (
+              <span className="my-1 block font-sans text-muted-foreground text-xs">
+                Output truncated at {OUTPUT_LIMIT.toLocaleString("en-US")}{" "}
+                characters.
+              </span>
+            ) : null}
+            {detail ? (
+              <span className="block text-destructive" data-stream="stderr">
+                {detail}
+              </span>
+            ) : null}
+          </pre>
+        </section>
       ) : null}
       {shown === 0 && !active ? (
         <div className="px-3.5 pb-3 text-muted-foreground text-xs">
@@ -227,7 +234,13 @@ export function RunnableCodeBlock({
         ) : null}
         <CodeBlockCopyButton />
       </CodeBlock>
-      {open ? <RunOutput onClear={clear} state={state} /> : null}
+      {open ? (
+        <RunOutput
+          label={runner?.label ?? language}
+          onClear={clear}
+          state={state}
+        />
+      ) : null}
       <output aria-live="polite" className="sr-only">
         {announcement(state.status)}
       </output>
