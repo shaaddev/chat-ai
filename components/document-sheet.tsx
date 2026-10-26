@@ -107,9 +107,8 @@ export function DocumentSheet({
     });
   }, []);
 
-  const generateBlob = async () => {
-    return createDocumentBlob({ markdown, format, title: initialTitle });
-  };
+  const generateBlob = async () =>
+    createDocumentBlob({ markdown, format, title: initialTitle });
 
   const handleDownload = async () => {
     try {

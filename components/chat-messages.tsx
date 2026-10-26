@@ -144,7 +144,7 @@ function PureMessages({
   let latestUserMessageId: string | null = null;
   let latestUserMessageIndex = -1;
 
-  for (let index = messages.length - 1; index >= 0; index--) {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index];
 
     if (message.role === "user" && latestUserMessageId === null) {
@@ -405,8 +405,8 @@ export const Messages = memo(PureMessages, (prevProps, nextProps) => {
   if (prevProps.messages.length !== nextProps.messages.length) {
     return false;
   }
-  const prevFirstMessage = prevProps.messages[0];
-  const nextFirstMessage = nextProps.messages[0];
+  const [prevFirstMessage] = prevProps.messages;
+  const [nextFirstMessage] = nextProps.messages;
   if (prevFirstMessage?.id !== nextFirstMessage?.id) {
     return false;
   }

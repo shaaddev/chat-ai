@@ -81,9 +81,9 @@ export async function deleteFilesFromUploadThing(
     if (Array.isArray(result)) {
       for (const item of result) {
         if (item.success) {
-          success++;
+          success += 1;
         } else {
-          failed++;
+          failed += 1;
         }
       }
     } else if (result && typeof result === "object" && "success" in result) {

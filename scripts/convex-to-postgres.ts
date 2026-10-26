@@ -188,7 +188,7 @@ function planImport(
 const MESSAGE_BATCH = 100;
 
 async function main() {
-  const dir = process.argv[2];
+  const [, , dir] = process.argv;
   if (!dir || dir.startsWith("--")) {
     console.error(
       "usage: bun scripts/convex-to-postgres.ts <export-dir> [--since=<ms>]"
@@ -260,6 +260,7 @@ async function main() {
       count.verifications = rows.length;
     }
     for (const row of plan.existingChats) {
+      // biome-ignore lint/performance/noAwaitInLoops: a transaction runs on one connection, so statements go in order anyway
       const updated = await tx
         .update(chat)
         .set({
@@ -303,6 +304,7 @@ async function main() {
     const messages = plan.messages.filter((m) => present.has(m.chatId));
     count.messagesOfDeletedChats = plan.messages.length - messages.length;
     for (let i = 0; i < messages.length; i += MESSAGE_BATCH) {
+      // biome-ignore lint/performance/noAwaitInLoops: a transaction runs on one connection, so statements go in order anyway
       const rows = await tx
         .insert(message)
         .values(messages.slice(i, i + MESSAGE_BATCH))

@@ -84,7 +84,7 @@ function getLatestConversationMessages(messages: ChatMessage[]) {
   let latestAssistantMessage: ChatMessage | undefined;
   let latestUserMessage: ChatMessage | undefined;
 
-  for (let index = messages.length - 1; index >= 0; index--) {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index];
 
     if (!latestAssistantMessage && message.role === "assistant") {
@@ -175,11 +175,11 @@ export function Chat({
       transport: new DefaultChatTransport({
         api: "/api/chat",
         fetch: fetchWithErrorHandlers,
-        prepareSendMessagesRequest({ messages, id, body }) {
+        prepareSendMessagesRequest({ messages: outgoing, id: chatId, body }) {
           return {
             body: {
-              id,
-              message: messages.at(-1),
+              id: chatId,
+              message: outgoing.at(-1),
               selectedChatModel: initialChatModel,
               customSystemPrompt,
               autoDocumentGeneration,
