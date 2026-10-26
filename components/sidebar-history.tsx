@@ -224,6 +224,7 @@ function ChatRowComponent({
   const isPinned = chat.pinnedKey !== null;
   const openedFromRowRef = useRef(false);
   const usedKeysInMenuRef = useRef(false);
+  const openedByPressRef = useRef(false);
   const focusOnMenuCloseRef = useRef<HTMLElement | "kept" | null>(null);
   const refocusLinkRef = useRef(false);
 
@@ -261,6 +262,7 @@ function ChatRowComponent({
       return;
     }
     openedFromRowRef.current = true;
+    openedByPressRef.current = event.type === "contextmenu";
     setIsMenuOpen(true);
   };
 
@@ -271,6 +273,7 @@ function ChatRowComponent({
     focusOnMenuCloseRef.current = null;
     openedFromRowRef.current = false;
     usedKeysInMenuRef.current = false;
+    openedByPressRef.current = false;
     if (target) {
       event.preventDefault();
       if (target !== "kept") {
@@ -360,6 +363,15 @@ function ChatRowComponent({
             }}
             onPointerDownCapture={() => {
               usedKeysInMenuRef.current = false;
+              openedByPressRef.current = false;
+            }}
+            onPointerUpCapture={(event) => {
+              if (openedByPressRef.current) {
+                openedByPressRef.current = false;
+                // Radix MenuItem clicks itself on a pointerup with no pointerdown
+                // on it, unless the pointerup is default-prevented.
+                event.preventDefault();
+              }
             }}
             side="right"
           >
