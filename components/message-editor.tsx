@@ -69,7 +69,7 @@ export function MessageEditor({
       onSubmit={handleSubmit}
     >
       <textarea
-        aria-label="Edit message"
+        aria-label="Message text"
         className="block w-full resize-none border-0 bg-transparent px-2 pt-[7px] text-base text-foreground leading-[1.6] outline-hidden md:text-[15px]"
         onChange={(event) => {
           setText(event.target.value);
