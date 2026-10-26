@@ -489,7 +489,7 @@ function PureComposerAction({
           submitForm();
         }
       }}
-      type="button"
+      type={isBusy ? "button" : "submit"}
     >
       {icon}
     </button>
