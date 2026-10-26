@@ -148,6 +148,27 @@ export function ChatInput({
     clearChatInputState,
   ]);
 
+  const isBusy = status === "submitted" || status === "streaming";
+
+  // Radix layers dismiss on Escape in the capture phase and mark the event
+  // handled, so this only stops a reply when no menu or dialog consumed it.
+  useEffect(() => {
+    if (!isBusy) {
+      return;
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.key === "Escape" &&
+        !event.defaultPrevented &&
+        !event.isComposing
+      ) {
+        stop();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isBusy, stop]);
+
   useEffect(() => {
     const currentInput = input;
     const textarea = textareaRef.current;
@@ -226,7 +247,11 @@ export function ChatInput({
           className="w-full resize-none border-0 bg-transparent px-4 pt-3.5 pb-0 text-base text-foreground outline-hidden placeholder:text-muted-foreground/50 focus:ring-0 disabled:opacity-50"
           onChange={handleInput}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
+            if (
+              e.key === "Enter" &&
+              !e.shiftKey &&
+              !e.nativeEvent.isComposing
+            ) {
               e.preventDefault();
               if (status !== "ready") {
                 toast.error(
@@ -363,7 +388,7 @@ export function ChatInput({
             />
           </div>
 
-          {status === "submitted" || status === "streaming" ? (
+          {isBusy ? (
             <StopButton setMessages={setMessages} stop={stop} />
           ) : (
             <SendButton
@@ -444,7 +469,8 @@ function PureStopButton({
 }) {
   return (
     <button
-      className="flex size-8 cursor-pointer items-center justify-center rounded-full bg-foreground transition-colors hover:bg-foreground/80"
+      aria-label="Stop generating"
+      className="flex size-8 cursor-pointer items-center justify-center rounded-full bg-foreground transition-colors hover:bg-foreground/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       data-testid="stop-button"
       onClick={(e) => {
         e.preventDefault();
@@ -453,7 +479,7 @@ function PureStopButton({
       }}
       type="button"
     >
-      <CircleStop className="size-4 text-background" />
+      <CircleStop aria-hidden className="size-4 text-background" />
     </button>
   );
 }
@@ -472,8 +498,9 @@ function PureSendButton({
   const enabled = input.trim().length > 0 && uploadQueue.length === 0;
   return (
     <button
+      aria-label="Send message"
       className={cn(
-        "flex size-8 cursor-pointer items-center justify-center rounded-full transition-colors",
+        "flex size-8 cursor-pointer items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         enabled
           ? "bg-foreground hover:bg-foreground/80"
           : "cursor-default bg-muted"
@@ -486,6 +513,7 @@ function PureSendButton({
       type="submit"
     >
       <ArrowUp
+        aria-hidden
         className={cn(
           "size-4",
           enabled ? "text-background" : "text-muted-foreground/50"
