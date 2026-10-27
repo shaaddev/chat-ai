@@ -41,7 +41,6 @@ import { extractSources, type Source } from "@/lib/sources";
 import type { ChatMessage, DocumentDraft } from "@/lib/types";
 import { readiness, sentFiles } from "@/lib/uploadthing/tray";
 import { cn } from "@/lib/utils";
-import { getAttachmentTray, moveAttachmentTray } from "./attachment-tray";
 import { ChatInput } from "./chat-input";
 import { Messages, type UnsavedEdit } from "./chat-messages";
 import { AttachmentDropZone } from "./drop-overlay";
@@ -252,9 +251,6 @@ interface ChatRequestSettings {
 }
 
 interface ChatProps {
-  // Where the composer keeps its draft and files until this chat is saved.
-  // The chat's id when absent.
-  draftKey?: string;
   id: string;
   initialChatModel: string;
   initialMessages: ChatMessage[];
@@ -262,10 +258,10 @@ interface ChatProps {
   initialTitle?: string;
   onNewChatSend?: (chatId: string, send: NewChatSend) => void;
   session: Session | null;
+  unsavedDraftKey?: string;
 }
 
 export function Chat({
-  draftKey,
   id,
   initialChatModel,
   initialMessages,
@@ -273,19 +269,20 @@ export function Chat({
   initialSystemPrompt,
   initialTitle,
   onNewChatSend,
+  unsavedDraftKey,
 }: ChatProps) {
   const [isAuthenticated] = useState(!!session);
   const { addOptimisticChat, setChatLoading, refreshChats } = useChatContext();
   const drafts = useChatDrafts();
-  const draftKeyRef = useRef(draftKey ?? id);
-  const [tray] = useState(() => getAttachmentTray(draftKeyRef.current));
+  const draftKeyRef = useRef(unsavedDraftKey ?? id);
+  const [tray] = useState(() => drafts.tray(draftKeyRef.current));
   const [selectedModelId, setSelectedModelId] = useState<ChatModelId>(
     () => findChatModel(initialChatModel)?.id ?? DEFAULT_CHAT_MODEL
   );
 
   const [input, setInput] = useState("");
   // Web search defaults ON. The actual user-preferred default is hydrated
-  // from localStorage on mount via `getChatInputState` below.
+  // from localStorage on mount via `drafts.get` below.
   const [useSearch, setUseSearch] = useState(true);
   const [autoDocumentGeneration, setAutoDocumentGeneration] = useState(false);
   const [customSystemPrompt, setCustomSystemPrompt] = useState<
@@ -321,7 +318,7 @@ export function Chat({
 
   useEffect(
     () =>
-      drafts.watchHandBacks((key, text) => {
+      drafts.takeHandBacks((key, text) => {
         if (key !== draftKeyRef.current) {
           return false;
         }
@@ -357,8 +354,7 @@ export function Chat({
   }, []);
 
   const [turns] = useState(() => {
-    // Returns whether the user can see what came back.
-    const restoreInput = (
+    const showHandBack = (
       request: TurnRequest,
       { editShown, maybeSaved }: { editShown: boolean; maybeSaved: boolean }
     ) => {
@@ -369,10 +365,11 @@ export function Chat({
         setUnsavedEdit({ messageId: request.messageId, text: request.text });
         return true;
       }
-      if (request.kind === "append") {
-        tray.restore(request.files, { maybeSaved });
-      }
-      return drafts.handBack(draftKeyRef.current, request.text);
+      return drafts.handBack(draftKeyRef.current, {
+        files: request.kind === "append" ? request.files : [],
+        maybeSaved,
+        text: request.text,
+      });
     };
 
     return createTurnGate({
@@ -387,10 +384,8 @@ export function Chat({
           }
           window.history.replaceState({}, "", `/chat/${id}`);
           addOptimisticChat({ id, title: chatTitle(request) });
-          // What the user types now belongs to this chat, not to `/`.
           if (draftKeyRef.current !== id) {
             drafts.move(draftKeyRef.current, id);
-            moveAttachmentTray(draftKeyRef.current, id);
             draftKeyRef.current = id;
           }
         },
@@ -421,7 +416,7 @@ export function Chat({
           }
         },
         turnNotSaved: (request, { editShown, maybeSaved, notify }) => {
-          const seen = restoreInput(request, { editShown, maybeSaved });
+          const seen = showHandBack(request, { editShown, maybeSaved });
           if (notify && seen) {
             const notice = TURN_NOT_SAVED[request.kind];
             toast(notice.title, { description: notice.description });

@@ -17,6 +17,7 @@ import {
   type ChatInputState,
   createChatDrafts,
 } from "@/lib/chat-drafts";
+import { getAttachmentTray, moveAttachmentTray } from "./attachment-tray";
 
 const CHATS_KEY = "/api/chats";
 const UNDO_WINDOW_MS = 5000;
@@ -265,6 +266,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         ...DEFAULT_CHAT_INPUT_STATE,
         useSearch: getDefaultUseSearch(),
       }),
+      trays: { get: getAttachmentTray, move: moveAttachmentTray },
       useSearchChanged: persistUseSearch,
     })
   );

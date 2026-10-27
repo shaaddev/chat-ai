@@ -8,7 +8,7 @@ import { ChatSkeleton } from "./chat-skeleton";
 
 type FreshChatProps = Omit<
   ComponentProps<typeof Chat>,
-  "draftKey" | "id" | "initialMessages" | "onNewChatSend"
+  "id" | "initialMessages" | "onNewChatSend" | "unsavedDraftKey"
 > & { pageChatId: string };
 
 const freshChats = createFreshChats();
@@ -53,11 +53,11 @@ export function FreshChat({ pageChatId, ...props }: FreshChatProps) {
   return (
     <Chat
       {...props}
-      draftKey={freshDraftKey(userId)}
       id={visit.chatId}
       initialMessages={[]}
       key={visit.chatId}
       onNewChatSend={freshChats.record}
+      unsavedDraftKey={freshDraftKey(userId)}
     />
   );
 }
