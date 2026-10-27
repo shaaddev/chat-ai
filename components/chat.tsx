@@ -29,14 +29,14 @@ import {
 import type { Session } from "@/lib/auth";
 import { joinDraftText } from "@/lib/chat-drafts";
 import {
-  createSavedThreads,
   createTurnGate,
+  type NewChatSend,
   type TurnRequest,
 } from "@/lib/chat-turn";
 import { openCommandPalette } from "@/lib/command-palette";
 import { returnFocusToComposer } from "@/lib/composer";
 import { ChatSDKError } from "@/lib/errors";
-import type { NewChatSend } from "@/lib/fresh-chat";
+import { createSavedThreads } from "@/lib/saved-threads";
 import { extractSources, type Source } from "@/lib/sources";
 import type { ChatMessage, DocumentDraft } from "@/lib/types";
 import { readiness, sentFiles } from "@/lib/uploadthing/tray";
@@ -436,7 +436,7 @@ export function Chat({
     throttle: 50,
   });
   useEffect(() => {
-    turns.shown();
+    turns.onScreen();
     return () => {
       turns.chat.stop();
     };

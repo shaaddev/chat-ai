@@ -1,7 +1,7 @@
 import { Chat } from "@ai-sdk/react";
 import { DefaultChatTransport, isFileUIPart } from "ai";
 import { ChatSDKError } from "@/lib/errors";
-import type { NewChatSend } from "@/lib/fresh-chat";
+import type { SavedThreads } from "@/lib/saved-threads";
 import type { ChatMessage } from "@/lib/types";
 import type { SentFile } from "@/lib/uploadthing/tray";
 import {
@@ -89,55 +89,26 @@ export function adoptThread(
 async function requestThread(
   chatId: string
 ): Promise<ChatMessage[] | undefined> {
-  try {
-    const response = await fetch(`/api/chats/${chatId}`);
-    if (!response.ok) {
-      return;
-    }
-    const body: unknown = await response.json();
-    if (
-      typeof body === "object" &&
-      body !== null &&
-      "messages" in body &&
-      Array.isArray(body.messages)
-    ) {
-      return body.messages;
-    }
-  } catch {
-    // Offline, the chat keeps what it shows.
+  const response = await fetch(`/api/chats/${chatId}`).catch(() => undefined);
+  const body: unknown = response?.ok
+    ? await response.json().catch(() => undefined)
+    : undefined;
+  if (
+    typeof body === "object" &&
+    body !== null &&
+    "messages" in body &&
+    Array.isArray(body.messages)
+  ) {
+    return body.messages;
   }
 }
-
-// Back and Forward remount a chat with the payload the router cached when
-// it first showed the chat. Turns the tab saw since then are newer.
-export function createSavedThreads() {
-  const shownPayloads = new WeakSet<ChatMessage[]>();
-  const latest = new Map<string, ChatMessage[]>();
-
-  return {
-    open(chatId: string, payload: ChatMessage[]) {
-      const restored = shownPayloads.has(payload);
-      const thread = (restored && latest.get(chatId)) || payload;
-      return { restored, thread };
-    },
-    shown(chatId: string, payload: ChatMessage[]) {
-      if (payload.length > 0 && !shownPayloads.has(payload)) {
-        shownPayloads.add(payload);
-        latest.set(chatId, payload);
-      }
-    },
-    save(chatId: string, thread: ChatMessage[]) {
-      latest.set(chatId, thread);
-    },
-  };
-}
-
-export type SavedThreads = ReturnType<typeof createSavedThreads>;
 
 export type TurnRequest =
   | { kind: "append"; files: SentFile[]; text: string }
   | { kind: "edit"; messageId: string; text: string }
   | { kind: "regenerate" };
+
+export type NewChatSend = "sent" | "refused" | "lost";
 
 export type SettleFailure = "offline" | "server";
 
@@ -166,9 +137,8 @@ export interface TurnEffects {
 export interface TurnGate {
   chat: Chat<ChatMessage>;
   getStatus: () => TurnStatus;
+  onScreen: () => void;
   retry: () => void;
-  // The chat is on screen.
-  shown: () => void;
   start: (prepare: () => TurnRequest | undefined) => Promise<void>;
   subscribe: (listener: () => void) => () => void;
 }
@@ -586,9 +556,7 @@ export function createTurnGate({
     });
   };
 
-  // Another tab, or a reply that kept saving after this tab left, can have
-  // changed a restored chat.
-  const recheck = async () => {
+  const syncRestoredThread = async () => {
     const shown = chat.messages;
     const saved = await requestThread(chatId);
     if (saved && phase.phase === "idle" && chat.messages === shown) {
@@ -601,16 +569,16 @@ export function createTurnGate({
   return {
     chat,
     getStatus: () => status,
-    retry: () => {
-      if (phase.phase === "unsettled") {
-        settle(phase.ended);
-      }
-    },
-    shown: () => {
+    onScreen: () => {
       savedThreads.shown(chatId, initialMessages);
       if (restored) {
         restored = false;
-        recheck();
+        syncRestoredThread();
+      }
+    },
+    retry: () => {
+      if (phase.phase === "unsettled") {
+        settle(phase.ended);
       }
     },
     start,

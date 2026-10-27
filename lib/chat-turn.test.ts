@@ -2,15 +2,14 @@
 import { afterEach, describe, expect, jest, test } from "bun:test";
 import {
   adoptThread,
-  createSavedThreads,
   createTurnGate,
   requestSettle,
-  type SavedThreads,
   type TurnEffects,
   type TurnGate,
   turnFailure,
 } from "./chat-turn";
 import { ChatSDKError } from "./errors";
+import { createSavedThreads, type SavedThreads } from "./saved-threads";
 import type { ChatMessage } from "./types";
 
 const realFetch = globalThis.fetch;
@@ -148,7 +147,7 @@ function openChat(
     requestSettings: () => ({ selectedChatModel: "chat-5-mini" }),
     effects,
   });
-  gate.shown();
+  gate.onScreen();
   return { calls, gate, server };
 }
 
@@ -537,7 +536,6 @@ describe("a new chat's id", () => {
 });
 
 describe("a chat that Back or Forward restores", () => {
-  // The router hands a restored chat the same payload object it first had.
   const restore = (payload: ChatMessage[], savedThreads: SavedThreads) =>
     openChat(payload, {}, savedThreads);
 
