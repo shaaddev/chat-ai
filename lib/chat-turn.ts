@@ -1,6 +1,7 @@
 import { Chat } from "@ai-sdk/react";
 import { DefaultChatTransport, isFileUIPart } from "ai";
 import { ChatSDKError } from "@/lib/errors";
+import { pollWhile } from "@/lib/poll";
 import type { SavedThreads } from "@/lib/saved-threads";
 import type { ChatMessage } from "@/lib/types";
 import type { SentFile } from "@/lib/uploadthing/tray";
@@ -102,6 +103,14 @@ async function requestThread(
     return body.messages;
   }
 }
+
+const isBehind = (saved: ChatMessage[], shown: ChatMessage[]) =>
+  saved.length < shown.length &&
+  saved.every((message, index) => message.id === shown[index].id);
+
+// A reply saves when its stream ends, which can come after the tab showed
+// it and after a restored chat asks.
+const SAVED_REPLY_WAIT_MS = 5000;
 
 export type TurnRequest =
   | { kind: "append"; files: SentFile[]; text: string }
@@ -558,8 +567,13 @@ export function createTurnGate({
 
   const syncRestoredThread = async () => {
     const shown = chat.messages;
-    const saved = await requestThread(chatId);
-    if (saved && phase.phase === "idle" && chat.messages === shown) {
+    const untouched = () => phase.phase === "idle" && chat.messages === shown;
+    let saved: ChatMessage[] | undefined;
+    await pollWhile(async () => {
+      saved = await requestThread(chatId);
+      return saved !== undefined && untouched() && isBehind(saved, shown);
+    }, Date.now() + SAVED_REPLY_WAIT_MS);
+    if (saved && untouched()) {
       const thread = adoptThread(shown, saved);
       keep(thread);
       chat.messages = thread;

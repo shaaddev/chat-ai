@@ -591,6 +591,27 @@ describe("a chat that Back or Forward restores", () => {
     ]);
   });
 
+  test("waits for a reply the tab showed to save before it takes the server's thread", async () => {
+    const { payload, saved, savedThreads } = await chatWithFollowUp();
+    const { gate, server } = restore(payload, savedThreads);
+
+    await until(() => server.threads.length === 1);
+    server.threads[0].respond(Response.json({ messages: saved.slice(0, 3) }));
+    await until(() => server.threads.length === 2);
+    expect(shown(gate)).toEqual(FOLLOWED_UP);
+    const savedReply = message(
+      saved[3].id,
+      "assistant",
+      "Second answer, saved"
+    );
+    server.threads[1].respond(
+      Response.json({ messages: [...saved.slice(0, 3), savedReply] })
+    );
+
+    await until(() => shown(gate).at(-1) === "assistant: Second answer, saved");
+    expect(shown(gate)).toHaveLength(4);
+  });
+
   test("keeps a turn that started before the server answered", async () => {
     const { payload, saved, savedThreads } = await chatWithFollowUp();
     const { gate, server } = restore(payload, savedThreads);
