@@ -240,6 +240,30 @@ describe("a turn", () => {
     expect(shown(gate).at(-1)).toBe("assistant: Once upon a time");
   });
 
+  test("that the server answers with a 5xx is settled, because the server may have saved it", async () => {
+    const { calls, gate, server } = openChat();
+
+    await ask(gate, "Hello");
+    await until(() => server.chat.length === 1);
+    const [request] = server.chat;
+    request.respond(errorResponse(500, "server:api"));
+    await until(() => server.settle.length === 1);
+    const [userTurn] = gate.chat.messages.slice(-1);
+    server.settle[0].respond(settled([QUESTION, ANSWER, userTurn], true));
+    await until(() => gate.getStatus().phase === "idle");
+
+    expect(server.settle[0].body).toEqual({
+      turnId: request.body.turnId,
+      expectReply: false,
+    });
+    expect(shown(gate)).toEqual([
+      "user: Earlier question",
+      "assistant: Earlier answer",
+      "user: Hello",
+    ]);
+    expect(calls).toEqual([]);
+  });
+
   test("the server never saved goes back to the user, who is told", async () => {
     const { calls, gate, server } = openChat();
 
@@ -315,6 +339,33 @@ describe("a turn", () => {
       "user: Edited question",
       "assistant: Edited answer",
     ]);
+  });
+
+  test("that edits a message with a file sends the file with the edited text", async () => {
+    const photo = {
+      type: "file" as const,
+      mediaType: "image/png",
+      url: "https://utfs.io/f/photo.png",
+      filename: "photo.png",
+    };
+    const question: ChatMessage = {
+      id: "u0",
+      role: "user",
+      parts: [photo, { type: "text", text: "What is this?" }],
+    };
+    const { gate, server } = openChat([question, ANSWER]);
+
+    await gate.start(() => ({
+      kind: "edit",
+      messageId: "u0",
+      text: "What is in this photo?",
+    }));
+    await until(() => server.chat.length === 1);
+
+    expect(server.chat[0].body.message).toMatchObject({
+      id: "u0",
+      parts: [photo, { type: "text", text: "What is in this photo?" }],
+    });
   });
 
   test("that ends after its chat closed is still settled, so its text can go back to that chat", async () => {
@@ -470,6 +521,25 @@ describe("a send while a turn settles", () => {
     expect(whileHeld).toEqual({ phase: "settling", sendHeld: true });
     expect(prepared).toBe(1);
     expect(gate.getStatus()).toEqual({ phase: "running", stopping: false });
+  });
+
+  test("that went out lets the next send go out too", async () => {
+    const { gate, server } = openChat();
+    await dropBeforeText(gate, server);
+    const [userTurn] = gate.chat.messages.slice(-1);
+    const followUp = ask(gate, "A short one");
+    server.settle[0].respond(settled([QUESTION, ANSWER, userTurn], true));
+    await followUp;
+    await until(() => server.chat.length === 2);
+    streamReply(server.chat[1], { text: "Once.", finish: true });
+    await until(() => gate.getStatus().phase === "idle");
+
+    await ask(gate, "Another one");
+    await until(() => server.chat.length === 3);
+
+    expect(server.chat[2].body.message).toMatchObject({
+      parts: [{ type: "text", text: "Another one" }],
+    });
   });
 
   test("never goes out once its chat has closed", async () => {
@@ -636,6 +706,58 @@ describe("a settle that fails", () => {
     });
   });
 
+  test("still asks the server to wait for the reply it showed when tried again or when a send checks it", async () => {
+    const { gate, server } = openChat();
+    await ask(gate, "Tell me a story");
+    await until(() => server.chat.length === 1);
+    const { turnId } = server.chat[0].body;
+    streamReply(server.chat[0], { text: "Once upon", finish: false });
+    await until(() => shown(gate).at(-1) === "assistant: Once upon");
+    gate.chat.stop();
+    await until(() => server.settle.length === 1);
+    server.settle[0].fail(new TypeError("Failed to fetch"));
+    await until(() => gate.getStatus().phase === "unsettled");
+
+    gate.retry();
+    await until(() => server.settle.length === 2);
+    server.settle[1].fail(new TypeError("Failed to fetch"));
+    await until(() => gate.getStatus().phase === "unsettled");
+    const followUp = ask(gate, "A short one");
+    await until(() => server.settle.length === 3);
+    server.settle[2].fail(new TypeError("Failed to fetch"));
+    await followUp;
+
+    expect(server.settle.map(({ body }) => body)).toEqual([
+      { turnId, expectReply: true },
+      { turnId, expectReply: true },
+      { turnId, expectReply: true },
+    ]);
+  });
+
+  test("of a later turn is tried again for that turn, not an earlier one", async () => {
+    const { gate, server } = openChat();
+    await ask(gate, "Hello");
+    await until(() => server.chat.length === 1);
+    server.chat[0].fail(new TypeError("Failed to fetch"));
+    await until(() => server.settle.length === 1);
+    server.settle[0].respond(
+      settled([QUESTION, ANSWER, ...gate.chat.messages.slice(-1)], true)
+    );
+    await until(() => gate.getStatus().phase === "idle");
+    await ask(gate, "Are you there?");
+    await until(() => server.chat.length === 2);
+    const { turnId } = server.chat[1].body;
+    server.chat[1].fail(new TypeError("Failed to fetch"));
+    await until(() => server.settle.length === 2);
+    server.settle[1].fail(new TypeError("Failed to fetch"));
+    await until(() => gate.getStatus().phase === "unsettled");
+
+    gate.retry();
+    await until(() => server.settle.length === 3);
+
+    expect(server.settle[2].body).toEqual({ turnId, expectReply: false });
+  });
+
   test("again when a send checks it says why the send didn't go out", async () => {
     const { calls, gate, server } = await failSettle();
     let prepared = false;
@@ -656,6 +778,9 @@ describe("a settle that fails", () => {
 
 test("a failure is a refusal, a lost request, or an error inside the stream", () => {
   expect(turnFailure(new ChatSDKError("bad_request:api"))).toBe("refused");
+  expect(turnFailure(new ChatSDKError("forbidden:chat"))).toBe("refused");
+  expect(turnFailure(new ChatSDKError("not_found:chat"))).toBe("refused");
+  expect(turnFailure(new ChatSDKError("rate_limit:chat"))).toBe("refused");
   expect(turnFailure(new TypeError("Failed to fetch"))).toBe("lost");
   expect(turnFailure(new ChatSDKError("offline:chat"))).toBe("lost");
   expect(turnFailure(new ChatSDKError("server:api"))).toBe("lost");
