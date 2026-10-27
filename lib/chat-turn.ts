@@ -112,6 +112,8 @@ export type TurnStatus =
 
 export interface TurnEffects {
   chatSaved: (request: TurnRequest) => void;
+  idFreed: () => void;
+  idTaken: () => void;
   isMounted: () => boolean;
   refreshChats: () => void;
   sendBlocked: (reason: SettleFailure) => void;
@@ -406,6 +408,9 @@ export function createTurnGate({
       const thread = adoptThread(shown, savedThread);
       showSaved(thread, turn.request);
       handBack(turn, thread, { maybeSaved: false, notify: false });
+      if (!chatExists) {
+        effects.idFreed();
+      }
     } else if (answered && !effects.isMounted()) {
       commit(IDLE);
       effects.refreshChats();
@@ -492,6 +497,9 @@ export function createTurnGate({
     const request = prepare();
     if (!request) {
       return;
+    }
+    if (!chatExists) {
+      effects.idTaken();
     }
     const last = chat.messages.at(-1);
     const turn: Turn = {

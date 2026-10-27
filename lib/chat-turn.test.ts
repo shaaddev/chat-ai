@@ -106,6 +106,8 @@ function recordingEffects(overrides: Partial<TurnEffects> = {}) {
   const calls: string[] = [];
   const effects: TurnEffects = {
     chatSaved: () => calls.push("chat saved"),
+    idFreed: () => calls.push("id given back"),
+    idTaken: () => calls.push("id taken"),
     isMounted: () => true,
     refreshChats: () => undefined,
     sendBlocked: (reason) => calls.push(`send blocked: ${reason}`),
@@ -167,7 +169,7 @@ describe("a turn", () => {
     });
     expect(request.body.turnId).toMatch(UUID);
     expect(shown(gate)).toEqual(["user: Hello", "assistant: Hi there"]);
-    expect(calls).toEqual(["chat saved", "finished"]);
+    expect(calls).toEqual(["id taken", "chat saved", "finished"]);
     expect(server.settle).toHaveLength(0);
   });
 
@@ -292,7 +294,10 @@ describe("a turn", () => {
     await until(() => gate.getStatus().phase === "idle");
 
     expect(shown(gate)).toEqual([]);
-    expect(calls).toEqual(["handed back append, told, maybe saved"]);
+    expect(calls).toEqual([
+      "id taken",
+      "handed back append, told, maybe saved",
+    ]);
   });
 
   test("that regenerates into an empty reply keeps the reply it would replace", async () => {
@@ -429,7 +434,94 @@ describe("a turn", () => {
     await until(() => gate.getStatus().phase === "idle");
 
     expect(server.settle).toHaveLength(0);
-    expect(calls).toEqual(["error shown", "handed back append"]);
+    expect(calls).toEqual([
+      "id taken",
+      "error shown",
+      "handed back append",
+      "id given back",
+    ]);
+  });
+});
+
+describe("a new chat's id", () => {
+  test("is given back when the server refuses the first send", async () => {
+    const { calls, gate, server } = openChat([]);
+
+    await ask(gate, "Hello");
+    await until(() => server.chat.length === 1);
+    server.chat[0].respond(errorResponse(400, "bad_request:api"));
+    await until(() => gate.getStatus().phase === "idle");
+
+    expect(calls).toEqual([
+      "id taken",
+      "error shown",
+      "handed back append",
+      "id given back",
+    ]);
+  });
+
+  test("stays taken when the server answered and the chat closed before the turn ended", async () => {
+    let mounted = true;
+    const { calls, gate, server } = openChat([], {
+      isMounted: () => mounted,
+    });
+
+    await ask(gate, "Tell me a story");
+    await until(() => server.chat.length === 1);
+    streamReply(server.chat[0], { text: "Once upon", finish: false });
+    await until(() => shown(gate).at(-1) === "assistant: Once upon");
+    mounted = false;
+    gate.chat.stop();
+    await until(() => gate.getStatus().phase === "idle");
+
+    expect(calls).toEqual(["id taken", "chat saved"]);
+  });
+
+  test("stays taken when the settle finds the chat", async () => {
+    const { calls, gate, server } = openChat([]);
+
+    await ask(gate, "Hello");
+    await until(() => server.chat.length === 1);
+    server.chat[0].fail(new TypeError("Failed to fetch"));
+    await until(() => server.settle.length === 1);
+    server.settle[0].respond(settled(gate.chat.messages.slice(-1), true));
+    await until(() => gate.getStatus().phase === "idle");
+
+    expect(calls).toEqual(["id taken", "chat saved"]);
+  });
+
+  test("stays taken while its settle fails", async () => {
+    const { calls, gate, server } = openChat([]);
+
+    await ask(gate, "Hello");
+    await until(() => server.chat.length === 1);
+    server.chat[0].fail(new TypeError("Failed to fetch"));
+    await until(() => server.settle.length === 1);
+    server.settle[0].fail(new TypeError("Failed to fetch"));
+    await until(() => gate.getStatus().phase === "unsettled");
+
+    expect(calls).toEqual(["id taken"]);
+  });
+
+  test("stays taken when a later turn in the saved chat is handed back", async () => {
+    const { calls, gate, server } = openChat([]);
+    await ask(gate, "Hello");
+    await until(() => server.chat.length === 1);
+    streamReply(server.chat[0], { text: "Hi there", finish: true });
+    await until(() => gate.getStatus().phase === "idle");
+
+    await ask(gate, "And again");
+    await until(() => server.chat.length === 2);
+    server.chat[1].respond(errorResponse(400, "bad_request:api"));
+    await until(() => gate.getStatus().phase === "idle");
+
+    expect(calls).toEqual([
+      "id taken",
+      "chat saved",
+      "finished",
+      "error shown",
+      "handed back append",
+    ]);
   });
 });
 

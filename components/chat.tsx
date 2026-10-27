@@ -255,6 +255,8 @@ interface ChatProps {
   initialMessages: ChatMessage[];
   initialSystemPrompt?: string;
   initialTitle?: string;
+  onIdFreed?: (chatId: string) => void;
+  onIdTaken?: (chatId: string) => void;
   session: Session | null;
 }
 
@@ -265,6 +267,8 @@ export function Chat({
   session,
   initialSystemPrompt,
   initialTitle,
+  onIdFreed,
+  onIdTaken,
 }: ChatProps) {
   const [isAuthenticated] = useState(!!session);
   const { addOptimisticChat, setChatLoading, refreshChats } = useChatContext();
@@ -372,6 +376,8 @@ export function Chat({
           window.history.replaceState({}, "", `/chat/${id}`);
           addOptimisticChat({ id, title: chatTitle(request) });
         },
+        idFreed: () => onIdFreed?.(id),
+        idTaken: () => onIdTaken?.(id),
         isMounted: () => mountedRef.current,
         refreshChats,
         sendBlocked: (reason) => {
