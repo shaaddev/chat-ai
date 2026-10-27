@@ -149,6 +149,24 @@ export function ChatInput({
 
   const isBusy = status === "submitted" || status === "streaming";
 
+  // Phone toasts sit just above the composer, which grows with its text.
+  const composerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const composer = composerRef.current;
+    if (!composer) {
+      return;
+    }
+    const root = document.documentElement;
+    const observer = new ResizeObserver(() => {
+      root.style.setProperty("--composer-height", `${composer.offsetHeight}px`);
+    });
+    observer.observe(composer);
+    return () => {
+      observer.disconnect();
+      root.style.removeProperty("--composer-height");
+    };
+  }, []);
+
   // Radix layers dismiss on Escape in the capture phase and mark the event
   // handled, so this only stops a reply when no menu or dialog consumed it.
   useEffect(() => {
@@ -205,7 +223,7 @@ export function ChatInput({
   const hasActiveSettings = !!customSystemPrompt || autoDocumentGeneration;
 
   return (
-    <div className="relative">
+    <div className="relative" ref={composerRef}>
       <div className="flex flex-col rounded-[20px] border border-transparent bg-secondary/86 px-2.5 py-2 backdrop-blur-[16px] transition-[border-color,box-shadow] duration-200 focus-within:border-primary focus-within:shadow-glow">
         <AttachmentTrayList tray={tray} />
 

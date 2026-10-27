@@ -233,6 +233,17 @@
   }
 }
 
+/* Phone toasts sit just above the composer. They rise into place and sink
+   away a few pixels instead of sliding through the composer. */
+@media (max-width: 600px) {
+  [data-sonner-toaster][data-y-position="bottom"]
+    [data-sonner-toast]:not([data-mounted="true"]),
+  [data-sonner-toaster][data-y-position="bottom"]
+    [data-sonner-toast][data-removed="true"][data-front="true"] {
+    --y: translateY(8px);
+  }
+}
+
 /* === UTILITIES === */
 
 /* Grows a control's hit area to at least 44px on touch screens without
