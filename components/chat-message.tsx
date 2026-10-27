@@ -245,6 +245,7 @@ function PureChatMessage({
               >
                 <Markdown
                   isStreaming={isStreaming && part.state === "streaming"}
+                  runnable={isAssistant}
                 >
                   {sanitizeText(part.text)}
                 </Markdown>

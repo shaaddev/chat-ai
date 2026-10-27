@@ -2,11 +2,13 @@ import { code } from "@streamdown/code";
 import Link from "next/link";
 import { memo } from "react";
 import {
+  defaultRehypePlugins,
   Streamdown,
   type StreamdownProps,
   type ThemeRegistrationAny,
 } from "streamdown";
 import "streamdown/styles.css";
+import { markClosedFences, RunnableCode } from "./runnable-code-block";
 
 type Components = StreamdownProps["components"];
 
@@ -25,6 +27,16 @@ const components: Partial<Components> = {
     );
   },
 };
+
+const runnableComponents: Partial<Components> = {
+  ...components,
+  code: RunnableCode,
+};
+
+const runnableRehypePlugins: StreamdownProps["rehypePlugins"] = [
+  ...Object.values(defaultRehypePlugins),
+  markClosedFences,
+];
 
 const plugins: StreamdownProps["plugins"] = { code };
 
@@ -113,21 +125,24 @@ const PROSE_CLASSES = [
 function NonMemoizedMarkdown({
   children,
   isStreaming = false,
+  runnable = false,
 }: {
   children: string;
   isStreaming?: boolean;
+  runnable?: boolean;
 }) {
   return (
     <Streamdown
       animated
       caret="block"
       className={PROSE_CLASSES}
-      components={components}
+      components={runnable ? runnableComponents : components}
       controls={controls}
       isAnimating={isStreaming}
       lineNumbers={false}
       parseIncompleteMarkdown={isStreaming}
       plugins={plugins}
+      rehypePlugins={runnable ? runnableRehypePlugins : undefined}
       shikiTheme={shikiTheme}
     >
       {children}

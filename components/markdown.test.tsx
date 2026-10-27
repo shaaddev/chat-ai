@@ -7,6 +7,10 @@ import { PreviewMessage } from "./chat-message";
 import { Markdown } from "./markdown";
 
 const TAG = /<(\/?)([a-z0-9]+)((?:[^>"]|"[^"]*")*)>/g;
+const LANGUAGE = /data-language="([^"]*)"/;
+const CODE_BLOCK = 'data-streamdown="code-block"';
+const RUN_BUTTON = 'aria-label="Run ';
+const RUN_NAME = /aria-label="(Run [^"]*)"/g;
 
 type Mark = "[b]" | "[i]" | "";
 
@@ -61,6 +65,119 @@ describe("Markdown in a finished message", () => {
     ],
   ])("renders %j without stray markers", (markdown, expected) => {
     expect(markedText(<Markdown>{markdown}</Markdown>)).toBe(expected);
+  });
+});
+
+function blocksWithRun(element: ReactElement): (string | undefined)[] {
+  return renderToStaticMarkup(element)
+    .split(CODE_BLOCK)
+    .slice(1)
+    .filter((block) => block.includes(RUN_BUTTON))
+    .map((block) => LANGUAGE.exec(block)?.[1]);
+}
+
+const fence = (language: string, code = "print(1)") =>
+  `\`\`\`${language}\n${code}\n\`\`\``;
+
+describe("Run in code blocks", () => {
+  const fences = [
+    "js",
+    "javascript",
+    "ts",
+    "typescript",
+    "py",
+    "python",
+    "python3",
+    "bash",
+    "json",
+    "Python",
+    "jsx",
+    "",
+  ]
+    .map((language) => fence(language))
+    .join("\n\nText.\n\n");
+
+  test("adds Run only to JavaScript, TypeScript, and Python fences", () => {
+    expect(blocksWithRun(<Markdown runnable>{fences}</Markdown>)).toEqual([
+      "js",
+      "javascript",
+      "ts",
+      "typescript",
+      "py",
+      "python",
+      "python3",
+    ]);
+  });
+
+  test("adds no Run outside replies and the document sheet", () => {
+    expect(blocksWithRun(<Markdown>{fences}</Markdown>)).toEqual([]);
+  });
+
+  test("keeps Run on closed fences inside lists and quotes", () => {
+    const markdown = [
+      "1. Install it:",
+      "",
+      "   ```js",
+      "   console.log(1)",
+      "   ```",
+      "",
+      "   - Then:",
+      "",
+      "     ```py",
+      "     print(2)",
+      "     ```",
+      "",
+      "> ```ts",
+      "> const n: number = 3;",
+      "> ```",
+    ].join("\n");
+    expect(blocksWithRun(<Markdown runnable>{markdown}</Markdown>)).toEqual([
+      "js",
+      "py",
+      "ts",
+    ]);
+  });
+
+  test("leaves Run off a fence the reply never closed", () => {
+    const stopped = `${fence("js", "console.log(1)")}\n\nNext:\n\n\`\`\`py\nfor i in range(3):\n`;
+    expect(blocksWithRun(<Markdown runnable>{stopped}</Markdown>)).toEqual([
+      "js",
+    ]);
+    expect(
+      blocksWithRun(
+        <Markdown runnable>
+          {"> ```py\n> print(1)\n\nAfter the quote."}
+        </Markdown>
+      )
+    ).toEqual([]);
+  });
+
+  test("names each Run button after its language and first line of code", () => {
+    const markdown = [
+      fence(
+        "js",
+        "// Sum the list\nconsole.log([1, 2].reduce((a, b) => a + b));"
+      ),
+      fence(
+        "py",
+        "\nprint('a fairly long line of Python that goes on and on')"
+      ),
+    ].join("\n\n");
+    const html = renderToStaticMarkup(<Markdown runnable>{markdown}</Markdown>);
+    expect([...html.matchAll(RUN_NAME)].map((match) => match[1])).toEqual([
+      "Run JavaScript: // Sum the list",
+      "Run Python: print(&#x27;a fairly long line of Python tha…",
+    ]);
+  });
+
+  test("leaves Run off a fence that is still streaming", () => {
+    expect(
+      blocksWithRun(
+        <Markdown isStreaming runnable>
+          {"Here:\n\n```py\nfor i in range(3):\n"}
+        </Markdown>
+      )
+    ).toEqual([]);
   });
 });
 
