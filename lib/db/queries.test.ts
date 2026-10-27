@@ -492,6 +492,95 @@ describe.skipIf(!hasTestDatabase)(
       ]);
     });
 
+    type TestTransaction = Parameters<
+      Parameters<typeof testDatabase.db.transaction>[0]
+    >[0];
+
+    const waitForALockWaiter = async (
+      tx: TestTransaction,
+      attempts = 500
+    ): Promise<void> => {
+      const [{ waiting }] = await tx.execute<{ waiting: number }>(
+        sql`select count(*)::int as waiting from pg_locks where not granted and pg_backend_pid() = any(pg_blocking_pids(pid))`
+      );
+      if (waiting > 0) {
+        return;
+      }
+      if (attempts === 0) {
+        throw new Error("the settle never waited for the turn's save");
+      }
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      await waitForALockWaiter(tx, attempts - 1);
+    };
+
+    const settleDuringSave = async (
+      { chatId, userId }: { chatId: string; userId: string },
+      turnId: string,
+      save: (tx: TestTransaction) => Promise<unknown>
+    ) => {
+      const { settling } = await testDatabase.db.transaction(async (tx) => {
+        await tx
+          .select({ id: chat.id })
+          .from(chat)
+          .where(eq(chat.id, chatId))
+          .for("update");
+        await save(tx);
+        const started = settleTurn({ chatId, userId, turnId });
+        await waitForALockWaiter(tx);
+        return { settling: started };
+      });
+      return await settling;
+    };
+
+    test("a settle that races the turn's own save waits for it and finds the turn saved", async () => {
+      const opened = await answeredChat();
+      const turnId = crypto.randomUUID();
+
+      const settled = await settleDuringSave(opened, turnId, async (tx) => {
+        await tx.insert(message).values({
+          id: crypto.randomUUID(),
+          chatId: opened.chatId,
+          role: "user",
+          parts: [{ type: "text", text: "Tell me a story" }],
+          createdAt: sql`clock_timestamp()`,
+        });
+        await tx.insert(stream).values({
+          id: turnId,
+          chatId: opened.chatId,
+          createdAt: sql`clock_timestamp()`,
+        });
+      });
+
+      expect(settled?.turnSaved).toBe(true);
+      expect(settled?.messages.map(({ parts }) => textOf(parts))).toEqual([
+        "First question",
+        "First answer",
+        "Tell me a story",
+      ]);
+    });
+
+    test("a settle that races the reply's save waits for it and returns the reply", async () => {
+      const opened = await answeredChat();
+      const turnId = await ask(opened.chatId, opened.userId, "Tell me a story");
+
+      const settled = await settleDuringSave(opened, turnId, async (tx) => {
+        await tx.insert(message).values({
+          id: crypto.randomUUID(),
+          chatId: opened.chatId,
+          role: "assistant",
+          parts: [{ type: "text", text: "Once upon a time" }],
+          createdAt: sql`clock_timestamp()`,
+        });
+      });
+
+      expect(settled?.messages.map(({ parts }) => textOf(parts))).toEqual([
+        "First question",
+        "First answer",
+        "Tell me a story",
+        "Once upon a time",
+      ]);
+    });
+
     test("a chat that does not exist has nothing to settle", async () => {
       const userId = await testDatabase.createUser();
 
