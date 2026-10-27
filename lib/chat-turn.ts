@@ -147,6 +147,19 @@ interface Ended {
 
 type SettleResult = "settled" | "handed-back" | "failed";
 
+interface Settling {
+  ended: Ended;
+  phase: "settling";
+  result: Promise<SettleResult>;
+  sendHeld: boolean;
+}
+
+interface Unsettled {
+  ended: Ended;
+  phase: "unsettled";
+  reason: SettleFailure;
+}
+
 type Phase =
   | { phase: "idle" }
   | {
@@ -156,8 +169,8 @@ type Phase =
       refusal: ChatSDKError | undefined;
       stopping: boolean;
     }
-  | { phase: "settling"; ended: Ended; result: Promise<SettleResult> }
-  | { phase: "unsettled"; ended: Ended; reason: SettleFailure };
+  | Settling
+  | Unsettled;
 
 const IDLE: Phase = { phase: "idle" };
 
@@ -176,12 +189,12 @@ const SUBJECT_BY_KIND: Record<TurnRequest["kind"], UnsettledSubject> = {
 const subjectOf = ({ expectReply, turn }: Ended): UnsettledSubject =>
   expectReply ? "reply" : SUBJECT_BY_KIND[turn.request.kind];
 
-function statusOf(phase: Phase, sendHeld: boolean): TurnStatus {
+function statusOf(phase: Phase): TurnStatus {
   switch (phase.phase) {
     case "running":
       return { phase: "running", stopping: phase.stopping };
     case "settling":
-      return { phase: "settling", sendHeld };
+      return { phase: "settling", sendHeld: phase.sendHeld };
     case "unsettled":
       return {
         phase: "unsettled",
@@ -218,14 +231,14 @@ export function createTurnGate({
   effects: TurnEffects;
 }): TurnGate {
   let phase: Phase = IDLE;
-  let sendHeld = false;
-  let status = statusOf(phase, sendHeld);
+  let status = statusOf(phase);
   let chatExists = initialMessages.length > 0;
   let savedThread = initialMessages;
   const listeners = new Set<() => void>();
 
-  const publish = () => {
-    const nextStatus = statusOf(phase, sendHeld);
+  const commit = (next: Phase) => {
+    phase = next;
+    const nextStatus = statusOf(phase);
     if (sameStatus(status, nextStatus)) {
       return;
     }
@@ -233,16 +246,6 @@ export function createTurnGate({
     for (const listener of listeners) {
       listener();
     }
-  };
-
-  const commit = (next: Phase) => {
-    phase = next;
-    publish();
-  };
-
-  const setSendHeld = (next: boolean) => {
-    sendHeld = next;
-    publish();
   };
 
   const isRunning = (turn: Turn) =>
@@ -278,10 +281,8 @@ export function createTurnGate({
     const turn = phase.phase === "running" ? phase.turn : undefined;
     const stopped = init?.signal;
     const request = new AbortController();
-    let answered = false;
-    const canStopAtOnce = () => answered || chatExists;
     const stop = () => {
-      if (canStopAtOnce()) {
+      if (chatExists) {
         request.abort();
       } else if (turn) {
         updateRunning(turn, { stopping: true });
@@ -296,7 +297,6 @@ export function createTurnGate({
         ...init,
         signal: request.signal,
       });
-      answered = true;
       if (turn && isRunning(turn)) {
         updateRunning(turn, { answered: true });
         setChatExists(true, turn.request);
@@ -338,7 +338,7 @@ export function createTurnGate({
     return request.kind !== "regenerate";
   };
 
-  const settle = (ended: Ended): Promise<SettleResult> => {
+  const settle = (ended: Ended, sendHeld = false): Promise<SettleResult> => {
     const { expectReply, shown, turn } = ended;
     const result = requestSettle(chatId, turn.id, expectReply).then(
       (settled): SettleResult => {
@@ -365,8 +365,16 @@ export function createTurnGate({
         return "failed";
       }
     );
-    commit({ phase: "settling", ended, result });
+    commit({ phase: "settling", ended, result, sendHeld });
     return result;
+  };
+
+  const holdSend = (pending: Settling | Unsettled) => {
+    if (pending.phase === "unsettled") {
+      return settle(pending.ended, true);
+    }
+    commit({ ...pending, sendHeld: true });
+    return pending.result;
   };
 
   const finish = (turn: Turn, reply: ChatMessage, shown: ChatMessage[]) => {
@@ -475,15 +483,14 @@ export function createTurnGate({
 
   const start = async (prepare: () => TurnRequest | undefined) => {
     const pending = phase;
-    if (pending.phase === "running" || sendHeld) {
+    if (
+      pending.phase === "running" ||
+      (pending.phase === "settling" && pending.sendHeld)
+    ) {
       return;
     }
     if (pending.phase !== "idle") {
-      setSendHeld(true);
-      const result = await (pending.phase === "settling"
-        ? pending.result
-        : settle(pending.ended));
-      setSendHeld(false);
+      const result = await holdSend(pending);
       if (!effects.isMounted()) {
         return;
       }
