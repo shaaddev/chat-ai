@@ -612,6 +612,26 @@ describe("a chat that Back or Forward restores", () => {
     expect(shown(gate)).toHaveLength(4);
   });
 
+  test("keeps a reply it showed when the server still lacks it after the wait", async () => {
+    const { payload, saved, savedThreads } = await chatWithFollowUp();
+    const { gate, server } = restore(payload, savedThreads);
+    const answerBehindUntil = async (deadline: number): Promise<void> => {
+      for (const request of server.threads.splice(0)) {
+        request.respond(Response.json({ messages: saved.slice(0, 3) }));
+      }
+      if (Date.now() >= deadline) {
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      await answerBehindUntil(deadline);
+    };
+
+    await answerBehindUntil(Date.now() + 6000);
+
+    expect(shown(gate)).toEqual(FOLLOWED_UP);
+    expect(restore(payload, savedThreads).gate.chat.messages).toHaveLength(4);
+  }, 10_000);
+
   test("keeps a turn that started before the server answered", async () => {
     const { payload, saved, savedThreads } = await chatWithFollowUp();
     const { gate, server } = restore(payload, savedThreads);

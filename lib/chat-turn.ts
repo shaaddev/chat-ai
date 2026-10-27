@@ -573,7 +573,7 @@ export function createTurnGate({
       saved = await requestThread(chatId);
       return saved !== undefined && untouched() && isBehind(saved, shown);
     }, Date.now() + SAVED_REPLY_WAIT_MS);
-    if (saved && untouched()) {
+    if (saved && untouched() && !isBehind(saved, shown)) {
       const thread = adoptThread(shown, saved);
       keep(thread);
       chat.messages = thread;
