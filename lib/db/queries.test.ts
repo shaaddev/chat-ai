@@ -581,6 +581,34 @@ describe.skipIf(!hasTestDatabase)(
       ]);
     });
 
+    test("a reply that saves while a settle holds the chat waits, then finds its turn ended", async () => {
+      const { chatId, userId } = await answeredChat();
+      const turnId = await ask(chatId, userId, "Tell me a story");
+
+      const { saving } = await testDatabase.db.transaction(async (tx) => {
+        await tx
+          .select({ id: chat.id })
+          .from(chat)
+          .where(eq(chat.id, chatId))
+          .for("update");
+        await tx.insert(stream).values({
+          id: crypto.randomUUID(),
+          chatId,
+          createdAt: sql`clock_timestamp()`,
+        });
+        const started = answer(chatId, turnId, "Once upon a time");
+        await waitForALockWaiter(tx);
+        return { saving: started };
+      });
+      await saving;
+
+      expect(await thread(chatId)).toEqual([
+        "First question",
+        "First answer",
+        "Tell me a story",
+      ]);
+    });
+
     test("a chat that does not exist has nothing to settle", async () => {
       const userId = await testDatabase.createUser();
 
