@@ -58,6 +58,18 @@ test("a fresh chat whose send the server refused is shown again", () => {
   expect(visit(chats, "page-2", "user-a")).toBe("page-1");
 });
 
+test("a fresh chat whose send was lost is never shown again, even after a later send on it is refused", () => {
+  const chats = openTab();
+  visit(chats, "page-1", "user-a");
+  chats.record("page-1", "sent");
+  chats.record("page-1", "lost");
+  chats.record("page-1", "sent");
+
+  chats.record("page-1", "refused");
+
+  expect(visit(chats, "page-1", "user-a")).toBe("new-1");
+});
+
 test("a newer page id is used once the fresh chat is taken", () => {
   const chats = openTab();
   visit(chats, "page-1", "user-a");

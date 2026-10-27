@@ -295,6 +295,7 @@ describe("a turn", () => {
     expect(shown(gate)).toEqual([]);
     expect(calls).toEqual([
       "new chat sent",
+      "new chat lost",
       "handed back append, told, maybe saved",
     ]);
   });
