@@ -2,16 +2,18 @@ import { generateUUID } from "@/lib/utils";
 
 export type NewChatSend = "sent" | "refused" | "lost";
 
-type IdState = "sending";
+type IdState = "sending" | "unknown";
 
-// No entry means nothing was sent, or every send was refused.
+// No entry means nothing was sent, or every send was refused. A refusal
+// proves only that its own request saved nothing, so once a send's outcome
+// is unknown, the id stays taken.
 const AFTER: Record<
   NewChatSend,
   (state: IdState | undefined) => IdState | undefined
 > = {
   sent: (state) => state ?? "sending",
-  refused: () => undefined,
-  lost: (state) => state,
+  refused: (state) => (state === "sending" ? undefined : state),
+  lost: () => "unknown",
 };
 
 export function createFreshChats(newId: () => string = generateUUID) {

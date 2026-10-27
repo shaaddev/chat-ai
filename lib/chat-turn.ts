@@ -354,6 +354,9 @@ export function createTurnGate({
         if (chatFound && settled.turnSaved) {
           return "settled";
         }
+        if (!(chatFound || chatExists)) {
+          effects.newChatSend("lost");
+        }
         const handedBack = handBack(turn, thread, {
           maybeSaved: !chatFound,
           notify: true,
