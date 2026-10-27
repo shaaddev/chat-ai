@@ -106,9 +106,8 @@ function recordingEffects(overrides: Partial<TurnEffects> = {}) {
   const calls: string[] = [];
   const effects: TurnEffects = {
     chatSaved: () => calls.push("chat saved"),
-    idFreed: () => calls.push("id given back"),
-    idTaken: () => calls.push("id taken"),
     isMounted: () => true,
+    newChatSend: (send) => calls.push(`new chat ${send}`),
     refreshChats: () => undefined,
     sendBlocked: () => calls.push("send blocked"),
     showError: () => calls.push("error shown"),
@@ -169,7 +168,7 @@ describe("a turn", () => {
     });
     expect(request.body.turnId).toMatch(UUID);
     expect(shown(gate)).toEqual(["user: Hello", "assistant: Hi there"]);
-    expect(calls).toEqual(["id taken", "chat saved", "finished"]);
+    expect(calls).toEqual(["new chat sent", "chat saved", "finished"]);
     expect(server.settle).toHaveLength(0);
   });
 
@@ -295,7 +294,7 @@ describe("a turn", () => {
 
     expect(shown(gate)).toEqual([]);
     expect(calls).toEqual([
-      "id taken",
+      "new chat sent",
       "handed back append, told, maybe saved",
     ]);
   });
@@ -435,10 +434,10 @@ describe("a turn", () => {
 
     expect(server.settle).toHaveLength(0);
     expect(calls).toEqual([
-      "id taken",
+      "new chat sent",
       "error shown",
       "handed back append",
-      "id given back",
+      "new chat refused",
     ]);
   });
 });
@@ -453,10 +452,10 @@ describe("a new chat's id", () => {
     await until(() => gate.getStatus().phase === "idle");
 
     expect(calls).toEqual([
-      "id taken",
+      "new chat sent",
       "error shown",
       "handed back append",
-      "id given back",
+      "new chat refused",
     ]);
   });
 
@@ -474,7 +473,7 @@ describe("a new chat's id", () => {
     gate.chat.stop();
     await until(() => gate.getStatus().phase === "idle");
 
-    expect(calls).toEqual(["id taken", "chat saved"]);
+    expect(calls).toEqual(["new chat sent", "chat saved"]);
   });
 
   test("stays taken when the settle finds the chat", async () => {
@@ -487,7 +486,7 @@ describe("a new chat's id", () => {
     server.settle[0].respond(settled(gate.chat.messages.slice(-1), true));
     await until(() => gate.getStatus().phase === "idle");
 
-    expect(calls).toEqual(["id taken", "chat saved"]);
+    expect(calls).toEqual(["new chat sent", "chat saved"]);
   });
 
   test("stays taken while its settle fails", async () => {
@@ -500,7 +499,7 @@ describe("a new chat's id", () => {
     server.settle[0].fail(new TypeError("Failed to fetch"));
     await until(() => gate.getStatus().phase === "unsettled");
 
-    expect(calls).toEqual(["id taken"]);
+    expect(calls).toEqual(["new chat sent"]);
   });
 
   test("stays taken when a later turn in the saved chat is handed back", async () => {
@@ -516,7 +515,7 @@ describe("a new chat's id", () => {
     await until(() => gate.getStatus().phase === "idle");
 
     expect(calls).toEqual([
-      "id taken",
+      "new chat sent",
       "chat saved",
       "finished",
       "error shown",

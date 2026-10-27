@@ -35,6 +35,7 @@ import {
 import { openCommandPalette } from "@/lib/command-palette";
 import { returnFocusToComposer } from "@/lib/composer";
 import { ChatSDKError } from "@/lib/errors";
+import type { NewChatSend } from "@/lib/fresh-chat";
 import { extractSources, type Source } from "@/lib/sources";
 import type { ChatMessage, DocumentDraft } from "@/lib/types";
 import { readiness, sentFiles } from "@/lib/uploadthing/tray";
@@ -254,8 +255,7 @@ interface ChatProps {
   initialMessages: ChatMessage[];
   initialSystemPrompt?: string;
   initialTitle?: string;
-  onIdFreed?: (chatId: string) => void;
-  onIdTaken?: (chatId: string) => void;
+  onNewChatSend?: (chatId: string, send: NewChatSend) => void;
   session: Session | null;
 }
 
@@ -266,8 +266,7 @@ export function Chat({
   session,
   initialSystemPrompt,
   initialTitle,
-  onIdFreed,
-  onIdTaken,
+  onNewChatSend,
 }: ChatProps) {
   const [isAuthenticated] = useState(!!session);
   const { addOptimisticChat, setChatLoading, refreshChats } = useChatContext();
@@ -375,9 +374,8 @@ export function Chat({
           window.history.replaceState({}, "", `/chat/${id}`);
           addOptimisticChat({ id, title: chatTitle(request) });
         },
-        idFreed: () => onIdFreed?.(id),
-        idTaken: () => onIdTaken?.(id),
         isMounted: () => mountedRef.current,
+        newChatSend: (send) => onNewChatSend?.(id, send),
         refreshChats,
         sendBlocked: () => {
           toast.error("Couldn't send yet", {

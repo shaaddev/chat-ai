@@ -1,6 +1,7 @@
 import { Chat } from "@ai-sdk/react";
 import { DefaultChatTransport, isFileUIPart } from "ai";
 import { ChatSDKError } from "@/lib/errors";
+import type { NewChatSend } from "@/lib/fresh-chat";
 import type { ChatMessage } from "@/lib/types";
 import type { SentFile } from "@/lib/uploadthing/tray";
 import {
@@ -112,9 +113,8 @@ export type TurnStatus =
 
 export interface TurnEffects {
   chatSaved: (request: TurnRequest) => void;
-  idFreed: () => void;
-  idTaken: () => void;
   isMounted: () => boolean;
+  newChatSend: (send: NewChatSend) => void;
   refreshChats: () => void;
   sendBlocked: () => void;
   showError: (error: Error) => void;
@@ -417,7 +417,7 @@ export function createTurnGate({
       showSaved(thread, turn.request);
       handBack(turn, thread, { maybeSaved: false, notify: false });
       if (!chatExists) {
-        effects.idFreed();
+        effects.newChatSend("refused");
       }
     } else if (answered && !effects.isMounted()) {
       commit(IDLE);
@@ -506,7 +506,7 @@ export function createTurnGate({
       return;
     }
     if (!chatExists) {
-      effects.idTaken();
+      effects.newChatSend("sent");
     }
     const last = chat.messages.at(-1);
     const turn: Turn = {
