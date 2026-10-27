@@ -1,6 +1,8 @@
 import { Chat } from "@ai-sdk/react";
 import { DefaultChatTransport, isFileUIPart } from "ai";
 import { ChatSDKError } from "@/lib/errors";
+import { pollWhile } from "@/lib/poll";
+import type { SavedThreads } from "@/lib/saved-threads";
 import type { ChatMessage } from "@/lib/types";
 import type { SentFile } from "@/lib/uploadthing/tray";
 import {
@@ -85,20 +87,37 @@ export function adoptThread(
   });
 }
 
-export function joinDraftText(restored: string, typed: string): string {
-  if (!typed.trim()) {
-    return restored;
+async function requestThread(
+  chatId: string
+): Promise<ChatMessage[] | undefined> {
+  const response = await fetch(`/api/chats/${chatId}`).catch(() => undefined);
+  const body: unknown = response?.ok
+    ? await response.json().catch(() => undefined)
+    : undefined;
+  if (
+    typeof body === "object" &&
+    body !== null &&
+    "messages" in body &&
+    Array.isArray(body.messages)
+  ) {
+    return body.messages;
   }
-  if (!restored.trim()) {
-    return typed;
-  }
-  return `${restored}\n\n${typed}`;
 }
+
+const isBehind = (saved: ChatMessage[], shown: ChatMessage[]) =>
+  saved.length < shown.length &&
+  saved.every((message, index) => message.id === shown[index].id);
+
+// A reply saves when its stream ends, which can come after the tab showed
+// it and after a restored chat asks.
+const SAVED_REPLY_WAIT_MS = 5000;
 
 export type TurnRequest =
   | { kind: "append"; files: SentFile[]; text: string }
   | { kind: "edit"; messageId: string; text: string }
   | { kind: "regenerate" };
+
+export type NewChatSend = "sent" | "refused" | "lost";
 
 export type SettleFailure = "offline" | "server";
 
@@ -112,9 +131,8 @@ export type TurnStatus =
 
 export interface TurnEffects {
   chatSaved: (request: TurnRequest) => void;
-  idFreed: () => void;
-  idTaken: () => void;
   isMounted: () => boolean;
+  newChatSend: (send: NewChatSend) => void;
   refreshChats: () => void;
   sendBlocked: () => void;
   showError: (error: Error) => void;
@@ -128,6 +146,7 @@ export interface TurnEffects {
 export interface TurnGate {
   chat: Chat<ChatMessage>;
   getStatus: () => TurnStatus;
+  onScreen: () => void;
   retry: () => void;
   start: (prepare: () => TurnRequest | undefined) => Promise<void>;
   subscribe: (listener: () => void) => () => void;
@@ -222,19 +241,28 @@ function userMessage({ files, text }: { files: SentFile[]; text: string }) {
 export function createTurnGate({
   chatId,
   initialMessages,
+  savedThreads,
   requestSettings,
   effects,
 }: {
   chatId: string;
   initialMessages: ChatMessage[];
+  savedThreads: SavedThreads;
   requestSettings: () => Record<string, unknown>;
   effects: TurnEffects;
 }): TurnGate {
+  const opened = savedThreads.open(chatId, initialMessages);
   let phase: Phase = IDLE;
   let status = statusOf(phase);
-  let chatExists = initialMessages.length > 0;
-  let savedThread = initialMessages;
+  let chatExists = opened.thread.length > 0;
+  let savedThread = opened.thread;
+  let { restored } = opened;
   const listeners = new Set<() => void>();
+
+  const keep = (thread: ChatMessage[]) => {
+    savedThread = thread;
+    savedThreads.save(chatId, thread);
+  };
 
   const commit = (next: Phase) => {
     phase = next;
@@ -318,7 +346,7 @@ export function createTurnGate({
   };
 
   const showSaved = (thread: ChatMessage[], request: TurnRequest) => {
-    savedThread = thread;
+    keep(thread);
     chat.messages = thread;
     setChatExists(thread.length > 0, request);
     commit(IDLE);
@@ -354,6 +382,9 @@ export function createTurnGate({
         if (chatFound && settled.turnSaved) {
           return "settled";
         }
+        if (!(chatFound || chatExists)) {
+          effects.newChatSend("lost");
+        }
         const handedBack = handBack(turn, thread, {
           maybeSaved: !chatFound,
           notify: true,
@@ -382,7 +413,7 @@ export function createTurnGate({
     const thread = keptReply
       ? [...shown.filter(({ id }) => id !== reply.id), keptReply]
       : shown;
-    savedThread = thread;
+    keep(thread);
     if (keptReply) {
       chat.messages = thread;
     }
@@ -417,9 +448,10 @@ export function createTurnGate({
       showSaved(thread, turn.request);
       handBack(turn, thread, { maybeSaved: false, notify: false });
       if (!chatExists) {
-        effects.idFreed();
+        effects.newChatSend("refused");
       }
     } else if (answered && !effects.isMounted()) {
+      keep(shown);
       commit(IDLE);
       effects.refreshChats();
     } else if (isAbort || isError) {
@@ -451,7 +483,7 @@ export function createTurnGate({
 
   const chat: Chat<ChatMessage> = new Chat<ChatMessage>({
     id: chatId,
-    messages: initialMessages,
+    messages: opened.thread,
     generateId: generateUUID,
     transport: new DefaultChatTransport<ChatMessage>({
       api: "/api/chat",
@@ -506,7 +538,7 @@ export function createTurnGate({
       return;
     }
     if (!chatExists) {
-      effects.idTaken();
+      effects.newChatSend("sent");
     }
     const last = chat.messages.at(-1);
     const turn: Turn = {
@@ -533,9 +565,31 @@ export function createTurnGate({
     });
   };
 
+  const syncRestoredThread = async () => {
+    const shown = chat.messages;
+    const untouched = () => phase.phase === "idle" && chat.messages === shown;
+    let saved: ChatMessage[] | undefined;
+    await pollWhile(async () => {
+      saved = await requestThread(chatId);
+      return saved !== undefined && untouched() && isBehind(saved, shown);
+    }, Date.now() + SAVED_REPLY_WAIT_MS);
+    if (saved && untouched() && !isBehind(saved, shown)) {
+      const thread = adoptThread(shown, saved);
+      keep(thread);
+      chat.messages = thread;
+    }
+  };
+
   return {
     chat,
     getStatus: () => status,
+    onScreen: () => {
+      savedThreads.shown(chatId, initialMessages);
+      if (restored) {
+        restored = false;
+        syncRestoredThread();
+      }
+    },
     retry: () => {
       if (phase.phase === "unsettled") {
         settle(phase.ended);

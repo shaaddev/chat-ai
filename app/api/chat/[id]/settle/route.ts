@@ -3,14 +3,11 @@ import { auth } from "@/app/auth";
 import { TITLE_WAIT_MS } from "@/lib/ai/providers";
 import { isReplyPending, settleTurn } from "@/lib/db/queries";
 import { ChatSDKError } from "@/lib/errors";
+import { pollWhile } from "@/lib/poll";
 import { convertToUIMessages } from "@/lib/utils";
 
 // A new chat's reply saves only after its stream has waited for the title.
 const REPLY_WAIT_MS = TITLE_WAIT_MS + 2000;
-const FIRST_POLL_MS = 50;
-const MAX_POLL_MS = 250;
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const settleRequestBodySchema = z.object({
   turnId: z.string().uuid(),
@@ -41,18 +38,8 @@ export async function POST(
   };
   // The client showed reply text, so the turn's own request is saving that
   // reply. Past the deadline that request has likely died.
-  const waitForReply = async (
-    deadline: number,
-    pollMs: number
-  ): Promise<void> => {
-    if (Date.now() >= deadline || !(await isReplyPending(turn))) {
-      return;
-    }
-    await sleep(Math.min(pollMs, deadline - Date.now()));
-    await waitForReply(deadline, Math.min(pollMs * 2, MAX_POLL_MS));
-  };
   if (body.data.expectReply) {
-    await waitForReply(Date.now() + REPLY_WAIT_MS, FIRST_POLL_MS);
+    await pollWhile(() => isReplyPending(turn), Date.now() + REPLY_WAIT_MS);
   }
 
   const settled = await settleTurn(turn);

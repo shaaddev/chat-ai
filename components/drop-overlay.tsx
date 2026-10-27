@@ -5,8 +5,8 @@ import { AnimatePresence, motion } from "motion/react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ATTACHMENT_LIMIT_LABEL } from "@/lib/uploadthing/attachments";
+import type { AttachmentTray } from "@/lib/uploadthing/tray";
 import { cn } from "@/lib/utils";
-import { getAttachmentTray } from "./attachment-tray";
 
 function carriesFiles(event: DragEvent) {
   return event.dataTransfer?.types.includes("Files") ?? false;
@@ -38,15 +38,15 @@ function DropOverlay() {
 }
 
 export function AttachmentDropZone({
-  chatId,
   children,
   className,
   isAuthenticated,
+  tray,
 }: {
-  chatId: string;
   children: ReactNode;
   className?: string;
   isAuthenticated: boolean;
+  tray: AttachmentTray;
 }) {
   const zoneRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -91,9 +91,7 @@ export function AttachmentDropZone({
         toast("Sign in to attach files");
         return;
       }
-      getAttachmentTray(chatId).add(
-        Array.from(event.dataTransfer?.files ?? [])
-      );
+      tray.add(Array.from(event.dataTransfer?.files ?? []));
     };
     zone.addEventListener("dragenter", onDragEnter);
     zone.addEventListener("dragover", onDragOver);
@@ -105,7 +103,7 @@ export function AttachmentDropZone({
       zone.removeEventListener("dragleave", onDragLeave);
       zone.removeEventListener("drop", onDrop);
     };
-  }, [chatId, isAuthenticated]);
+  }, [isAuthenticated, tray]);
 
   return (
     <div className={cn("relative", className)} ref={zoneRef}>

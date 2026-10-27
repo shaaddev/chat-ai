@@ -12,6 +12,12 @@ import {
 } from "react";
 import { toast } from "sonner";
 import useSWR, { useSWRConfig } from "swr";
+import {
+  type ChatDrafts,
+  type ChatInputState,
+  createChatDrafts,
+} from "@/lib/chat-drafts";
+import { getAttachmentTray, moveAttachmentTray } from "./attachment-tray";
 
 const CHATS_KEY = "/api/chats";
 const UNDO_WINDOW_MS = 5000;
@@ -47,12 +53,6 @@ type PendingEdits = ReadonlyMap<
   ReadonlyMap<PendingEditKind, PendingEdit>
 >;
 
-interface ChatInputState {
-  autoDocumentGeneration: boolean;
-  input: string;
-  useSearch: boolean;
-}
-
 interface ChatActions {
   addOptimisticChat: (chat: NewChat) => void;
   clearChats: () => void;
@@ -77,19 +77,11 @@ interface ChatListState {
   pendingEdits: PendingEdits;
 }
 
-interface ChatDraftContextType {
-  clearChatInputState: (chatId: string) => void;
-  getChatInputState: (chatId: string) => ChatInputState;
-  setChatInputState: (chatId: string, state: Partial<ChatInputState>) => void;
-}
-
 const ChatActionsContext = createContext<ChatActions | undefined>(undefined);
 const ChatListStateContext = createContext<ChatListState | undefined>(
   undefined
 );
-const ChatDraftContext = createContext<ChatDraftContextType | undefined>(
-  undefined
-);
+const ChatDraftContext = createContext<ChatDrafts | undefined>(undefined);
 
 const USE_SEARCH_STORAGE_KEY = "chat-ai:use-search";
 
@@ -268,7 +260,16 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [loadingChats, setLoadingChats] = useState<ReadonlySet<string>>(
     () => new Set()
   );
-  const chatInputStatesRef = useRef<Map<string, ChatInputState>>(new Map());
+  const [drafts] = useState(() =>
+    createChatDrafts({
+      defaults: () => ({
+        ...DEFAULT_CHAT_INPUT_STATE,
+        useSearch: getDefaultUseSearch(),
+      }),
+      trays: { get: getAttachmentTray, move: moveAttachmentTray },
+      useSearchChanged: persistUseSearch,
+    })
+  );
   const pendingDeletesRef = useRef<Map<string, PendingDelete>>(new Map());
   const inFlightDeletesRef = useRef<Set<Promise<void>>>(new Set());
   const lastPinRequestRef = useRef<Map<string, Promise<Response | null>>>(
@@ -307,7 +308,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   const forgetChat = useCallback(
     (chatId: string) => {
-      chatInputStatesRef.current.delete(chatId);
+      drafts.forget(chatId);
       return updateCachedChats((chats) =>
         chats.filter((chat) => chat.id !== chatId)
       );
@@ -503,41 +504,6 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const getChatInputState = useCallback((chatId: string): ChatInputState => {
-    const existing = chatInputStatesRef.current.get(chatId);
-    if (existing) {
-      return existing;
-    }
-    // Hydrate fresh state with the user's persisted web-search preference.
-    return { ...DEFAULT_CHAT_INPUT_STATE, useSearch: getDefaultUseSearch() };
-  }, []);
-
-  const setChatInputState = useCallback(
-    (chatId: string, state: Partial<ChatInputState>) => {
-      const currentState = chatInputStatesRef.current.get(chatId) ?? {
-        ...DEFAULT_CHAT_INPUT_STATE,
-        useSearch: getDefaultUseSearch(),
-      };
-      const next = { ...currentState, ...state };
-      chatInputStatesRef.current.set(chatId, next);
-      // Persist the search preference globally so it survives reloads.
-      if (
-        typeof state.useSearch === "boolean" &&
-        state.useSearch !== currentState.useSearch
-      ) {
-        persistUseSearch(state.useSearch);
-      }
-    },
-    []
-  );
-
-  const clearChatInputState = useCallback((chatId: string) => {
-    chatInputStatesRef.current.set(chatId, {
-      ...DEFAULT_CHAT_INPUT_STATE,
-      useSearch: getDefaultUseSearch(),
-    });
-  }, []);
-
   const actions = useMemo<ChatActions>(
     () => ({
       addOptimisticChat,
@@ -566,19 +532,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     [loadingChats, pendingEdits]
   );
 
-  const draftContextValue = useMemo(
-    () => ({
-      getChatInputState,
-      setChatInputState,
-      clearChatInputState,
-    }),
-    [clearChatInputState, getChatInputState, setChatInputState]
-  );
-
   return (
     <ChatActionsContext.Provider value={actions}>
       <ChatListStateContext.Provider value={listState}>
-        <ChatDraftContext.Provider value={draftContextValue}>
+        <ChatDraftContext.Provider value={drafts}>
           {children}
         </ChatDraftContext.Provider>
       </ChatListStateContext.Provider>
@@ -657,10 +614,10 @@ export function useCachedChats(): ChatSummary[] {
   );
 }
 
-export function useChatDraft() {
+export function useChatDrafts() {
   const context = useContext(ChatDraftContext);
   if (context === undefined) {
-    throw new Error("useChatDraft must be used within a ChatProvider");
+    throw new Error("useChatDrafts must be used within a ChatProvider");
   }
   return context;
 }

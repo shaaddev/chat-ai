@@ -108,6 +108,14 @@ export function getAttachmentTray(chatId: string): AttachmentTray {
   return tray;
 }
 
+export function moveAttachmentTray(from: string, to: string) {
+  const tray = traysForThisTab.get(from);
+  if (tray) {
+    traysForThisTab.delete(from);
+    traysForThisTab.set(to, tray);
+  }
+}
+
 export const ATTACHMENT_LIMIT_HINT_ID = "attachment-limit-hint";
 
 export const overLimitHint = (count: number) =>

@@ -15,7 +15,7 @@ import {
 import { toast } from "sonner";
 import {
   useChat as useChatContext,
-  useChatDraft,
+  useChatDrafts,
   useChatTitle,
 } from "@/components/chat-context";
 import { Button } from "@/components/ui/button";
@@ -27,19 +27,20 @@ import {
   getChatModel,
 } from "@/lib/ai/models";
 import type { Session } from "@/lib/auth";
+import { joinDraftText } from "@/lib/chat-drafts";
 import {
   createTurnGate,
-  joinDraftText,
+  type NewChatSend,
   type TurnRequest,
 } from "@/lib/chat-turn";
 import { openCommandPalette } from "@/lib/command-palette";
 import { returnFocusToComposer } from "@/lib/composer";
 import { ChatSDKError } from "@/lib/errors";
+import { createSavedThreads } from "@/lib/saved-threads";
 import { extractSources, type Source } from "@/lib/sources";
 import type { ChatMessage, DocumentDraft } from "@/lib/types";
 import { readiness, sentFiles } from "@/lib/uploadthing/tray";
 import { cn } from "@/lib/utils";
-import { getAttachmentTray } from "./attachment-tray";
 import { ChatInput } from "./chat-input";
 import { Messages, type UnsavedEdit } from "./chat-messages";
 import { AttachmentDropZone } from "./drop-overlay";
@@ -76,6 +77,7 @@ const chatTitle = (request: TurnRequest) =>
     : "") || "New chat";
 
 const MemoizedChatInput = memo(ChatInput);
+const savedThreads = createSavedThreads();
 const LazyDocumentSheet = dynamic(
   () => import("./document-sheet").then((module) => module.DocumentSheet),
   {
@@ -254,9 +256,9 @@ interface ChatProps {
   initialMessages: ChatMessage[];
   initialSystemPrompt?: string;
   initialTitle?: string;
-  onIdFreed?: (chatId: string) => void;
-  onIdTaken?: (chatId: string) => void;
+  onNewChatSend?: (chatId: string, send: NewChatSend) => void;
   session: Session | null;
+  unsavedDraftKey?: string;
 }
 
 export function Chat({
@@ -266,20 +268,21 @@ export function Chat({
   session,
   initialSystemPrompt,
   initialTitle,
-  onIdFreed,
-  onIdTaken,
+  onNewChatSend,
+  unsavedDraftKey,
 }: ChatProps) {
   const [isAuthenticated] = useState(!!session);
   const { addOptimisticChat, setChatLoading, refreshChats } = useChatContext();
-  const { getChatInputState, setChatInputState, clearChatInputState } =
-    useChatDraft();
+  const drafts = useChatDrafts();
+  const draftKeyRef = useRef(unsavedDraftKey ?? id);
+  const [tray] = useState(() => drafts.tray(draftKeyRef.current));
   const [selectedModelId, setSelectedModelId] = useState<ChatModelId>(
     () => findChatModel(initialChatModel)?.id ?? DEFAULT_CHAT_MODEL
   );
 
   const [input, setInput] = useState("");
   // Web search defaults ON. The actual user-preferred default is hydrated
-  // from localStorage on mount via `getChatInputState` below.
+  // from localStorage on mount via `drafts.get` below.
   const [useSearch, setUseSearch] = useState(true);
   const [autoDocumentGeneration, setAutoDocumentGeneration] = useState(false);
   const [customSystemPrompt, setCustomSystemPrompt] = useState<
@@ -307,11 +310,23 @@ export function Chat({
   }, []);
 
   useEffect(() => {
-    const persistedState = getChatInputState(id);
+    const persistedState = drafts.get(draftKeyRef.current);
     setInput(persistedState.input);
     setUseSearch(persistedState.useSearch);
     setAutoDocumentGeneration(persistedState.autoDocumentGeneration);
-  }, [getChatInputState, id]);
+  }, [drafts]);
+
+  useEffect(
+    () =>
+      drafts.takeHandBacks((key, text) => {
+        if (key !== draftKeyRef.current) {
+          return false;
+        }
+        setInput((typed) => joinDraftText(text, typed));
+        return true;
+      }),
+    [drafts]
+  );
 
   const handleSelectModel = useCallback((modelId: ChatModelId) => {
     setSelectedModelId(modelId);
@@ -339,33 +354,28 @@ export function Chat({
   }, []);
 
   const [turns] = useState(() => {
-    const restoreInput = (
+    const showHandBack = (
       request: TurnRequest,
       { editShown, maybeSaved }: { editShown: boolean; maybeSaved: boolean }
     ) => {
       if (request.kind === "regenerate") {
-        return;
+        return mountedRef.current;
       }
       if (request.kind === "edit" && editShown && mountedRef.current) {
         setUnsavedEdit({ messageId: request.messageId, text: request.text });
-        return;
+        return true;
       }
-      if (mountedRef.current) {
-        setInput((typed) => joinDraftText(request.text, typed));
-      } else {
-        // The composer loads this draft when the chat opens again.
-        setChatInputState(id, {
-          input: joinDraftText(request.text, getChatInputState(id).input),
-        });
-      }
-      if (request.kind === "append") {
-        getAttachmentTray(id).restore(request.files, { maybeSaved });
-      }
+      return drafts.handBack(draftKeyRef.current, {
+        files: request.kind === "append" ? request.files : [],
+        maybeSaved,
+        text: request.text,
+      });
     };
 
     return createTurnGate({
       chatId: id,
       initialMessages,
+      savedThreads,
       requestSettings: () => ({ ...requestSettingsRef.current }),
       effects: {
         chatSaved: (request) => {
@@ -374,10 +384,13 @@ export function Chat({
           }
           window.history.replaceState({}, "", `/chat/${id}`);
           addOptimisticChat({ id, title: chatTitle(request) });
+          if (draftKeyRef.current !== id) {
+            drafts.move(draftKeyRef.current, id);
+            draftKeyRef.current = id;
+          }
         },
-        idFreed: () => onIdFreed?.(id),
-        idTaken: () => onIdTaken?.(id),
         isMounted: () => mountedRef.current,
+        newChatSend: (send) => onNewChatSend?.(id, send),
         refreshChats,
         sendBlocked: () => {
           toast.error("Couldn't send yet", {
@@ -403,11 +416,11 @@ export function Chat({
           }
         },
         turnNotSaved: (request, { editShown, maybeSaved, notify }) => {
-          if (notify && mountedRef.current) {
+          const seen = showHandBack(request, { editShown, maybeSaved });
+          if (notify && seen) {
             const notice = TURN_NOT_SAVED[request.kind];
             toast(notice.title, { description: notice.description });
           }
-          restoreInput(request, { editShown, maybeSaved });
         },
       },
     });
@@ -422,12 +435,12 @@ export function Chat({
     chat: turns.chat,
     throttle: 50,
   });
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    turns.onScreen();
+    return () => {
       turns.chat.stop();
-    },
-    [turns]
-  );
+    };
+  }, [turns]);
   const { latestAssistantMessage, latestUserMessage } =
     getLatestConversationMessages(messages);
 
@@ -449,7 +462,6 @@ export function Chat({
   const sendTurn = useCallback(
     (text: string) =>
       turns.start(() => {
-        const tray = getAttachmentTray(id);
         const items = tray.getItems();
         const trayState = readiness(items);
         const files = sentFiles(items);
@@ -457,12 +469,12 @@ export function Chat({
         if (!(isTraySendable && (text || files.length > 0))) {
           return;
         }
-        clearChatInputState(id);
+        drafts.clear(draftKeyRef.current);
         tray.clearAfterSend();
         setInput("");
         return { kind: "append", files, text };
       }),
-    [clearChatInputState, id, turns]
+    [drafts, tray, turns]
   );
 
   const handleRegenerate = useCallback(() => {
@@ -495,7 +507,7 @@ export function Chat({
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-      setChatInputState(id, {
+      drafts.set(draftKeyRef.current, {
         input,
         useSearch,
         autoDocumentGeneration,
@@ -503,7 +515,7 @@ export function Chat({
     }, DRAFT_SAVE_DELAY_MS);
 
     return () => window.clearTimeout(timeoutId);
-  }, [useSearch, autoDocumentGeneration, id, input, setChatInputState]);
+  }, [useSearch, autoDocumentGeneration, drafts, input]);
 
   const isImageModel = getChatModel(selectedModelId).kind === "image";
 
@@ -541,9 +553,9 @@ export function Chat({
   return (
     <div className="flex h-full min-h-0 w-full">
       <AttachmentDropZone
-        chatId={id}
         className="flex w-full min-w-0 flex-1 flex-col"
         isAuthenticated={isAuthenticated}
+        tray={tray}
       >
         <ChatHeader chatId={id} savedTitle={initialTitle} />
 
@@ -592,6 +604,7 @@ export function Chat({
               setUseSearch={setUseSearch}
               status={status}
               stop={stop}
+              tray={tray}
               turnStatus={turnStatus}
               useSearch={useSearch}
             />

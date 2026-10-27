@@ -3,13 +3,13 @@ import { afterEach, describe, expect, jest, test } from "bun:test";
 import {
   adoptThread,
   createTurnGate,
-  joinDraftText,
   requestSettle,
   type TurnEffects,
   type TurnGate,
   turnFailure,
 } from "./chat-turn";
 import { ChatSDKError } from "./errors";
+import { createSavedThreads, type SavedThreads } from "./saved-threads";
 import type { ChatMessage } from "./types";
 
 const realFetch = globalThis.fetch;
@@ -40,18 +40,25 @@ interface HeldRequest {
 function fakeServer() {
   const chat: HeldRequest[] = [];
   const settle: HeldRequest[] = [];
+  const threads: HeldRequest[] = [];
+  const queueFor = (url: string) => {
+    if (url.endsWith("/settle")) {
+      return settle;
+    }
+    return url.startsWith("/api/chats/") ? threads : chat;
+  };
   globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) =>
     new Promise<Response>((resolve, reject) => {
       const signal = init?.signal ?? undefined;
       signal?.addEventListener("abort", () => reject(signal.reason));
-      (String(input).endsWith("/settle") ? settle : chat).push({
+      queueFor(String(input)).push({
         body: JSON.parse(String(init?.body ?? "{}")),
         fail: reject,
         respond: resolve,
         signal,
       });
     })) as typeof fetch;
-  return { chat, settle };
+  return { chat, settle, threads };
 }
 
 const UUID = /^[0-9a-f-]{36}$/;
@@ -106,9 +113,8 @@ function recordingEffects(overrides: Partial<TurnEffects> = {}) {
   const calls: string[] = [];
   const effects: TurnEffects = {
     chatSaved: () => calls.push("chat saved"),
-    idFreed: () => calls.push("id given back"),
-    idTaken: () => calls.push("id taken"),
     isMounted: () => true,
+    newChatSend: (send) => calls.push(`new chat ${send}`),
     refreshChats: () => undefined,
     sendBlocked: () => calls.push("send blocked"),
     showError: () => calls.push("error shown"),
@@ -129,16 +135,19 @@ const ANSWER = message("a0", "assistant", "Earlier answer");
 
 function openChat(
   initialMessages: ChatMessage[] = [QUESTION, ANSWER],
-  overrides: Partial<TurnEffects> = {}
+  overrides: Partial<TurnEffects> = {},
+  savedThreads: SavedThreads = createSavedThreads()
 ) {
   const server = fakeServer();
   const { calls, effects } = recordingEffects(overrides);
   const gate = createTurnGate({
     chatId: "chat",
     initialMessages,
+    savedThreads,
     requestSettings: () => ({ selectedChatModel: "chat-5-mini" }),
     effects,
   });
+  gate.onScreen();
   return { calls, gate, server };
 }
 
@@ -169,7 +178,7 @@ describe("a turn", () => {
     });
     expect(request.body.turnId).toMatch(UUID);
     expect(shown(gate)).toEqual(["user: Hello", "assistant: Hi there"]);
-    expect(calls).toEqual(["id taken", "chat saved", "finished"]);
+    expect(calls).toEqual(["new chat sent", "chat saved", "finished"]);
     expect(server.settle).toHaveLength(0);
   });
 
@@ -295,7 +304,8 @@ describe("a turn", () => {
 
     expect(shown(gate)).toEqual([]);
     expect(calls).toEqual([
-      "id taken",
+      "new chat sent",
+      "new chat lost",
       "handed back append, told, maybe saved",
     ]);
   });
@@ -435,10 +445,10 @@ describe("a turn", () => {
 
     expect(server.settle).toHaveLength(0);
     expect(calls).toEqual([
-      "id taken",
+      "new chat sent",
       "error shown",
       "handed back append",
-      "id given back",
+      "new chat refused",
     ]);
   });
 });
@@ -453,10 +463,10 @@ describe("a new chat's id", () => {
     await until(() => gate.getStatus().phase === "idle");
 
     expect(calls).toEqual([
-      "id taken",
+      "new chat sent",
       "error shown",
       "handed back append",
-      "id given back",
+      "new chat refused",
     ]);
   });
 
@@ -474,7 +484,7 @@ describe("a new chat's id", () => {
     gate.chat.stop();
     await until(() => gate.getStatus().phase === "idle");
 
-    expect(calls).toEqual(["id taken", "chat saved"]);
+    expect(calls).toEqual(["new chat sent", "chat saved"]);
   });
 
   test("stays taken when the settle finds the chat", async () => {
@@ -487,7 +497,7 @@ describe("a new chat's id", () => {
     server.settle[0].respond(settled(gate.chat.messages.slice(-1), true));
     await until(() => gate.getStatus().phase === "idle");
 
-    expect(calls).toEqual(["id taken", "chat saved"]);
+    expect(calls).toEqual(["new chat sent", "chat saved"]);
   });
 
   test("stays taken while its settle fails", async () => {
@@ -500,7 +510,7 @@ describe("a new chat's id", () => {
     server.settle[0].fail(new TypeError("Failed to fetch"));
     await until(() => gate.getStatus().phase === "unsettled");
 
-    expect(calls).toEqual(["id taken"]);
+    expect(calls).toEqual(["new chat sent"]);
   });
 
   test("stays taken when a later turn in the saved chat is handed back", async () => {
@@ -516,12 +526,146 @@ describe("a new chat's id", () => {
     await until(() => gate.getStatus().phase === "idle");
 
     expect(calls).toEqual([
-      "id taken",
+      "new chat sent",
       "chat saved",
       "finished",
       "error shown",
       "handed back append",
     ]);
+  });
+});
+
+describe("a chat that Back or Forward restores", () => {
+  const restore = (payload: ChatMessage[], savedThreads: SavedThreads) =>
+    openChat(payload, {}, savedThreads);
+
+  async function chatWithFollowUp() {
+    const payload = [QUESTION, ANSWER];
+    const savedThreads = createSavedThreads();
+    const { gate, server } = openChat(payload, {}, savedThreads);
+    await ask(gate, "Follow-up");
+    await until(() => server.chat.length === 1);
+    streamReply(server.chat[0], { text: "Second answer", finish: true });
+    await until(() => gate.getStatus().phase === "idle");
+    return { payload, saved: gate.chat.messages, savedThreads };
+  }
+
+  const FOLLOWED_UP = [
+    "user: Earlier question",
+    "assistant: Earlier answer",
+    "user: Follow-up",
+    "assistant: Second answer",
+  ];
+
+  test("shows the turns this tab saw since the router cached it", async () => {
+    const { payload, saved, savedThreads } = await chatWithFollowUp();
+
+    const { gate, server } = restore(payload, savedThreads);
+
+    expect(shown(gate)).toEqual(FOLLOWED_UP);
+    await until(() => server.threads.length === 1);
+    server.threads[0].respond(Response.json({ messages: saved }));
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    expect(shown(gate)).toEqual(FOLLOWED_UP);
+  });
+
+  test("shows what the server saved after the tab left", async () => {
+    const { payload, saved, savedThreads } = await chatWithFollowUp();
+    const { gate, server } = restore(payload, savedThreads);
+
+    await until(() => server.threads.length === 1);
+    server.threads[0].respond(
+      Response.json({
+        messages: [
+          ...saved,
+          message("u2", "user", "From another tab"),
+          message("a2", "assistant", "Its answer"),
+        ],
+      })
+    );
+
+    await until(() => gate.chat.messages.length === 6);
+    expect(shown(gate).slice(4)).toEqual([
+      "user: From another tab",
+      "assistant: Its answer",
+    ]);
+  });
+
+  test("waits for a reply the tab showed to save before it takes the server's thread", async () => {
+    const { payload, saved, savedThreads } = await chatWithFollowUp();
+    const { gate, server } = restore(payload, savedThreads);
+
+    await until(() => server.threads.length === 1);
+    server.threads[0].respond(Response.json({ messages: saved.slice(0, 3) }));
+    await until(() => server.threads.length === 2);
+    expect(shown(gate)).toEqual(FOLLOWED_UP);
+    const savedReply = message(
+      saved[3].id,
+      "assistant",
+      "Second answer, saved"
+    );
+    server.threads[1].respond(
+      Response.json({ messages: [...saved.slice(0, 3), savedReply] })
+    );
+
+    await until(() => shown(gate).at(-1) === "assistant: Second answer, saved");
+    expect(shown(gate)).toHaveLength(4);
+  });
+
+  test("keeps a reply it showed when the server still lacks it after the wait", async () => {
+    const { payload, saved, savedThreads } = await chatWithFollowUp();
+    const { gate, server } = restore(payload, savedThreads);
+    const answerBehindUntil = async (deadline: number): Promise<void> => {
+      for (const request of server.threads.splice(0)) {
+        request.respond(Response.json({ messages: saved.slice(0, 3) }));
+      }
+      if (Date.now() >= deadline) {
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      await answerBehindUntil(deadline);
+    };
+
+    await answerBehindUntil(Date.now() + 6000);
+
+    expect(shown(gate)).toEqual(FOLLOWED_UP);
+    expect(restore(payload, savedThreads).gate.chat.messages).toHaveLength(4);
+  }, 10_000);
+
+  test("keeps a turn that started before the server answered", async () => {
+    const { payload, saved, savedThreads } = await chatWithFollowUp();
+    const { gate, server } = restore(payload, savedThreads);
+
+    await ask(gate, "Third question");
+    await until(() => server.chat.length === 1);
+    server.threads[0].respond(Response.json({ messages: saved }));
+    streamReply(server.chat[0], { text: "Third answer", finish: true });
+    await until(() => gate.getStatus().phase === "idle");
+    await new Promise((resolve) => setTimeout(resolve, 5));
+
+    expect(shown(gate)).toEqual([
+      ...FOLLOWED_UP,
+      "user: Third question",
+      "assistant: Third answer",
+    ]);
+  });
+
+  test("is not rechecked when the router fetched a new payload", async () => {
+    const { savedThreads } = await chatWithFollowUp();
+
+    const { gate, server } = openChat(
+      [QUESTION, ANSWER, message("u1", "user", "Follow-up")],
+      {},
+      savedThreads
+    );
+
+    expect(shown(gate)).toEqual([
+      "user: Earlier question",
+      "assistant: Earlier answer",
+      "user: Follow-up",
+    ]);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    expect(server.threads).toHaveLength(0);
   });
 });
 
@@ -975,12 +1119,4 @@ describe("adoptThread", () => {
       }),
     ]);
   });
-});
-
-test("restored text goes in front of anything typed since", () => {
-  expect(joinDraftText("Unsent question", "")).toBe("Unsent question");
-  expect(joinDraftText("Unsent question", "Follow-up")).toBe(
-    "Unsent question\n\nFollow-up"
-  );
-  expect(joinDraftText("", "Follow-up")).toBe("Follow-up");
 });

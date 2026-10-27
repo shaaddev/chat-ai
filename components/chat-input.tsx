@@ -9,6 +9,7 @@ import {
 import {
   type Dispatch,
   memo,
+  type RefObject,
   type SetStateAction,
   useCallback,
   useEffect,
@@ -35,12 +36,11 @@ import { Switch } from "@/components/ui/switch";
 import { type ChatModelId, getChatModel } from "@/lib/ai/models";
 import type { TurnStatus } from "@/lib/chat-turn";
 import type { ChatMessage } from "@/lib/types";
-import { filesOverLimit } from "@/lib/uploadthing/tray";
+import { type AttachmentTray, filesOverLimit } from "@/lib/uploadthing/tray";
 import { cn } from "@/lib/utils";
 import {
   ATTACHMENT_LIMIT_HINT_ID,
   AttachmentTrayList,
-  getAttachmentTray,
   overLimitHint,
   useTrayReadiness,
 } from "./attachment-tray";
@@ -60,6 +60,38 @@ function pastedFiles(clipboard: DataTransfer): File[] {
   return isRichText ? [] : Array.from(clipboard.files);
 }
 
+// Phone toasts sit just above the composer, which grows with its text and
+// sits mid-screen in an empty chat.
+function usePublishComposerClearance(
+  composerRef: RefObject<HTMLDivElement | null>
+) {
+  useEffect(() => {
+    const composer = composerRef.current;
+    const area = composer?.closest("[data-composer]");
+    if (!(composer && area)) {
+      return;
+    }
+    const root = document.documentElement;
+    const publish = () => {
+      const clearance =
+        window.innerHeight - composer.getBoundingClientRect().top;
+      root.style.setProperty(
+        "--composer-clearance",
+        `${Math.round(clearance)}px`
+      );
+    };
+    const observer = new ResizeObserver(publish);
+    observer.observe(composer);
+    observer.observe(area);
+    window.addEventListener("resize", publish);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", publish);
+      root.style.removeProperty("--composer-clearance");
+    };
+  }, [composerRef]);
+}
+
 interface ChatInputProps {
   autoDocumentGeneration: boolean;
   chatId: string;
@@ -76,6 +108,7 @@ interface ChatInputProps {
   setUseSearch: Dispatch<SetStateAction<boolean>>;
   status: UseChatHelpers<ChatMessage>["status"];
   stop: () => void;
+  tray: AttachmentTray;
   turnStatus: TurnStatus;
   useSearch: boolean;
 }
@@ -98,6 +131,7 @@ export function ChatInput({
   setAutoDocumentGeneration,
   customSystemPrompt,
   setCustomSystemPrompt,
+  tray,
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [textareaHeight, setTextareaHeight] = useState(
@@ -110,7 +144,6 @@ export function ChatInput({
   );
   const isSendHeld = turnStatus.phase === "settling" && turnStatus.sendHeld;
   const isStopping = turnStatus.phase === "running" && turnStatus.stopping;
-  const tray = getAttachmentTray(chatId);
   const trayReadiness = useTrayReadiness(tray);
   const hasText = input.trim().length > 0;
   const needsText = getChatModel(selectedModelId).kind === "image";
@@ -148,6 +181,9 @@ export function ChatInput({
   }, [canSend, isAuthenticated, sendTurn, hasText, input, tray, trayReadiness]);
 
   const isBusy = status === "submitted" || status === "streaming";
+
+  const composerRef = useRef<HTMLDivElement>(null);
+  usePublishComposerClearance(composerRef);
 
   // Radix layers dismiss on Escape in the capture phase and mark the event
   // handled, so this only stops a reply when no menu or dialog consumed it.
@@ -205,7 +241,7 @@ export function ChatInput({
   const hasActiveSettings = !!customSystemPrompt || autoDocumentGeneration;
 
   return (
-    <div className="relative">
+    <div className="relative" ref={composerRef}>
       <div className="flex flex-col rounded-[20px] border border-transparent bg-secondary/86 px-2.5 py-2 backdrop-blur-[16px] transition-[border-color,box-shadow] duration-200 focus-within:border-primary focus-within:shadow-glow">
         <AttachmentTrayList tray={tray} />
 
