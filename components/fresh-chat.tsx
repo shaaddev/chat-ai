@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { type ComponentProps, useEffect, useState } from "react";
 import { createFreshChats } from "@/lib/fresh-chat";
 import { Chat } from "./chat";
+import { ChatSkeleton } from "./chat-skeleton";
 
 type FreshChatProps = Omit<
   ComponentProps<typeof Chat>,
@@ -46,7 +47,7 @@ export function FreshChat({ pageChatId, ...props }: FreshChatProps) {
     }
   }, [isOtherChat, pathname, router]);
   if (isOtherChat) {
-    return null;
+    return <ChatSkeleton />;
   }
 
   return (
