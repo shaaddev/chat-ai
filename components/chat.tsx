@@ -28,7 +28,11 @@ import {
 } from "@/lib/ai/models";
 import type { Session } from "@/lib/auth";
 import { joinDraftText } from "@/lib/chat-drafts";
-import { createTurnGate, type TurnRequest } from "@/lib/chat-turn";
+import {
+  createSavedThreads,
+  createTurnGate,
+  type TurnRequest,
+} from "@/lib/chat-turn";
 import { openCommandPalette } from "@/lib/command-palette";
 import { returnFocusToComposer } from "@/lib/composer";
 import { ChatSDKError } from "@/lib/errors";
@@ -74,6 +78,7 @@ const chatTitle = (request: TurnRequest) =>
     : "") || "New chat";
 
 const MemoizedChatInput = memo(ChatInput);
+const savedThreads = createSavedThreads();
 const LazyDocumentSheet = dynamic(
   () => import("./document-sheet").then((module) => module.DocumentSheet),
   {
@@ -373,6 +378,7 @@ export function Chat({
     return createTurnGate({
       chatId: id,
       initialMessages,
+      savedThreads,
       requestSettings: () => ({ ...requestSettingsRef.current }),
       effects: {
         chatSaved: (request) => {
@@ -434,12 +440,12 @@ export function Chat({
     chat: turns.chat,
     throttle: 50,
   });
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    turns.shown();
+    return () => {
       turns.chat.stop();
-    },
-    [turns]
-  );
+    };
+  }, [turns]);
   const { latestAssistantMessage, latestUserMessage } =
     getLatestConversationMessages(messages);
 

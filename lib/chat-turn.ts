@@ -86,6 +86,54 @@ export function adoptThread(
   });
 }
 
+async function requestThread(
+  chatId: string
+): Promise<ChatMessage[] | undefined> {
+  try {
+    const response = await fetch(`/api/chats/${chatId}`);
+    if (!response.ok) {
+      return;
+    }
+    const body: unknown = await response.json();
+    if (
+      typeof body === "object" &&
+      body !== null &&
+      "messages" in body &&
+      Array.isArray(body.messages)
+    ) {
+      return body.messages;
+    }
+  } catch {
+    // Offline, the chat keeps what it shows.
+  }
+}
+
+// Back and Forward remount a chat with the payload the router cached when
+// it first showed the chat. Turns the tab saw since then are newer.
+export function createSavedThreads() {
+  const shownPayloads = new WeakSet<ChatMessage[]>();
+  const latest = new Map<string, ChatMessage[]>();
+
+  return {
+    open(chatId: string, payload: ChatMessage[]) {
+      const restored = shownPayloads.has(payload);
+      const thread = (restored && latest.get(chatId)) || payload;
+      return { restored, thread };
+    },
+    shown(chatId: string, payload: ChatMessage[]) {
+      if (payload.length > 0 && !shownPayloads.has(payload)) {
+        shownPayloads.add(payload);
+        latest.set(chatId, payload);
+      }
+    },
+    save(chatId: string, thread: ChatMessage[]) {
+      latest.set(chatId, thread);
+    },
+  };
+}
+
+export type SavedThreads = ReturnType<typeof createSavedThreads>;
+
 export type TurnRequest =
   | { kind: "append"; files: SentFile[]; text: string }
   | { kind: "edit"; messageId: string; text: string }
@@ -119,6 +167,8 @@ export interface TurnGate {
   chat: Chat<ChatMessage>;
   getStatus: () => TurnStatus;
   retry: () => void;
+  // The chat is on screen.
+  shown: () => void;
   start: (prepare: () => TurnRequest | undefined) => Promise<void>;
   subscribe: (listener: () => void) => () => void;
 }
@@ -212,19 +262,28 @@ function userMessage({ files, text }: { files: SentFile[]; text: string }) {
 export function createTurnGate({
   chatId,
   initialMessages,
+  savedThreads,
   requestSettings,
   effects,
 }: {
   chatId: string;
   initialMessages: ChatMessage[];
+  savedThreads: SavedThreads;
   requestSettings: () => Record<string, unknown>;
   effects: TurnEffects;
 }): TurnGate {
+  const opened = savedThreads.open(chatId, initialMessages);
   let phase: Phase = IDLE;
   let status = statusOf(phase);
-  let chatExists = initialMessages.length > 0;
-  let savedThread = initialMessages;
+  let chatExists = opened.thread.length > 0;
+  let savedThread = opened.thread;
+  let { restored } = opened;
   const listeners = new Set<() => void>();
+
+  const keep = (thread: ChatMessage[]) => {
+    savedThread = thread;
+    savedThreads.save(chatId, thread);
+  };
 
   const commit = (next: Phase) => {
     phase = next;
@@ -308,7 +367,7 @@ export function createTurnGate({
   };
 
   const showSaved = (thread: ChatMessage[], request: TurnRequest) => {
-    savedThread = thread;
+    keep(thread);
     chat.messages = thread;
     setChatExists(thread.length > 0, request);
     commit(IDLE);
@@ -375,7 +434,7 @@ export function createTurnGate({
     const thread = keptReply
       ? [...shown.filter(({ id }) => id !== reply.id), keptReply]
       : shown;
-    savedThread = thread;
+    keep(thread);
     if (keptReply) {
       chat.messages = thread;
     }
@@ -413,6 +472,7 @@ export function createTurnGate({
         effects.newChatSend("refused");
       }
     } else if (answered && !effects.isMounted()) {
+      keep(shown);
       commit(IDLE);
       effects.refreshChats();
     } else if (isAbort || isError) {
@@ -444,7 +504,7 @@ export function createTurnGate({
 
   const chat: Chat<ChatMessage> = new Chat<ChatMessage>({
     id: chatId,
-    messages: initialMessages,
+    messages: opened.thread,
     generateId: generateUUID,
     transport: new DefaultChatTransport<ChatMessage>({
       api: "/api/chat",
@@ -526,12 +586,31 @@ export function createTurnGate({
     });
   };
 
+  // Another tab, or a reply that kept saving after this tab left, can have
+  // changed a restored chat.
+  const recheck = async () => {
+    const shown = chat.messages;
+    const saved = await requestThread(chatId);
+    if (saved && phase.phase === "idle" && chat.messages === shown) {
+      const thread = adoptThread(shown, saved);
+      keep(thread);
+      chat.messages = thread;
+    }
+  };
+
   return {
     chat,
     getStatus: () => status,
     retry: () => {
       if (phase.phase === "unsettled") {
         settle(phase.ended);
+      }
+    },
+    shown: () => {
+      savedThreads.shown(chatId, initialMessages);
+      if (restored) {
+        restored = false;
+        recheck();
       }
     },
     start,
