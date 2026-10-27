@@ -41,7 +41,6 @@ import { readiness, sentFiles } from "@/lib/uploadthing/tray";
 import { cn } from "@/lib/utils";
 import { getAttachmentTray } from "./attachment-tray";
 import { ChatInput } from "./chat-input";
-import { SETTLE_FAILURE_HINT } from "./chat-message";
 import { Messages, type UnsavedEdit } from "./chat-messages";
 import { AttachmentDropZone } from "./drop-overlay";
 import { EmptyGreeting, SuggestionChips } from "./empty-chat-state";
@@ -380,9 +379,9 @@ export function Chat({
         idTaken: () => onIdTaken?.(id),
         isMounted: () => mountedRef.current,
         refreshChats,
-        sendBlocked: (reason) => {
+        sendBlocked: () => {
           toast.error("Couldn't send yet", {
-            description: SETTLE_FAILURE_HINT[reason],
+            description: "Your message is still in the composer.",
           });
         },
         showError: (error) => {

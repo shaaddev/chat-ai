@@ -110,7 +110,7 @@ function recordingEffects(overrides: Partial<TurnEffects> = {}) {
     idTaken: () => calls.push("id taken"),
     isMounted: () => true,
     refreshChats: () => undefined,
-    sendBlocked: (reason) => calls.push(`send blocked: ${reason}`),
+    sendBlocked: () => calls.push("send blocked"),
     showError: () => calls.push("error shown"),
     turnFinished: (_, keptPrevious) =>
       calls.push(keptPrevious ? "finished, kept the old reply" : "finished"),
@@ -850,7 +850,7 @@ describe("a settle that fails", () => {
     expect(server.settle[2].body).toEqual({ turnId, expectReply: false });
   });
 
-  test("again when a send checks it says why the send didn't go out", async () => {
+  test("again when a send checks it says that the send didn't go out", async () => {
     const { calls, gate, server } = await failSettle();
     let prepared = false;
 
@@ -863,8 +863,12 @@ describe("a settle that fails", () => {
     await followUp;
 
     expect(prepared).toBe(false);
-    expect(calls).toEqual(["send blocked: offline"]);
-    expect(gate.getStatus().phase).toBe("unsettled");
+    expect(calls).toEqual(["send blocked"]);
+    expect(gate.getStatus()).toEqual({
+      phase: "unsettled",
+      reason: "offline",
+      subject: "message",
+    });
   });
 });
 

@@ -198,7 +198,7 @@ const UNSETTLED_SUMMARY: Record<UnsettledSubject, string> = {
   reply: "Couldn't confirm this reply was saved.",
 };
 
-export const SETTLE_FAILURE_HINT: Record<SettleFailure, string> = {
+const SETTLE_FAILURE_HINT: Record<SettleFailure, string> = {
   offline: "Check your connection and try again.",
   server: "Try again in a moment.",
 };

@@ -116,7 +116,7 @@ export interface TurnEffects {
   idTaken: () => void;
   isMounted: () => boolean;
   refreshChats: () => void;
-  sendBlocked: (reason: SettleFailure) => void;
+  sendBlocked: () => void;
   showError: (error: Error) => void;
   turnFinished: (reply: ChatMessage, keptPrevious: boolean) => void;
   turnNotSaved: (
@@ -495,7 +495,7 @@ export function createTurnGate({
         return;
       }
       if (phase.phase === "unsettled") {
-        effects.sendBlocked(phase.reason);
+        effects.sendBlocked();
       }
       if (result !== "settled" || phase.phase !== "idle") {
         return;
