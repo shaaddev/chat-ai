@@ -11,8 +11,6 @@ const realClock: Clock = {
   sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
 };
 
-// Checks at once, then after 50 ms, doubling the wait up to 250 ms, until
-// the check is false or the deadline passes.
 export async function pollWhile(
   check: () => Promise<boolean>,
   deadline: number,

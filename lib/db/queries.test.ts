@@ -507,7 +507,7 @@ describe.skipIf(!hasTestDatabase)(
         return;
       }
       if (attempts === 0) {
-        throw new Error("the settle never waited for the turn's save");
+        throw new Error("nothing waited for the chat row lock");
       }
       await new Promise((resolve) => setTimeout(resolve, 10));
       await waitForALockWaiter(tx, attempts - 1);
