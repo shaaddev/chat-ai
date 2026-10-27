@@ -264,6 +264,11 @@ function PureMessages({
   // streaming ends. Resets when the user starts a new exchange or
   // navigates to a different chat.
   const [exchangeAnchorId, setExchangeAnchorId] = useState<string | null>(null);
+  const shownAnchorId =
+    exchangeAnchorId !== null &&
+    messages.some(({ id }) => id === exchangeAnchorId)
+      ? exchangeAnchorId
+      : null;
 
   useEffect(() => {
     if (status !== "submitted") {
@@ -288,11 +293,11 @@ function PureMessages({
     if (status !== "ready") {
       return;
     }
-    if (!exchangeAnchorId) {
+    if (!shownAnchorId) {
       return;
     }
-    scrollUserMessageToTop(exchangeAnchorId);
-  }, [status, exchangeAnchorId, scrollUserMessageToTop]);
+    scrollUserMessageToTop(shownAnchorId);
+  }, [status, shownAnchorId, scrollUserMessageToTop]);
 
   // On chat load (or chat-id change), jump straight to the bottom so the
   // user sees the latest exchange first. Fires once per chatId, and also
@@ -321,7 +326,7 @@ function PureMessages({
   // near the top of the viewport even when the assistant response is
   // short — without the room, the document collapses below viewport
   // height and the browser snaps the user message off the top.
-  const hasActiveExchange = exchangeAnchorId !== null;
+  const hasActiveExchange = shownAnchorId !== null;
 
   const showScrollButton =
     !isAtBottom && messages.length > 0 && status !== "submitted";
