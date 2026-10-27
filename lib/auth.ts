@@ -44,7 +44,7 @@ function createAuth() {
         otpLength: 6,
         expiresIn: 300,
         sendVerificationOTP: async ({ email, otp, type }) => {
-          if (type === "sign-in" || type === "email-verification") {
+          if (type === "sign-in") {
             await sendOtpEmail(email, otp);
           }
         },

@@ -62,8 +62,7 @@ export function OTPForm({ email }: { email: string }) {
         router.replace("/");
         router.refresh();
       }
-    } catch (error) {
-      console.log("ERROR", error);
+    } catch {
       toast.error("Error!", {
         description: "An error occurred while verifying your OTP.",
       });
