@@ -35,12 +35,11 @@ import { Switch } from "@/components/ui/switch";
 import { type ChatModelId, getChatModel } from "@/lib/ai/models";
 import type { TurnStatus } from "@/lib/chat-turn";
 import type { ChatMessage } from "@/lib/types";
-import { filesOverLimit } from "@/lib/uploadthing/tray";
+import { type AttachmentTray, filesOverLimit } from "@/lib/uploadthing/tray";
 import { cn } from "@/lib/utils";
 import {
   ATTACHMENT_LIMIT_HINT_ID,
   AttachmentTrayList,
-  getAttachmentTray,
   overLimitHint,
   useTrayReadiness,
 } from "./attachment-tray";
@@ -76,6 +75,7 @@ interface ChatInputProps {
   setUseSearch: Dispatch<SetStateAction<boolean>>;
   status: UseChatHelpers<ChatMessage>["status"];
   stop: () => void;
+  tray: AttachmentTray;
   turnStatus: TurnStatus;
   useSearch: boolean;
 }
@@ -98,6 +98,7 @@ export function ChatInput({
   setAutoDocumentGeneration,
   customSystemPrompt,
   setCustomSystemPrompt,
+  tray,
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [textareaHeight, setTextareaHeight] = useState(
@@ -110,7 +111,6 @@ export function ChatInput({
   );
   const isSendHeld = turnStatus.phase === "settling" && turnStatus.sendHeld;
   const isStopping = turnStatus.phase === "running" && turnStatus.stopping;
-  const tray = getAttachmentTray(chatId);
   const trayReadiness = useTrayReadiness(tray);
   const hasText = input.trim().length > 0;
   const needsText = getChatModel(selectedModelId).kind === "image";

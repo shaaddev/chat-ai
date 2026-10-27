@@ -12,7 +12,11 @@ import {
 } from "react";
 import { toast } from "sonner";
 import useSWR, { useSWRConfig } from "swr";
-import { type ChatInputState, createChatDrafts } from "@/lib/chat-drafts";
+import {
+  type ChatDrafts,
+  type ChatInputState,
+  createChatDrafts,
+} from "@/lib/chat-drafts";
 
 const CHATS_KEY = "/api/chats";
 const UNDO_WINDOW_MS = 5000;
@@ -72,19 +76,11 @@ interface ChatListState {
   pendingEdits: PendingEdits;
 }
 
-interface ChatDraftContextType {
-  clearChatInputState: (chatId: string) => void;
-  getChatInputState: (chatId: string) => ChatInputState;
-  setChatInputState: (chatId: string, state: Partial<ChatInputState>) => void;
-}
-
 const ChatActionsContext = createContext<ChatActions | undefined>(undefined);
 const ChatListStateContext = createContext<ChatListState | undefined>(
   undefined
 );
-const ChatDraftContext = createContext<ChatDraftContextType | undefined>(
-  undefined
-);
+const ChatDraftContext = createContext<ChatDrafts | undefined>(undefined);
 
 const USE_SEARCH_STORAGE_KEY = "chat-ai:use-search";
 
@@ -534,19 +530,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     [loadingChats, pendingEdits]
   );
 
-  const draftContextValue = useMemo<ChatDraftContextType>(
-    () => ({
-      getChatInputState: drafts.get,
-      setChatInputState: drafts.set,
-      clearChatInputState: drafts.clear,
-    }),
-    [drafts]
-  );
-
   return (
     <ChatActionsContext.Provider value={actions}>
       <ChatListStateContext.Provider value={listState}>
-        <ChatDraftContext.Provider value={draftContextValue}>
+        <ChatDraftContext.Provider value={drafts}>
           {children}
         </ChatDraftContext.Provider>
       </ChatListStateContext.Provider>
@@ -625,10 +612,10 @@ export function useCachedChats(): ChatSummary[] {
   );
 }
 
-export function useChatDraft() {
+export function useChatDrafts() {
   const context = useContext(ChatDraftContext);
   if (context === undefined) {
-    throw new Error("useChatDraft must be used within a ChatProvider");
+    throw new Error("useChatDrafts must be used within a ChatProvider");
   }
   return context;
 }

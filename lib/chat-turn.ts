@@ -86,16 +86,6 @@ export function adoptThread(
   });
 }
 
-export function joinDraftText(restored: string, typed: string): string {
-  if (!typed.trim()) {
-    return restored;
-  }
-  if (!restored.trim()) {
-    return typed;
-  }
-  return `${restored}\n\n${typed}`;
-}
-
 export type TurnRequest =
   | { kind: "append"; files: SentFile[]; text: string }
   | { kind: "edit"; messageId: string; text: string }

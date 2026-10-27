@@ -2,6 +2,11 @@ import { generateUUID } from "@/lib/utils";
 
 export type NewChatSend = "sent" | "refused" | "lost";
 
+// The composer at `/` belongs to the signed-in user, not to the id under
+// it, which changes once a send may have created that chat.
+export const freshDraftKey = (userId: string | undefined) =>
+  `fresh:${userId ?? ""}`;
+
 type IdState = "sending" | "unknown";
 
 // No entry means nothing was sent, or every send was refused. A refusal

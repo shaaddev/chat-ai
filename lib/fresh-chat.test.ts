@@ -1,6 +1,6 @@
 /// <reference types="bun-types/test" />
 import { expect, test } from "bun:test";
-import { createFreshChats } from "./fresh-chat";
+import { createFreshChats, freshDraftKey } from "./fresh-chat";
 
 const openTab = () => {
   let minted = 0;
@@ -76,6 +76,12 @@ test("a newer page id is used once the fresh chat is taken", () => {
   chats.record("page-1", "sent");
 
   expect(visit(chats, "page-2", "user-a")).toBe("page-2");
+});
+
+test("the composer at / is the user's, whatever chat id is under it", () => {
+  expect(freshDraftKey("user-a")).toBe(freshDraftKey("user-a"));
+  expect(freshDraftKey("user-a")).not.toBe(freshDraftKey("user-b"));
+  expect(freshDraftKey("user-a")).not.toBe(freshDraftKey(undefined));
 });
 
 test("a fresh chat is never shown after sign-out or to another user", () => {

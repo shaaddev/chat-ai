@@ -3,7 +3,6 @@ import { afterEach, describe, expect, jest, test } from "bun:test";
 import {
   adoptThread,
   createTurnGate,
-  joinDraftText,
   requestSettle,
   type TurnEffects,
   type TurnGate,
@@ -975,12 +974,4 @@ describe("adoptThread", () => {
       }),
     ]);
   });
-});
-
-test("restored text goes in front of anything typed since", () => {
-  expect(joinDraftText("Unsent question", "")).toBe("Unsent question");
-  expect(joinDraftText("Unsent question", "Follow-up")).toBe(
-    "Unsent question\n\nFollow-up"
-  );
-  expect(joinDraftText("", "Follow-up")).toBe("Follow-up");
 });

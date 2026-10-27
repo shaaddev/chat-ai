@@ -2,13 +2,13 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { type ComponentProps, useEffect, useState } from "react";
-import { createFreshChats } from "@/lib/fresh-chat";
+import { createFreshChats, freshDraftKey } from "@/lib/fresh-chat";
 import { Chat } from "./chat";
 import { ChatSkeleton } from "./chat-skeleton";
 
 type FreshChatProps = Omit<
   ComponentProps<typeof Chat>,
-  "id" | "initialMessages" | "onNewChatSend"
+  "draftKey" | "id" | "initialMessages" | "onNewChatSend"
 > & { pageChatId: string };
 
 const freshChats = createFreshChats();
@@ -53,6 +53,7 @@ export function FreshChat({ pageChatId, ...props }: FreshChatProps) {
   return (
     <Chat
       {...props}
+      draftKey={freshDraftKey(userId)}
       id={visit.chatId}
       initialMessages={[]}
       key={visit.chatId}

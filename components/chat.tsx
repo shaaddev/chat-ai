@@ -15,7 +15,7 @@ import {
 import { toast } from "sonner";
 import {
   useChat as useChatContext,
-  useChatDraft,
+  useChatDrafts,
   useChatTitle,
 } from "@/components/chat-context";
 import { Button } from "@/components/ui/button";
@@ -27,11 +27,8 @@ import {
   getChatModel,
 } from "@/lib/ai/models";
 import type { Session } from "@/lib/auth";
-import {
-  createTurnGate,
-  joinDraftText,
-  type TurnRequest,
-} from "@/lib/chat-turn";
+import { joinDraftText } from "@/lib/chat-drafts";
+import { createTurnGate, type TurnRequest } from "@/lib/chat-turn";
 import { openCommandPalette } from "@/lib/command-palette";
 import { returnFocusToComposer } from "@/lib/composer";
 import { ChatSDKError } from "@/lib/errors";
@@ -40,7 +37,7 @@ import { extractSources, type Source } from "@/lib/sources";
 import type { ChatMessage, DocumentDraft } from "@/lib/types";
 import { readiness, sentFiles } from "@/lib/uploadthing/tray";
 import { cn } from "@/lib/utils";
-import { getAttachmentTray } from "./attachment-tray";
+import { getAttachmentTray, moveAttachmentTray } from "./attachment-tray";
 import { ChatInput } from "./chat-input";
 import { Messages, type UnsavedEdit } from "./chat-messages";
 import { AttachmentDropZone } from "./drop-overlay";
@@ -250,6 +247,9 @@ interface ChatRequestSettings {
 }
 
 interface ChatProps {
+  // Where the composer keeps its draft and files until this chat is saved.
+  // The chat's id when absent.
+  draftKey?: string;
   id: string;
   initialChatModel: string;
   initialMessages: ChatMessage[];
@@ -260,6 +260,7 @@ interface ChatProps {
 }
 
 export function Chat({
+  draftKey,
   id,
   initialChatModel,
   initialMessages,
@@ -270,8 +271,9 @@ export function Chat({
 }: ChatProps) {
   const [isAuthenticated] = useState(!!session);
   const { addOptimisticChat, setChatLoading, refreshChats } = useChatContext();
-  const { getChatInputState, setChatInputState, clearChatInputState } =
-    useChatDraft();
+  const drafts = useChatDrafts();
+  const draftKeyRef = useRef(draftKey ?? id);
+  const [tray] = useState(() => getAttachmentTray(draftKeyRef.current));
   const [selectedModelId, setSelectedModelId] = useState<ChatModelId>(
     () => findChatModel(initialChatModel)?.id ?? DEFAULT_CHAT_MODEL
   );
@@ -306,11 +308,23 @@ export function Chat({
   }, []);
 
   useEffect(() => {
-    const persistedState = getChatInputState(id);
+    const persistedState = drafts.get(draftKeyRef.current);
     setInput(persistedState.input);
     setUseSearch(persistedState.useSearch);
     setAutoDocumentGeneration(persistedState.autoDocumentGeneration);
-  }, [getChatInputState, id]);
+  }, [drafts]);
+
+  useEffect(
+    () =>
+      drafts.watchHandBacks((key, text) => {
+        if (key !== draftKeyRef.current) {
+          return false;
+        }
+        setInput((typed) => joinDraftText(text, typed));
+        return true;
+      }),
+    [drafts]
+  );
 
   const handleSelectModel = useCallback((modelId: ChatModelId) => {
     setSelectedModelId(modelId);
@@ -338,28 +352,22 @@ export function Chat({
   }, []);
 
   const [turns] = useState(() => {
+    // Returns whether the user can see what came back.
     const restoreInput = (
       request: TurnRequest,
       { editShown, maybeSaved }: { editShown: boolean; maybeSaved: boolean }
     ) => {
       if (request.kind === "regenerate") {
-        return;
+        return mountedRef.current;
       }
       if (request.kind === "edit" && editShown && mountedRef.current) {
         setUnsavedEdit({ messageId: request.messageId, text: request.text });
-        return;
-      }
-      if (mountedRef.current) {
-        setInput((typed) => joinDraftText(request.text, typed));
-      } else {
-        // The composer loads this draft when the chat opens again.
-        setChatInputState(id, {
-          input: joinDraftText(request.text, getChatInputState(id).input),
-        });
+        return true;
       }
       if (request.kind === "append") {
-        getAttachmentTray(id).restore(request.files, { maybeSaved });
+        tray.restore(request.files, { maybeSaved });
       }
+      return drafts.handBack(draftKeyRef.current, request.text);
     };
 
     return createTurnGate({
@@ -373,6 +381,12 @@ export function Chat({
           }
           window.history.replaceState({}, "", `/chat/${id}`);
           addOptimisticChat({ id, title: chatTitle(request) });
+          // What the user types now belongs to this chat, not to `/`.
+          if (draftKeyRef.current !== id) {
+            drafts.move(draftKeyRef.current, id);
+            moveAttachmentTray(draftKeyRef.current, id);
+            draftKeyRef.current = id;
+          }
         },
         isMounted: () => mountedRef.current,
         newChatSend: (send) => onNewChatSend?.(id, send),
@@ -401,11 +415,11 @@ export function Chat({
           }
         },
         turnNotSaved: (request, { editShown, maybeSaved, notify }) => {
-          if (notify && mountedRef.current) {
+          const seen = restoreInput(request, { editShown, maybeSaved });
+          if (notify && seen) {
             const notice = TURN_NOT_SAVED[request.kind];
             toast(notice.title, { description: notice.description });
           }
-          restoreInput(request, { editShown, maybeSaved });
         },
       },
     });
@@ -447,7 +461,6 @@ export function Chat({
   const sendTurn = useCallback(
     (text: string) =>
       turns.start(() => {
-        const tray = getAttachmentTray(id);
         const items = tray.getItems();
         const trayState = readiness(items);
         const files = sentFiles(items);
@@ -455,12 +468,12 @@ export function Chat({
         if (!(isTraySendable && (text || files.length > 0))) {
           return;
         }
-        clearChatInputState(id);
+        drafts.clear(draftKeyRef.current);
         tray.clearAfterSend();
         setInput("");
         return { kind: "append", files, text };
       }),
-    [clearChatInputState, id, turns]
+    [drafts, tray, turns]
   );
 
   const handleRegenerate = useCallback(() => {
@@ -493,7 +506,7 @@ export function Chat({
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
-      setChatInputState(id, {
+      drafts.set(draftKeyRef.current, {
         input,
         useSearch,
         autoDocumentGeneration,
@@ -501,7 +514,7 @@ export function Chat({
     }, DRAFT_SAVE_DELAY_MS);
 
     return () => window.clearTimeout(timeoutId);
-  }, [useSearch, autoDocumentGeneration, id, input, setChatInputState]);
+  }, [useSearch, autoDocumentGeneration, drafts, input]);
 
   const isImageModel = getChatModel(selectedModelId).kind === "image";
 
@@ -539,9 +552,9 @@ export function Chat({
   return (
     <div className="flex h-full min-h-0 w-full">
       <AttachmentDropZone
-        chatId={id}
         className="flex w-full min-w-0 flex-1 flex-col"
         isAuthenticated={isAuthenticated}
+        tray={tray}
       >
         <ChatHeader chatId={id} savedTitle={initialTitle} />
 
@@ -590,6 +603,7 @@ export function Chat({
               setUseSearch={setUseSearch}
               status={status}
               stop={stop}
+              tray={tray}
               turnStatus={turnStatus}
               useSearch={useSearch}
             />
