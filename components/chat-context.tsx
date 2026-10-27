@@ -12,6 +12,7 @@ import {
 } from "react";
 import { toast } from "sonner";
 import useSWR, { useSWRConfig } from "swr";
+import { type ChatInputState, createChatDrafts } from "@/lib/chat-drafts";
 
 const CHATS_KEY = "/api/chats";
 const UNDO_WINDOW_MS = 5000;
@@ -46,12 +47,6 @@ type PendingEdits = ReadonlyMap<
   string,
   ReadonlyMap<PendingEditKind, PendingEdit>
 >;
-
-interface ChatInputState {
-  autoDocumentGeneration: boolean;
-  input: string;
-  useSearch: boolean;
-}
 
 interface ChatActions {
   addOptimisticChat: (chat: NewChat) => void;
@@ -268,7 +263,15 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [loadingChats, setLoadingChats] = useState<ReadonlySet<string>>(
     () => new Set()
   );
-  const chatInputStatesRef = useRef<Map<string, ChatInputState>>(new Map());
+  const [drafts] = useState(() =>
+    createChatDrafts({
+      defaults: () => ({
+        ...DEFAULT_CHAT_INPUT_STATE,
+        useSearch: getDefaultUseSearch(),
+      }),
+      useSearchChanged: persistUseSearch,
+    })
+  );
   const pendingDeletesRef = useRef<Map<string, PendingDelete>>(new Map());
   const inFlightDeletesRef = useRef<Set<Promise<void>>>(new Set());
   const lastPinRequestRef = useRef<Map<string, Promise<Response | null>>>(
@@ -307,7 +310,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   const forgetChat = useCallback(
     (chatId: string) => {
-      chatInputStatesRef.current.delete(chatId);
+      drafts.forget(chatId);
       return updateCachedChats((chats) =>
         chats.filter((chat) => chat.id !== chatId)
       );
@@ -503,41 +506,6 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const getChatInputState = useCallback((chatId: string): ChatInputState => {
-    const existing = chatInputStatesRef.current.get(chatId);
-    if (existing) {
-      return existing;
-    }
-    // Hydrate fresh state with the user's persisted web-search preference.
-    return { ...DEFAULT_CHAT_INPUT_STATE, useSearch: getDefaultUseSearch() };
-  }, []);
-
-  const setChatInputState = useCallback(
-    (chatId: string, state: Partial<ChatInputState>) => {
-      const currentState = chatInputStatesRef.current.get(chatId) ?? {
-        ...DEFAULT_CHAT_INPUT_STATE,
-        useSearch: getDefaultUseSearch(),
-      };
-      const next = { ...currentState, ...state };
-      chatInputStatesRef.current.set(chatId, next);
-      // Persist the search preference globally so it survives reloads.
-      if (
-        typeof state.useSearch === "boolean" &&
-        state.useSearch !== currentState.useSearch
-      ) {
-        persistUseSearch(state.useSearch);
-      }
-    },
-    []
-  );
-
-  const clearChatInputState = useCallback((chatId: string) => {
-    chatInputStatesRef.current.set(chatId, {
-      ...DEFAULT_CHAT_INPUT_STATE,
-      useSearch: getDefaultUseSearch(),
-    });
-  }, []);
-
   const actions = useMemo<ChatActions>(
     () => ({
       addOptimisticChat,
@@ -566,13 +534,13 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     [loadingChats, pendingEdits]
   );
 
-  const draftContextValue = useMemo(
+  const draftContextValue = useMemo<ChatDraftContextType>(
     () => ({
-      getChatInputState,
-      setChatInputState,
-      clearChatInputState,
+      getChatInputState: drafts.get,
+      setChatInputState: drafts.set,
+      clearChatInputState: drafts.clear,
     }),
-    [clearChatInputState, getChatInputState, setChatInputState]
+    [drafts]
   );
 
   return (
