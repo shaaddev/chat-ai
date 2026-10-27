@@ -1,9 +1,8 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { type ComponentProps, useEffect, useState } from "react";
 import { createFreshChats } from "@/lib/fresh-chat";
-import { generateUUID } from "@/lib/utils";
 import { Chat } from "./chat";
 
 type FreshChatProps = Omit<
@@ -13,31 +12,39 @@ type FreshChatProps = Omit<
 
 const freshChats = createFreshChats();
 
-// A first send moves the URL to the chat with replaceState while Next's
-// router keeps this page. The router can show the page again for `/`, after
-// New chat or Back, with the id it was rendered with.
 export function FreshChat({ pageChatId, ...props }: FreshChatProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const userId = props.session?.user.id;
   const [visit, setVisit] = useState(() => ({
-    chatId: freshChats.idFor(pageChatId),
+    chatId: freshChats.idFor(pageChatId, userId),
     pathname,
   }));
   if (pathname !== visit.pathname) {
     setVisit({
-      chatId: pathname === "/" ? generateUUID() : visit.chatId,
+      chatId:
+        pathname === "/" ? freshChats.idFor(pageChatId, userId) : visit.chatId,
       pathname,
     });
   }
 
-  // Back to the URL of a chat this page started restores this page, not the
-  // chat. That history entry never held the chat's page, so load it in full.
+  const isFresh = pathname === "/";
+  useEffect(() => {
+    if (isFresh) {
+      freshChats.shown(visit.chatId, userId);
+    }
+  }, [isFresh, userId, visit.chatId]);
+
+  // A first send moves the URL to its chat with replaceState while the router
+  // keeps this page. Back or Forward to another chat's URL can restore this
+  // page, which never held that chat, so the router has to load it.
   const isOtherChat =
     pathname.startsWith("/chat/") && pathname !== `/chat/${visit.chatId}`;
   useEffect(() => {
     if (isOtherChat) {
-      window.location.reload();
+      router.replace(pathname);
     }
-  }, [isOtherChat]);
+  }, [isOtherChat, pathname, router]);
   if (isOtherChat) {
     return null;
   }
