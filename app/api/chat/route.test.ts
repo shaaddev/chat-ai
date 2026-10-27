@@ -65,8 +65,15 @@ mock.module("@/lib/ai/providers", () => ({
 
 const { POST } = await import("./route");
 const { PATCH } = await import("../chats/[id]/route");
-const { getChatById, getChatsByUserId, replaceProvisionalTitle, updateChat } =
-  await import("@/lib/db/queries");
+const { POST: settlePost } = await import("./[id]/settle/route");
+const {
+  getChatById,
+  getChatsByUserId,
+  replaceProvisionalTitle,
+  saveReplyIfLatestTurn,
+  saveUserTurn,
+  updateChat,
+} = await import("@/lib/db/queries");
 
 const signInAs = (userId: string | null) => {
   session = userId
@@ -101,11 +108,36 @@ const patch = (chatId: string, body: unknown) =>
     { params: Promise.resolve({ id: chatId }) }
   );
 
+const settle = (chatId: string, body: unknown) =>
+  settlePost(
+    new Request(`http://localhost/api/chat/${chatId}/settle`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+    { params: Promise.resolve({ id: chatId }) }
+  );
+
 test("a request without a session gets the sign-in error the client parses", async () => {
   signInAs(null);
   const response = await post(firstTurn(crypto.randomUUID()));
   expect(response.status).toBe(401);
   expect((await response.json()).code).toBe("unauthorized:chat");
+});
+
+test("a settle without a session gets the sign-in error the client parses", async () => {
+  signInAs(null);
+  const response = await settle(crypto.randomUUID(), {
+    turnId: crypto.randomUUID(),
+  });
+  expect(response.status).toBe(401);
+  expect((await response.json()).code).toBe("unauthorized:chat");
+});
+
+test("a settle without a turn id is a bad request", async () => {
+  signInAs(crypto.randomUUID());
+  const response = await settle(crypto.randomUUID(), { turnId: "not-a-turn" });
+  expect(response.status).toBe(400);
+  expect((await response.json()).code).toBe("bad_request:api");
 });
 
 describe.skipIf(!hasTestDatabase)("POST /api/chat against Postgres", () => {
@@ -329,7 +361,7 @@ describe.skipIf(!hasTestDatabase)("POST /api/chat against Postgres", () => {
       },
     ]);
     signInAs(userId);
-    return { chatId, replyId, updatedAt, userMessageId };
+    return { chatId, replyId, updatedAt, userId, userMessageId };
   };
 
   const regenerate = (chatId: string, messageId: string, model: string) =>
@@ -418,6 +450,176 @@ describe.skipIf(!hasTestDatabase)("POST /api/chat against Postgres", () => {
 
     expect(response.status).toBe(400);
     expect((await response.json()).cause).toBe(STALE_TURN_CAUSE);
+    await expectNothingSaved(chatId, updatedAt);
+  });
+
+  test("a turn's id names its stream, saved before the reply starts", async () => {
+    const userId = await testDatabase.createUser();
+    const chatId = crypto.randomUUID();
+    const turnId = crypto.randomUUID();
+    signInAs(userId);
+    pendingTitle = Promise.withResolvers();
+
+    const response = await post({ ...firstTurn(chatId), turnId });
+    const streams = await testDatabase.db
+      .select()
+      .from(stream)
+      .where(eq(stream.chatId, chatId));
+    pendingTitle.resolve("Weekend in Lisbon");
+    await Promise.all(backgroundTasks);
+    await response.text();
+
+    expect(response.status).toBe(200);
+    expect(streams.map(({ id }) => id)).toEqual([turnId]);
+  });
+
+  test("a settle answers with the saved thread and whether the turn saved", async () => {
+    const { chatId, replyId, userMessageId } = await seedRepliedChat([
+      { type: "text", text: "Plan a weekend in Lisbon" },
+    ]);
+
+    const response = await settle(chatId, { turnId: crypto.randomUUID() });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.turnSaved).toBe(false);
+    expect(body.messages.map(({ id }: ChatMessage) => id)).toEqual([
+      userMessageId,
+      replyId,
+    ]);
+  });
+
+  test("a settle of a chat that does not exist is not found", async () => {
+    signInAs(await testDatabase.createUser());
+
+    const response = await settle(crypto.randomUUID(), {
+      turnId: crypto.randomUUID(),
+    });
+
+    expect(response.status).toBe(404);
+    expect((await response.json()).code).toBe("not_found:chat");
+  });
+
+  test("a settle that expects a reply waits for the turn to save it", async () => {
+    const { chatId, userId, userMessageId } = await seedRepliedChat([
+      { type: "text", text: "Plan a weekend in Lisbon" },
+    ]);
+    const turnId = crypto.randomUUID();
+    await saveUserTurn({
+      chatId,
+      userId,
+      streamId: turnId,
+      turn: { type: "regenerate", userMessageId },
+    });
+    const replyId = crypto.randomUUID();
+    const replySaved = new Promise((resolve) => setTimeout(resolve, 300)).then(
+      () =>
+        saveReplyIfLatestTurn({
+          chatId,
+          streamId: turnId,
+          reply: {
+            id: replyId,
+            parts: [{ type: "text", text: "A new plan" }],
+            model: "test-model",
+          },
+          replacesRepliesAfter: userMessageId,
+        })
+    );
+
+    const response = await settle(chatId, { turnId, expectReply: true });
+    await replySaved;
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.messages.map(({ id }: ChatMessage) => id)).toEqual([
+      userMessageId,
+      replyId,
+    ]);
+  });
+
+  test("a settle that expects a reply keeps one that saves after a new chat's title wait", async () => {
+    const { chatId, userId, userMessageId } = await seedRepliedChat([
+      { type: "text", text: "Plan a weekend in Lisbon" },
+    ]);
+    const turnId = crypto.randomUUID();
+    await saveUserTurn({
+      chatId,
+      userId,
+      streamId: turnId,
+      turn: { type: "regenerate", userMessageId },
+    });
+    const lateReplyId = crypto.randomUUID();
+
+    const response = settle(chatId, { turnId, expectReply: true });
+    await new Promise((resolve) =>
+      setTimeout(resolve, providers.TITLE_WAIT_MS + 500)
+    );
+    await saveReplyIfLatestTurn({
+      chatId,
+      streamId: turnId,
+      reply: {
+        id: lateReplyId,
+        parts: [{ type: "text", text: "Day one: Alfama" }],
+        model: "test-model",
+      },
+      replacesRepliesAfter: userMessageId,
+    });
+    const body = await (await response).json();
+
+    expect(body.messages.map(({ id }: ChatMessage) => id)).toEqual([
+      userMessageId,
+      lateReplyId,
+    ]);
+  }, 15_000);
+
+  test("a settle that expects a reply that never comes ends the turn after a wait", async () => {
+    const { chatId, replyId, userId, userMessageId } = await seedRepliedChat([
+      { type: "text", text: "Plan a weekend in Lisbon" },
+    ]);
+    const turnId = crypto.randomUUID();
+    await saveUserTurn({
+      chatId,
+      userId,
+      streamId: turnId,
+      turn: { type: "regenerate", userMessageId },
+    });
+
+    const response = await settle(chatId, { turnId, expectReply: true });
+    await saveReplyIfLatestTurn({
+      chatId,
+      streamId: turnId,
+      reply: {
+        id: crypto.randomUUID(),
+        parts: [{ type: "text", text: "Too late" }],
+        model: "test-model",
+      },
+      replacesRepliesAfter: userMessageId,
+    });
+    const body = await response.json();
+    const saved = await testDatabase.db
+      .select({ id: message.id })
+      .from(message)
+      .where(eq(message.chatId, chatId));
+
+    expect(body.messages.map(({ id }: ChatMessage) => id)).toEqual([
+      userMessageId,
+      replyId,
+    ]);
+    expect(saved.map(({ id }) => id).sort()).toEqual(
+      [userMessageId, replyId].sort()
+    );
+  }, 10_000);
+
+  test("a settle of another user's chat is not found and changes nothing", async () => {
+    const { chatId, updatedAt } = await seedRepliedChat([
+      { type: "text", text: "Plan a weekend in Lisbon" },
+    ]);
+    signInAs(await testDatabase.createUser());
+
+    const response = await settle(chatId, { turnId: crypto.randomUUID() });
+
+    expect(response.status).toBe(404);
+    expect((await response.json()).code).toBe("not_found:chat");
     await expectNothingSaved(chatId, updatedAt);
   });
 });

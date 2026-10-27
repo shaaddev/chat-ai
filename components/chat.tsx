@@ -1,9 +1,17 @@
 "use client";
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport, isFileUIPart } from "ai";
+import { isFileUIPart } from "ai";
 import { Search } from "lucide-react";
 import dynamic from "next/dynamic";
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { toast } from "sonner";
 import {
   useChat as useChatContext,
@@ -19,23 +27,54 @@ import {
   getChatModel,
 } from "@/lib/ai/models";
 import type { Session } from "@/lib/auth";
+import {
+  createTurnGate,
+  joinDraftText,
+  type TurnRequest,
+} from "@/lib/chat-turn";
 import { openCommandPalette } from "@/lib/command-palette";
+import { returnFocusToComposer } from "@/lib/composer";
 import { ChatSDKError } from "@/lib/errors";
 import { extractSources, type Source } from "@/lib/sources";
 import type { ChatMessage, DocumentDraft } from "@/lib/types";
-import {
-  cn,
-  fetchWithErrorHandlers,
-  generateUUID,
-  hasVisibleContent,
-} from "@/lib/utils";
+import { readiness, sentFiles } from "@/lib/uploadthing/tray";
+import { cn } from "@/lib/utils";
+import { getAttachmentTray } from "./attachment-tray";
 import { ChatInput } from "./chat-input";
-import { Messages } from "./chat-messages";
+import { Messages, type UnsavedEdit } from "./chat-messages";
 import { AttachmentDropZone } from "./drop-overlay";
 import { EmptyGreeting, SuggestionChips } from "./empty-chat-state";
 
 const DRAFT_SAVE_DELAY_MS = 200;
 const DOCUMENT_TITLE_MAX_LENGTH = 80;
+const CHAT_TITLE_MAX_LENGTH = 80;
+
+const TURN_NOT_SAVED: Record<
+  TurnRequest["kind"],
+  { title: string; description: string }
+> = {
+  append: {
+    title: "Your message wasn't sent",
+    description: "It's back in the composer.",
+  },
+  edit: {
+    title: "Your edit wasn't saved",
+    description: "Its text is back so you can try again.",
+  },
+  regenerate: {
+    title: "The reply wasn't regenerated",
+    description: "Try regenerating it again.",
+  },
+};
+
+const chatTitle = (request: TurnRequest) =>
+  (request.kind === "append"
+    ? request.text
+        .replaceAll("\u0000", "")
+        .trim()
+        .slice(0, CHAT_TITLE_MAX_LENGTH)
+    : "") || "New chat";
+
 const MemoizedChatInput = memo(ChatInput);
 const LazyDocumentSheet = dynamic(
   () => import("./document-sheet").then((module) => module.DocumentSheet),
@@ -215,6 +254,8 @@ interface ChatProps {
   initialMessages: ChatMessage[];
   initialSystemPrompt?: string;
   initialTitle?: string;
+  onIdFreed?: (chatId: string) => void;
+  onIdTaken?: (chatId: string) => void;
   session: Session | null;
 }
 
@@ -225,9 +266,11 @@ export function Chat({
   session,
   initialSystemPrompt,
   initialTitle,
+  onIdFreed,
+  onIdTaken,
 }: ChatProps) {
   const [isAuthenticated] = useState(!!session);
-  const { setChatLoading, refreshChats } = useChatContext();
+  const { addOptimisticChat, setChatLoading, refreshChats } = useChatContext();
   const { getChatInputState, setChatInputState, clearChatInputState } =
     useChatDraft();
   const [selectedModelId, setSelectedModelId] = useState<ChatModelId>(
@@ -286,104 +329,152 @@ export function Chat({
     requestSettingsRef.current = requestSettings;
   });
 
-  const [lastTrigger, setLastTrigger] = useState<
-    "submit-message" | "regenerate-message"
-  >("submit-message");
-  const [transport] = useState(
-    () =>
-      new DefaultChatTransport<ChatMessage>({
-        api: "/api/chat",
-        fetch: fetchWithErrorHandlers,
-        prepareSendMessagesRequest: ({
-          messages: outgoing,
-          id: chatId,
-          trigger,
-          messageId,
-        }) => {
-          setLastTrigger(trigger);
-          return {
-            body: {
-              id: chatId,
-              message: outgoing.at(-1),
-              trigger,
-              messageId,
-              ...requestSettingsRef.current,
-            },
-          };
+  const [unsavedEdit, setUnsavedEdit] = useState<UnsavedEdit | null>(null);
+  const mountedRef = useRef(false);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const [turns] = useState(() => {
+    const restoreInput = (
+      request: TurnRequest,
+      { editShown, maybeSaved }: { editShown: boolean; maybeSaved: boolean }
+    ) => {
+      if (request.kind === "regenerate") {
+        return;
+      }
+      if (request.kind === "edit" && editShown && mountedRef.current) {
+        setUnsavedEdit({ messageId: request.messageId, text: request.text });
+        return;
+      }
+      if (mountedRef.current) {
+        setInput((typed) => joinDraftText(request.text, typed));
+      } else {
+        // The composer loads this draft when the chat opens again.
+        setChatInputState(id, {
+          input: joinDraftText(request.text, getChatInputState(id).input),
+        });
+      }
+      if (request.kind === "append") {
+        getAttachmentTray(id).restore(request.files, { maybeSaved });
+      }
+    };
+
+    return createTurnGate({
+      chatId: id,
+      initialMessages,
+      requestSettings: () => ({ ...requestSettingsRef.current }),
+      effects: {
+        chatSaved: (request) => {
+          if (!mountedRef.current) {
+            return;
+          }
+          window.history.replaceState({}, "", `/chat/${id}`);
+          addOptimisticChat({ id, title: chatTitle(request) });
         },
-      })
+        idFreed: () => onIdFreed?.(id),
+        idTaken: () => onIdTaken?.(id),
+        isMounted: () => mountedRef.current,
+        refreshChats,
+        sendBlocked: () => {
+          toast.error("Couldn't send yet", {
+            description: "Your message is still in the composer.",
+          });
+        },
+        showError: (error) => {
+          toast.error("Error", {
+            description:
+              error instanceof ChatSDKError && typeof error.cause === "string"
+                ? error.cause
+                : error.message,
+          });
+        },
+        turnFinished: (reply, keptPrevious) => {
+          if (reply.parts.some(isFileUIPart)) {
+            toast.success("Image generated");
+          }
+          if (keptPrevious) {
+            toast("Kept the previous reply", {
+              description: "The regenerated reply came back empty.",
+            });
+          }
+        },
+        turnNotSaved: (request, { editShown, maybeSaved, notify }) => {
+          if (notify && mountedRef.current) {
+            const notice = TURN_NOT_SAVED[request.kind];
+            toast(notice.title, { description: notice.description });
+          }
+          restoreInput(request, { editShown, maybeSaved });
+        },
+      },
+    });
+  });
+  const turnStatus = useSyncExternalStore(
+    turns.subscribe,
+    turns.getStatus,
+    turns.getStatus
   );
 
-  // The server saves a regenerated reply only when it has visible content, and
-  // otherwise keeps the old one, so the thread puts the old one back to match.
-  const replacedReplyRef = useRef<ChatMessage | undefined>(undefined);
-
-  const {
-    error,
-    messages,
-    regenerate,
-    sendMessage,
-    status,
-    setMessages,
-    stop,
-  } = useChat<ChatMessage>({
-    id,
-    messages: initialMessages,
-    generateId: generateUUID,
-    transport,
+  const { messages, status, setMessages, stop } = useChat<ChatMessage>({
+    chat: turns.chat,
     throttle: 50,
-    onFinish: ({ message, isAbort, isError }) => {
-      const replacedReply = replacedReplyRef.current;
-      replacedReplyRef.current = undefined;
-      if (!(isAbort || isError) && message.parts.some(isFileUIPart)) {
-        toast.success("Image generated");
-      }
-      if (replacedReply && !hasVisibleContent(message)) {
-        setMessages((current) => [
-          ...current.filter(({ id: messageId }) => messageId !== message.id),
-          replacedReply,
-        ]);
-        if (!(isAbort || isError)) {
-          toast("Kept the previous reply", {
-            description: "The regenerated reply came back empty.",
-          });
-        }
-      }
-      refreshChats();
-    },
-    onError: (err) => {
-      toast.error("Error", {
-        description:
-          err instanceof ChatSDKError && typeof err.cause === "string"
-            ? err.cause
-            : err.message,
-      });
-    },
   });
+  useEffect(
+    () => () => {
+      turns.chat.stop();
+    },
+    [turns]
+  );
   const { latestAssistantMessage, latestUserMessage } =
     getLatestConversationMessages(messages);
 
-  const replyToRegenerate = messages.at(-1);
-  const handleRegenerate = useCallback(async () => {
-    replacedReplyRef.current =
-      replyToRegenerate?.role === "assistant" &&
-      hasVisibleContent(replyToRegenerate)
-        ? replyToRegenerate
-        : undefined;
-    setChatLoading(id, true);
-    await regenerate();
-  }, [id, regenerate, replyToRegenerate, setChatLoading]);
+  const retrySettle = useCallback(() => {
+    turns.retry();
+    returnFocusToComposer();
+  }, [turns]);
+
+  useEffect(() => {
+    if (turnStatus.phase !== "unsettled") {
+      return;
+    }
+    window.addEventListener("online", turns.retry);
+    return () => window.removeEventListener("online", turns.retry);
+  }, [turns, turnStatus.phase]);
+
+  // The attachments are read when the turn starts, which can be after a
+  // settle the send waited on.
+  const sendTurn = useCallback(
+    (text: string) =>
+      turns.start(() => {
+        const tray = getAttachmentTray(id);
+        const items = tray.getItems();
+        const trayState = readiness(items);
+        const files = sentFiles(items);
+        const isTraySendable = trayState === "ready" || trayState === "empty";
+        if (!(isTraySendable && (text || files.length > 0))) {
+          return;
+        }
+        clearChatInputState(id);
+        tray.clearAfterSend();
+        setInput("");
+        return { kind: "append", files, text };
+      }),
+    [clearChatInputState, id, turns]
+  );
+
+  const handleRegenerate = useCallback(() => {
+    turns.start(() => ({ kind: "regenerate" }));
+    returnFocusToComposer();
+  }, [turns]);
 
   const handleEditMessage = useCallback(
-    async (message: ChatMessage, text: string) => {
-      setChatLoading(id, true);
-      await sendMessage({
-        text,
-        files: message.parts.filter(isFileUIPart),
-        messageId: message.id,
-      });
+    (message: ChatMessage, text: string) => {
+      turns.start(() => ({ kind: "edit", messageId: message.id, text }));
     },
-    [id, sendMessage, setChatLoading]
+    [turns]
   );
 
   const latestAssistantId = latestAssistantMessage?.id;
@@ -417,9 +508,7 @@ export function Chat({
   const isImageModel = getChatModel(selectedModelId).kind === "image";
 
   useEffect(() => {
-    if (status === "streaming" || status === "ready" || status === "error") {
-      setChatLoading(id, false);
-    }
+    setChatLoading(id, status === "submitted");
   }, [status, id, setChatLoading]);
 
   const latestAssistantIsDocument =
@@ -447,14 +536,6 @@ export function Chat({
 
   const isSourcesPanelOpen = !isDocumentSheetOpen && panelSources.length > 0;
   const isRightPanelOpen = isDocumentSheetOpen || isSourcesPanelOpen;
-  // The server answers with an HTTP error only before it saves a turn, and
-  // fetchWithErrorHandlers turns every HTTP error into a ChatSDKError. So a
-  // refused send or edit saved no message to regenerate. A refused
-  // regenerate leaves its saved message, which can still be regenerated.
-  const sendWasRefused =
-    status === "error" &&
-    error instanceof ChatSDKError &&
-    lastTrigger === "submit-message";
   const isEmpty = messages.length === 0;
 
   return (
@@ -476,11 +557,13 @@ export function Chat({
             onEditMessage={handleEditMessage}
             onOpenDocumentBuilder={openDocumentBuilder}
             onRegenerate={handleRegenerate}
+            onRetrySettle={retrySettle}
             onToggleSources={toggleSources}
             selectedModelId={selectedModelId}
-            sendWasRefused={sendWasRefused}
             sourcesMessageId={isSourcesPanelOpen ? sourcesMessageId : null}
             status={status}
+            turnStatus={turnStatus}
+            unsavedEdit={unsavedEdit}
           />
 
           <div
@@ -496,13 +579,12 @@ export function Chat({
             <MemoizedChatInput
               autoDocumentGeneration={autoDocumentGeneration}
               chatId={id}
-              clearChatInputState={clearChatInputState}
               customSystemPrompt={customSystemPrompt}
               input={input}
               isAuthenticated={isAuthenticated}
               onSelectModel={handleSelectModel}
               selectedModelId={selectedModelId}
-              sendMessage={sendMessage}
+              sendTurn={sendTurn}
               setAutoDocumentGeneration={setAutoDocumentGeneration}
               setCustomSystemPrompt={setCustomSystemPrompt}
               setInput={setInput}
@@ -510,6 +592,7 @@ export function Chat({
               setUseSearch={setUseSearch}
               status={status}
               stop={stop}
+              turnStatus={turnStatus}
               useSearch={useSearch}
             />
             {isEmpty ? (

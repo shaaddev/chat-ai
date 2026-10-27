@@ -4,6 +4,7 @@ import { Globe, Pencil, RotateCw } from "lucide-react";
 import Image, { type ImageLoaderProps } from "next/image";
 import { memo, useEffect, useRef } from "react";
 import { getModelLabel, getModelProvider } from "@/lib/ai/models";
+import type { SettleFailure, UnsettledSubject } from "@/lib/chat-turn";
 import {
   type EmptyReplyReason,
   getEmptyReplyReason,
@@ -47,6 +48,7 @@ interface MessageProps {
   message: ChatMessage;
   onToggleSources: (messageId: string) => void;
   reply?: ReplyControls;
+  unsavedEditText?: string;
 }
 
 function getMessageText(message: ChatMessage) {
@@ -131,6 +133,40 @@ const EMPTY_REPLY_SUMMARY: Record<ReplyNoticeReason, string> = {
   other: "The model ended its turn without writing a reply.",
 };
 
+function ThreadNotice({
+  action,
+  hint,
+  isLive = true,
+  summary,
+}: {
+  action?: { label: string; onClick: () => void };
+  hint: string;
+  isLive?: boolean;
+  summary: string;
+}) {
+  return (
+    <div
+      className="flex flex-wrap items-center gap-x-4 gap-y-2.5 rounded-xl bg-secondary py-3 pr-3 pl-4 text-sm"
+      role={isLive ? "status" : undefined}
+    >
+      <p className="min-w-0 flex-1 leading-normal">
+        <span className="font-medium">{summary}</span>{" "}
+        <span className="text-muted-foreground">{hint}</span>
+      </p>
+      {action ? (
+        <button
+          className="inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-[10px] bg-card px-3 font-medium text-[13px] transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          onClick={action.onClick}
+          type="button"
+        >
+          <RotateCw aria-hidden className="size-3.5" />
+          {action.label}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 export function EmptyReplyNotice({
   onRegenerate,
   reason,
@@ -139,29 +175,54 @@ export function EmptyReplyNotice({
   reason: ReplyNoticeReason;
 }) {
   return (
-    <div
-      className="flex flex-wrap items-center gap-x-4 gap-y-2.5 rounded-xl bg-secondary py-3 pr-3 pl-4 text-sm"
-      role="status"
-    >
-      <p className="min-w-0 flex-1 leading-normal">
-        <span className="font-medium">{EMPTY_REPLY_SUMMARY[reason]}</span>{" "}
-        <span className="text-muted-foreground">
-          {onRegenerate
-            ? "Regenerate to try again, or pick another model first."
-            : "Pick another model and send the message again."}
-        </span>
-      </p>
-      {onRegenerate ? (
-        <button
-          className="inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-[10px] bg-card px-3 font-medium text-[13px] transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          onClick={onRegenerate}
-          type="button"
-        >
-          <RotateCw aria-hidden className="size-3.5" />
-          Regenerate
-        </button>
-      ) : null}
-    </div>
+    <ThreadNotice
+      action={
+        onRegenerate
+          ? { label: "Regenerate", onClick: onRegenerate }
+          : undefined
+      }
+      hint={
+        onRegenerate
+          ? "Regenerate to try again, or pick another model first."
+          : "Pick another model and send the message again."
+      }
+      summary={EMPTY_REPLY_SUMMARY[reason]}
+    />
+  );
+}
+
+const UNSETTLED_SUMMARY: Record<UnsettledSubject, string> = {
+  edit: "Couldn't confirm your edit was saved.",
+  message: "Couldn't confirm your message was sent.",
+  regeneration: "Couldn't confirm the reply was regenerated.",
+  reply: "Couldn't confirm this reply was saved.",
+};
+
+const SETTLE_FAILURE_HINT: Record<SettleFailure, string> = {
+  offline: "Check your connection and try again.",
+  server: "Try again in a moment.",
+};
+
+interface Unsettled {
+  reason: SettleFailure;
+  subject: UnsettledSubject;
+}
+
+export const unsettledText = ({ reason, subject }: Unsettled) =>
+  `${UNSETTLED_SUMMARY[subject]} ${SETTLE_FAILURE_HINT[reason]}`;
+
+export function UnsettledNotice({
+  onRetry,
+  reason,
+  subject,
+}: Unsettled & { onRetry: () => void }) {
+  return (
+    <ThreadNotice
+      action={{ label: "Try again", onClick: onRetry }}
+      hint={SETTLE_FAILURE_HINT[reason]}
+      isLive={false}
+      summary={UNSETTLED_SUMMARY[subject]}
+    />
   );
 }
 
@@ -173,6 +234,7 @@ function PureChatMessage({
   message,
   onToggleSources,
   reply,
+  unsavedEditText,
 }: MessageProps) {
   const isAssistant = message.role === "assistant";
   const text = getMessageText(message);
@@ -214,7 +276,7 @@ function PureChatMessage({
         <MessageAttachments message={message} />
         {isEditing && edit ? (
           <MessageEditor
-            initialText={text}
+            initialText={unsavedEditText ?? text}
             onCancel={edit.cancel}
             onSubmit={(nextText) => edit.submit(message, nextText)}
           />

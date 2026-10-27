@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, sql } from "drizzle-orm";
 import { type Database, getDb } from ".";
 import {
   type Chat,
@@ -206,11 +206,13 @@ export interface NewChat {
   title: string;
 }
 
+const CLAIMED_AT = new Date(0);
+
 async function latestStreamId(db: Database | Transaction, chatId: string) {
   const [row] = await db
     .select({ id: stream.id })
     .from(stream)
-    .where(eq(stream.chatId, chatId))
+    .where(and(eq(stream.chatId, chatId), gt(stream.createdAt, CLAIMED_AT)))
     .orderBy(desc(stream.createdAt))
     .limit(1);
   return row?.id;
@@ -238,19 +240,26 @@ export async function saveUserTurn({
       newChat,
     });
   } catch (error) {
-    if (error instanceof MessageIdTakenError) {
+    if (error instanceof IdTakenError) {
       return null;
     }
     throw error;
   }
 }
 
-// Thrown inside the transaction so a new chat and the deletes roll back too.
-class MessageIdTakenError extends Error {}
+// Thrown, not returned, so the transaction rolls back the new chat and the
+// deletes.
+class IdTakenError extends Error {}
 
 // The database clock, so app servers with skewed clocks agree on turn order.
 // Not now(): it is fixed at transaction start, before the chat row lock.
 const databaseNow = sql`clock_timestamp()`;
+
+// Timestamps keep milliseconds, and two stream rows of a chat can land in one.
+// The latest row decides which turn may save a reply, so it must sort last.
+// Callers hold the chat row lock, which keeps max() stable.
+const nextStreamAt = (chatId: string) =>
+  sql`greatest(${databaseNow}, (select max(${stream.createdAt}) + interval '1 millisecond' from ${stream} where ${stream.chatId} = ${chatId}))`;
 
 const messagePosition = sql`(${message.createdAt}, ${message.id})`;
 const positionOf = (messageId: string) =>
@@ -322,12 +331,17 @@ async function saveUserTurnOrThrow({
         .onConflictDoNothing({ target: message.id })
         .returning({ id: message.id });
       if (inserted.length === 0) {
-        throw new MessageIdTakenError();
+        throw new IdTakenError();
       }
     }
-    await tx
+    const started = await tx
       .insert(stream)
-      .values({ id: streamId, chatId, createdAt: databaseNow });
+      .values({ id: streamId, chatId, createdAt: nextStreamAt(chatId) })
+      .onConflictDoNothing({ target: stream.id })
+      .returning({ id: stream.id });
+    if (started.length === 0) {
+      throw new IdTakenError();
+    }
     await tx
       .update(chat)
       .set({ updatedAt: databaseNow })
@@ -393,6 +407,94 @@ export async function saveReplyIfLatestTurn({
       .set({ updatedAt: databaseNow })
       .where(eq(chat.id, chatId));
   });
+}
+
+export interface SettledTurn {
+  messages: Message[];
+  turnSaved: boolean;
+}
+
+// A turn still the latest is superseded, so its pending reply save does
+// nothing. A turn the server never saw is claimed. A newer turn is left alone.
+export async function settleTurn({
+  chatId,
+  userId,
+  turnId,
+}: {
+  chatId: string;
+  userId: string;
+  turnId: string;
+}): Promise<SettledTurn | null> {
+  return await getDb().transaction(async (tx) => {
+    if (!(await lockOwnedChat(tx, chatId, userId))) {
+      return null;
+    }
+    const [turn] = await tx
+      .select({ createdAt: stream.createdAt })
+      .from(stream)
+      .where(and(eq(stream.id, turnId), eq(stream.chatId, chatId)));
+    if (!turn) {
+      await tx
+        .insert(stream)
+        .values({ id: turnId, chatId, createdAt: CLAIMED_AT })
+        .onConflictDoNothing({ target: stream.id });
+    } else if ((await latestStreamId(tx, chatId)) === turnId) {
+      await tx.insert(stream).values({
+        id: crypto.randomUUID(),
+        chatId,
+        createdAt: nextStreamAt(chatId),
+      });
+    }
+    const messages = await tx
+      .select()
+      .from(message)
+      .where(eq(message.chatId, chatId))
+      .orderBy(asc(message.createdAt), asc(message.id));
+    return {
+      messages,
+      turnSaved: turn !== undefined && turn.createdAt > CLAIMED_AT,
+    };
+  });
+}
+
+// True while the user's turn is still the chat's latest and no reply has
+// saved after it, which is when the turn's own request is still saving one.
+export async function isReplyPending({
+  chatId,
+  userId,
+  turnId,
+}: {
+  chatId: string;
+  userId: string;
+  turnId: string;
+}): Promise<boolean> {
+  const db = getDb();
+  const [turn] = await db
+    .select({ createdAt: stream.createdAt })
+    .from(stream)
+    .innerJoin(chat, eq(chat.id, stream.chatId))
+    .where(
+      and(
+        eq(stream.id, turnId),
+        eq(stream.chatId, chatId),
+        eq(chat.userId, userId)
+      )
+    );
+  if (!turn || (await latestStreamId(db, chatId)) !== turnId) {
+    return false;
+  }
+  const [reply] = await db
+    .select({ id: message.id })
+    .from(message)
+    .where(
+      and(
+        eq(message.chatId, chatId),
+        eq(message.role, "assistant"),
+        gt(message.createdAt, turn.createdAt)
+      )
+    )
+    .limit(1);
+  return reply === undefined;
 }
 
 export async function getLatestStreamId(

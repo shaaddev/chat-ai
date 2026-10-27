@@ -13,6 +13,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useMessages } from "@/hooks/use-message";
 import { type ChatModelId, getModelLabel } from "@/lib/ai/models";
+import type { TurnStatus } from "@/lib/chat-turn";
 import { focusComposer } from "@/lib/composer";
 import { endsWithoutReply, isShownInThread } from "@/lib/message-display";
 import type { ChatMessage, DocumentDraft } from "@/lib/types";
@@ -22,9 +23,16 @@ import {
   EmptyReplyNotice,
   PreviewMessage,
   type ReplyControls,
+  UnsettledNotice,
+  unsettledText,
 } from "./chat-message";
 import { Markdown } from "./markdown";
 import { ThinkingIndicator } from "./thinking-indicator";
+
+export interface UnsavedEdit {
+  messageId: string;
+  text: string;
+}
 
 interface MessagesProps {
   chatId: string;
@@ -35,11 +43,13 @@ interface MessagesProps {
   onEditMessage: (message: ChatMessage, text: string) => void;
   onOpenDocumentBuilder: () => void;
   onRegenerate: () => void;
+  onRetrySettle: () => void;
   onToggleSources: (messageId: string) => void;
   selectedModelId: ChatModelId;
-  sendWasRefused: boolean;
   sourcesMessageId: string | null;
   status: UseChatHelpers<ChatMessage>["status"];
+  turnStatus: TurnStatus;
+  unsavedEdit: UnsavedEdit | null;
 }
 
 const CODE_BLOCK_REGEX = /```[\s\S]*?```/;
@@ -116,6 +126,26 @@ function PendingReply({ isImage }: { isImage: boolean }) {
   );
 }
 
+const turnActivity = (status: TurnStatus): string | null => {
+  if (status.phase === "running") {
+    return status.stopping ? "Stopping…" : null;
+  }
+  if (status.phase === "settling") {
+    return status.sendHeld
+      ? "Syncing this chat. Your message will send next."
+      : "Syncing this chat…";
+  }
+  return null;
+};
+
+function TurnActivity({ text }: { text: string }) {
+  return (
+    <p aria-hidden className="mt-5 py-2 text-muted-foreground text-sm">
+      {text}
+    </p>
+  );
+}
+
 function ScrollToBottomButton({
   show,
   onClick,
@@ -147,21 +177,27 @@ function PureMessages({
   chatId,
   messages,
   status,
-  sendWasRefused,
+  turnStatus,
   isImageModelSelected,
   isNarrow,
   documentDraft,
   onEditMessage,
   onOpenDocumentBuilder,
   onRegenerate,
+  onRetrySettle,
   onToggleSources,
   selectedModelId,
   sourcesMessageId,
+  unsavedEdit,
 }: MessagesProps) {
   const { containerRef, isAtBottom, scrollToBottom, scrollUserMessageToTop } =
     useMessages();
 
   const isBusy = status === "submitted" || status === "streaming";
+  const isIdle = !isBusy && turnStatus.phase === "idle";
+  const activity = turnActivity(turnStatus);
+  const announcement =
+    turnStatus.phase === "unsettled" ? unsettledText(turnStatus) : activity;
   const lastMessage = messages.at(-1);
   const streamingMessageId =
     status === "streaming" && lastMessage?.role === "assistant"
@@ -172,22 +208,31 @@ function PureMessages({
     lastMessage !== undefined &&
     (lastMessage.role === "user" || !isShownInThread(lastMessage));
   const visibleMessages = messages.filter(isShownInThread);
-  const isMissingReply =
-    !(isBusy || sendWasRefused) && endsWithoutReply(messages);
+  const isMissingReply = isIdle && endsWithoutReply(messages);
   const latestUserMessageId =
     messages.findLast((message) => message.role === "user")?.id ?? null;
 
-  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
-  if (isBusy && editingMessageId !== null) {
-    setEditingMessageId(null);
+  const [editing, setEditing] = useState<{
+    messageId: string;
+    text?: string;
+  } | null>(null);
+  if (!isIdle && editing !== null) {
+    setEditing(null);
+  }
+  const [shownUnsavedEdit, setShownUnsavedEdit] = useState(unsavedEdit);
+  if (unsavedEdit !== shownUnsavedEdit) {
+    setShownUnsavedEdit(unsavedEdit);
+    if (unsavedEdit) {
+      setEditing(unsavedEdit);
+    }
   }
 
   const editControls = useMemo<EditControls>(
     () => ({
-      cancel: () => setEditingMessageId(null),
-      start: setEditingMessageId,
+      cancel: () => setEditing(null),
+      start: (messageId) => setEditing({ messageId }),
       submit: (message, text) => {
-        setEditingMessageId(null);
+        setEditing(null);
         onEditMessage(message, text);
         focusComposer();
       },
@@ -196,14 +241,14 @@ function PureMessages({
   );
 
   const latestReplyId =
-    !isBusy && lastMessage?.role === "assistant" ? lastMessage.id : null;
+    isIdle && lastMessage?.role === "assistant" ? lastMessage.id : null;
   const regenerateLabel = `Regenerate with ${getModelLabel(selectedModelId)}`;
   const replyControls = useMemo<ReplyControls | undefined>(() => {
     if (!(latestReplyId && latestUserMessageId)) {
       return;
     }
     return {
-      onEditPrompt: () => setEditingMessageId(latestUserMessageId),
+      onEditPrompt: () => setEditing({ messageId: latestUserMessageId }),
       onRegenerate,
       regenerateLabel,
     };
@@ -219,6 +264,11 @@ function PureMessages({
   // streaming ends. Resets when the user starts a new exchange or
   // navigates to a different chat.
   const [exchangeAnchorId, setExchangeAnchorId] = useState<string | null>(null);
+  const shownAnchorId =
+    exchangeAnchorId !== null &&
+    messages.some(({ id }) => id === exchangeAnchorId)
+      ? exchangeAnchorId
+      : null;
 
   useEffect(() => {
     if (status !== "submitted") {
@@ -243,11 +293,11 @@ function PureMessages({
     if (status !== "ready") {
       return;
     }
-    if (!exchangeAnchorId) {
+    if (!shownAnchorId) {
       return;
     }
-    scrollUserMessageToTop(exchangeAnchorId);
-  }, [status, exchangeAnchorId, scrollUserMessageToTop]);
+    scrollUserMessageToTop(shownAnchorId);
+  }, [status, shownAnchorId, scrollUserMessageToTop]);
 
   // On chat load (or chat-id change), jump straight to the bottom so the
   // user sees the latest exchange first. Fires once per chatId, and also
@@ -276,7 +326,7 @@ function PureMessages({
   // near the top of the viewport even when the assistant response is
   // short — without the room, the document collapses below viewport
   // height and the browser snaps the user message off the top.
-  const hasActiveExchange = exchangeAnchorId !== null;
+  const hasActiveExchange = shownAnchorId !== null;
 
   const showScrollButton =
     !isAtBottom && messages.length > 0 && status !== "submitted";
@@ -312,8 +362,8 @@ function PureMessages({
                       }
                     >
                       <PreviewMessage
-                        edit={isBusy ? undefined : editControls}
-                        isEditing={message.id === editingMessageId}
+                        edit={isIdle ? editControls : undefined}
+                        isEditing={message.id === editing?.messageId}
                         isSourcesOpen={message.id === sourcesMessageId}
                         isStreaming={message.id === streamingMessageId}
                         message={message}
@@ -323,15 +373,32 @@ function PureMessages({
                             ? replyControls
                             : undefined
                         }
+                        unsavedEditText={
+                          message.id === editing?.messageId
+                            ? editing.text
+                            : undefined
+                        }
                       />
-                      {isLast && isAwaitingContent ? (
+                      {isLast && isAwaitingContent && !activity ? (
                         <PendingReply isImage={isImageModelSelected} />
+                      ) : null}
+                      {isLast && activity ? (
+                        <TurnActivity text={activity} />
                       ) : null}
                       {isLast && isMissingReply ? (
                         <div className="mt-5">
                           <EmptyReplyNotice
                             onRegenerate={onRegenerate}
                             reason="missing"
+                          />
+                        </div>
+                      ) : null}
+                      {isLast && turnStatus.phase === "unsettled" ? (
+                        <div className="mt-5">
+                          <UnsettledNotice
+                            onRetry={onRetrySettle}
+                            reason={turnStatus.reason}
+                            subject={turnStatus.subject}
                           />
                         </div>
                       ) : null}
@@ -354,6 +421,9 @@ function PureMessages({
         onClick={() => scrollToBottom("smooth")}
         show={showScrollButton}
       />
+      <p className="sr-only" role="status">
+        {announcement}
+      </p>
     </div>
   );
 }

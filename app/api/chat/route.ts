@@ -21,6 +21,7 @@ import {
   CHAT_TITLE_MAX_LENGTH,
   generateChatTitle,
   getLanguageModel,
+  TITLE_WAIT_MS,
 } from "@/lib/ai/providers";
 import {
   getChatById,
@@ -283,8 +284,6 @@ async function writeGeneratedImage(
   }
 }
 
-const TITLE_WAIT_MS = 3000;
-
 // The client refreshes the sidebar when a stream ends, so a new chat's
 // stream waits briefly for its title. A slow title still saves afterward.
 async function waitForTitle(titleSaved: Promise<void> | undefined) {
@@ -322,7 +321,8 @@ function getUserText(parts: ChatMessage["parts"]) {
 }
 
 // A turn is refused when its target message is gone (another tab edited or
-// deleted it) or a new message reuses an id; a reload resyncs the thread.
+// deleted it), a new message reuses an id, or a settle already claimed the
+// turn; a reload resyncs the thread.
 const staleTurnResponse = () =>
   new ChatSDKError(
     "bad_request:api",
@@ -342,6 +342,7 @@ export async function POST(req: Request) {
   try {
     const {
       id,
+      turnId,
       selectedChatModel,
       useSearch,
       autoDocumentGeneration,
@@ -403,7 +404,7 @@ export async function POST(req: Request) {
       }
     }
 
-    const streamId = generateUUID();
+    const streamId = turnId ?? generateUUID();
     const saved = await saveUserTurn({
       chatId: id,
       userId,

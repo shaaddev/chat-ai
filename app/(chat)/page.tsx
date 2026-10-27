@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { auth } from "@/app/auth";
-import { Chat } from "@/components/chat";
+import { FreshChat } from "@/components/fresh-chat";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
 import { generateUUID } from "@/lib/utils";
 
@@ -12,10 +12,10 @@ export default async function Page() {
   const modelIdFromCookie = cookieStore.get("chat-model");
 
   return (
-    <Chat
-      id={id}
+    <FreshChat
       initialChatModel={modelIdFromCookie?.value ?? DEFAULT_CHAT_MODEL}
-      initialMessages={[]}
+      key={id}
+      pageChatId={id}
       session={session}
     />
   );

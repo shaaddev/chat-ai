@@ -1,5 +1,11 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
-import { ArrowUp, CircleStop, Globe, Settings2 } from "lucide-react";
+import {
+  ArrowUp,
+  CircleStop,
+  Globe,
+  LoaderCircle,
+  Settings2,
+} from "lucide-react";
 import {
   type Dispatch,
   memo,
@@ -10,7 +16,6 @@ import {
   useState,
 } from "react";
 import { toast } from "sonner";
-import { useChat } from "@/components/chat-context";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -28,11 +33,15 @@ import {
 } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import { type ChatModelId, getChatModel } from "@/lib/ai/models";
+import type { TurnStatus } from "@/lib/chat-turn";
 import type { ChatMessage } from "@/lib/types";
+import { filesOverLimit } from "@/lib/uploadthing/tray";
 import { cn } from "@/lib/utils";
 import {
+  ATTACHMENT_LIMIT_HINT_ID,
   AttachmentTrayList,
   getAttachmentTray,
+  overLimitHint,
   useTrayReadiness,
 } from "./attachment-tray";
 import { LoginContent } from "./auth/login-content";
@@ -54,13 +63,12 @@ function pastedFiles(clipboard: DataTransfer): File[] {
 interface ChatInputProps {
   autoDocumentGeneration: boolean;
   chatId: string;
-  clearChatInputState: (chatId: string) => void;
   customSystemPrompt?: string;
   input: string;
   isAuthenticated?: boolean;
   onSelectModel: (modelId: ChatModelId) => void;
   selectedModelId: ChatModelId;
-  sendMessage: UseChatHelpers<ChatMessage>["sendMessage"];
+  sendTurn: (text: string) => void;
   setAutoDocumentGeneration: Dispatch<SetStateAction<boolean>>;
   setCustomSystemPrompt: Dispatch<SetStateAction<string | undefined>>;
   setInput: Dispatch<SetStateAction<string>>;
@@ -68,15 +76,17 @@ interface ChatInputProps {
   setUseSearch: Dispatch<SetStateAction<boolean>>;
   status: UseChatHelpers<ChatMessage>["status"];
   stop: () => void;
+  turnStatus: TurnStatus;
   useSearch: boolean;
 }
 
 export function ChatInput({
   setInput,
   input,
-  sendMessage,
+  sendTurn,
   stop,
   status,
+  turnStatus,
   chatId,
   onSelectModel,
   selectedModelId,
@@ -86,7 +96,6 @@ export function ChatInput({
   setUseSearch,
   autoDocumentGeneration,
   setAutoDocumentGeneration,
-  clearChatInputState,
   customSystemPrompt,
   setCustomSystemPrompt,
 }: ChatInputProps) {
@@ -99,14 +108,15 @@ export function ChatInput({
   const [systemPromptDraft, setSystemPromptDraft] = useState(
     customSystemPrompt ?? ""
   );
-  const { addOptimisticChat, setChatLoading } = useChat();
+  const isSendHeld = turnStatus.phase === "settling" && turnStatus.sendHeld;
+  const isStopping = turnStatus.phase === "running" && turnStatus.stopping;
   const tray = getAttachmentTray(chatId);
   const trayReadiness = useTrayReadiness(tray);
   const hasText = input.trim().length > 0;
   const needsText = getChatModel(selectedModelId).kind === "image";
   const canSend =
-    trayReadiness !== "uploading" &&
-    trayReadiness !== "failed" &&
+    !isSendHeld &&
+    (trayReadiness === "ready" || trayReadiness === "empty") &&
     (hasText || (trayReadiness === "ready" && !needsText));
 
   const attachFiles = useCallback(
@@ -121,71 +131,21 @@ export function ChatInput({
   );
 
   const submitForm = useCallback(() => {
+    if (trayReadiness === "over-limit") {
+      toast.error("Too many files to send", {
+        description: overLimitHint(filesOverLimit(tray.getItems())),
+      });
+      return;
+    }
     if (!canSend) {
       return;
     }
-
-    window.history.replaceState({}, "", `/chat/${chatId}`);
-
     if (!isAuthenticated) {
       setShowLoginDialog(true);
       return;
     }
-
-    setChatLoading(chatId, true);
-
-    addOptimisticChat({
-      id: chatId,
-      title: input.replaceAll("\u0000", "").trim().slice(0, 80) || "New chat",
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
-
-    const fileParts = tray.getItems().flatMap((item) =>
-      item.status === "done"
-        ? [
-            {
-              type: "file" as const,
-              mediaType: item.mediaType,
-              filename: item.name,
-              size: item.size,
-              url: item.url,
-            },
-          ]
-        : []
-    );
-
-    try {
-      sendMessage({
-        role: "user",
-        parts: [
-          ...fileParts,
-          ...(hasText ? [{ type: "text" as const, text: input }] : []),
-        ],
-      });
-    } catch (error) {
-      setChatLoading(chatId, false);
-      throw error;
-    }
-
-    clearChatInputState(chatId);
-    tray.clearAfterSend();
-    setInput("");
-    // Note: we intentionally do NOT reset useSearch — it persists across
-    // submissions and is the user's global preference.
-  }, [
-    canSend,
-    sendMessage,
-    setInput,
-    chatId,
-    isAuthenticated,
-    addOptimisticChat,
-    setChatLoading,
-    tray,
-    hasText,
-    input,
-    clearChatInputState,
-  ]);
+    sendTurn(hasText ? input : "");
+  }, [canSend, isAuthenticated, sendTurn, hasText, input, tray, trayReadiness]);
 
   const isBusy = status === "submitted" || status === "streaming";
 
@@ -261,7 +221,11 @@ export function ChatInput({
               !e.nativeEvent.isComposing
             ) {
               e.preventDefault();
-              if (isBusy) {
+              if (isStopping) {
+                toast("Still stopping", {
+                  description: "Send your message in a moment.",
+                });
+              } else if (isBusy) {
                 toast.error(
                   "Please wait for the model to finish its response!"
                 );
@@ -276,6 +240,7 @@ export function ChatInput({
           placeholder={
             needsText ? "Describe the image you want" : "Ask anything"
           }
+          readOnly={isSendHeld}
           ref={textareaRef}
           rows={1}
           style={{ height: textareaHeight }}
@@ -394,11 +359,20 @@ export function ChatInput({
             </Popover>
           </div>
 
-          {isBusy ? (
-            <StopButton setMessages={setMessages} stop={stop} />
-          ) : (
-            <SendButton canSend={canSend} submitForm={submitForm} />
-          )}
+          <ComposerAction
+            canSend={canSend}
+            describedBy={
+              trayReadiness === "over-limit"
+                ? ATTACHMENT_LIMIT_HINT_ID
+                : undefined
+            }
+            isBusy={isBusy}
+            isSendHeld={isSendHeld}
+            isStopping={isStopping}
+            setMessages={setMessages}
+            stop={stop}
+            submitForm={submitForm}
+          />
         </div>
       </div>
 
@@ -464,53 +438,62 @@ export function ChatInput({
   );
 }
 
-function PureStopButton({
-  stop,
-  setMessages,
-}: {
-  stop: () => void;
-  setMessages: UseChatHelpers<ChatMessage>["setMessages"];
-}) {
-  return (
-    <button
-      aria-label="Stop generating"
-      className="touch-hitbox relative flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-primary text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-secondary"
-      data-testid="stop-button"
-      onClick={(e) => {
-        e.preventDefault();
-        stop();
-        setMessages((messages) => messages);
-      }}
-      type="button"
-    >
-      <CircleStop aria-hidden className="size-[18px]" />
-    </button>
-  );
-}
-
-const StopButton = memo(PureStopButton);
-
-function PureSendButton({
-  submitForm,
+function PureComposerAction({
   canSend,
+  describedBy,
+  isBusy,
+  isSendHeld,
+  isStopping,
+  setMessages,
+  stop,
+  submitForm,
 }: {
-  submitForm: () => void;
   canSend: boolean;
+  describedBy: string | undefined;
+  isBusy: boolean;
+  isSendHeld: boolean;
+  isStopping: boolean;
+  setMessages: UseChatHelpers<ChatMessage>["setMessages"];
+  stop: () => void;
+  submitForm: () => void;
 }) {
+  const isInert = isBusy ? isStopping : !canSend;
+  let label = "Send message";
+  if (isBusy) {
+    label = isStopping ? "Stopping" : "Stop generating";
+  }
+  const isWaiting = isStopping || isSendHeld;
+  let icon = <ArrowUp aria-hidden className="size-[18px]" strokeWidth={2.2} />;
+  if (isWaiting) {
+    icon = <LoaderCircle aria-hidden className="size-[18px] animate-spin" />;
+  } else if (isBusy) {
+    icon = <CircleStop aria-hidden className="size-[18px]" />;
+  }
   return (
     <button
-      aria-label="Send message"
-      className="touch-hitbox relative flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-primary text-primary-foreground transition-[background-color,opacity] hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-secondary disabled:cursor-default disabled:opacity-45"
-      disabled={!canSend}
+      aria-describedby={describedBy}
+      aria-disabled={isInert}
+      aria-label={label}
+      className="touch-hitbox relative flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-primary text-primary-foreground transition-[background-color,opacity] hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-secondary aria-disabled:cursor-default aria-disabled:opacity-45 aria-disabled:hover:bg-primary"
+      data-composer-action=""
+      data-testid={isBusy && !isStopping ? "stop-button" : "send-button"}
       onClick={(e) => {
         e.preventDefault();
-        submitForm();
+        if (isInert) {
+          return;
+        }
+        if (isBusy) {
+          stop();
+          setMessages((messages) => messages);
+        } else {
+          submitForm();
+        }
       }}
-      type="submit"
+      type={isBusy ? "button" : "submit"}
     >
-      <ArrowUp aria-hidden className="size-[18px]" strokeWidth={2.2} />
+      {icon}
     </button>
   );
 }
 
-const SendButton = memo(PureSendButton);
+const ComposerAction = memo(PureComposerAction);

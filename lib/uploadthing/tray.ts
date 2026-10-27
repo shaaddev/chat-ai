@@ -40,13 +40,29 @@ export interface TrayEffects {
   upload: (file: File, options: UploadOptions) => Promise<StoredFileUrl>;
 }
 
-export type TrayReadiness = "empty" | "uploading" | "failed" | "ready";
+export type TrayReadiness =
+  | "empty"
+  | "uploading"
+  | "failed"
+  | "over-limit"
+  | "ready";
+
+export interface SentFile {
+  filename: string;
+  mediaType: AttachmentMediaType;
+  size: number;
+  url: string;
+}
 
 export interface AttachmentTray {
   add: (files: File[]) => void;
   clearAfterSend: () => void;
   getItems: () => readonly TrayItem[];
   remove: (id: string) => void;
+  restore: (
+    files: readonly SentFile[],
+    options?: { maybeSaved: boolean }
+  ) => void;
   retry: (id: string) => void;
   subscribe: (listener: () => void) => () => void;
 }
@@ -56,6 +72,10 @@ interface Upload {
   removed: boolean;
 }
 
+export function filesOverLimit(items: readonly TrayItem[]): number {
+  return Math.max(0, items.length - ATTACHMENT_MAX_COUNT);
+}
+
 export function readiness(items: readonly TrayItem[]): TrayReadiness {
   if (items.some((item) => item.status === "uploading")) {
     return "uploading";
@@ -63,7 +83,25 @@ export function readiness(items: readonly TrayItem[]): TrayReadiness {
   if (items.some((item) => item.status === "failed")) {
     return "failed";
   }
+  if (filesOverLimit(items) > 0) {
+    return "over-limit";
+  }
   return items.some((item) => item.status === "done") ? "ready" : "empty";
+}
+
+export function sentFiles(items: readonly TrayItem[]): SentFile[] {
+  return items.flatMap((item) =>
+    item.status === "done"
+      ? [
+          {
+            filename: item.name,
+            mediaType: item.mediaType,
+            size: item.size,
+            url: item.url,
+          },
+        ]
+      : []
+  );
 }
 
 function withStatus(item: TrayItem, status: TrayItemStatus): TrayItem {
@@ -75,6 +113,9 @@ export function createAttachmentTray(effects: TrayEffects): AttachmentTray {
   let items: readonly TrayItem[] = [];
   const files = new Map<string, File>();
   const uploads = new Map<string, Upload>();
+  // Restored after a send that a late request may still save, so a saved
+  // message may show them.
+  const maybeSavedFiles = new Set<string>();
   const listeners = new Set<() => void>();
 
   const commit = (next: readonly TrayItem[]) => {
@@ -193,6 +234,7 @@ export function createAttachmentTray(effects: TrayEffects): AttachmentTray {
         cancel(item);
         release(item);
       }
+      maybeSavedFiles.clear();
       commit([]);
     },
     getItems: () => items,
@@ -203,11 +245,36 @@ export function createAttachmentTray(effects: TrayEffects): AttachmentTray {
       }
       commit(items.filter((candidate) => candidate.id !== id));
       release(item);
-      if (item.status === "done") {
-        effects.discard(item.url);
-      } else {
+      if (item.status !== "done") {
         cancel(item);
+      } else if (!maybeSavedFiles.has(id)) {
+        effects.discard(item.url);
       }
+      maybeSavedFiles.delete(id);
+    },
+    // Every file goes back, even past the per-message limit. They are the
+    // user's uploads, so only the user removes them.
+    restore: (sent, options) => {
+      if (sent.length === 0) {
+        return;
+      }
+      const restored = sent.map(
+        ({ filename, mediaType, size, url }): TrayItem => ({
+          id: effects.createId(),
+          mediaType,
+          name: filename,
+          previewUrl: isImageType(mediaType) ? url : null,
+          size,
+          status: "done",
+          url,
+        })
+      );
+      if (options?.maybeSaved) {
+        for (const item of restored) {
+          maybeSavedFiles.add(item.id);
+        }
+      }
+      commit([...restored, ...items]);
     },
     retry: (id) => {
       const item = items.find((candidate) => candidate.id === id);

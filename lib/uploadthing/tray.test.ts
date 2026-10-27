@@ -9,6 +9,7 @@ import {
   createAttachmentTray,
   type Rejection,
   readiness,
+  sentFiles,
   type UploadOptions,
 } from "./tray";
 
@@ -228,6 +229,127 @@ describe("attachment tray", () => {
 
     expect(tray.getItems()).toEqual([]);
     expect(discarded).toEqual([]);
+  });
+
+  test("restored files come back as done uploads ahead of newer ones", async () => {
+    const { tray, uploads } = setup();
+    tray.add([pdf("new.pdf")]);
+    uploads[0].resolve("https://files.test/new.pdf");
+    await settle();
+
+    tray.restore([
+      {
+        filename: "chart.png",
+        mediaType: "image/png",
+        size: 2048,
+        url: "https://files.test/chart.png",
+      },
+    ]);
+
+    expect(
+      tray.getItems().map(({ name, status }) => ({ name, status }))
+    ).toEqual([
+      { name: "chart.png", status: "done" },
+      { name: "new.pdf", status: "done" },
+    ]);
+    expect(tray.getItems()[0]).toMatchObject({
+      previewUrl: "https://files.test/chart.png",
+      url: "https://files.test/chart.png",
+    });
+    expect(readiness(tray.getItems())).toBe("ready");
+  });
+
+  test("removing a restored file deletes its stored file", () => {
+    const { tray, discarded } = setup();
+    tray.restore([
+      {
+        filename: "notes.pdf",
+        mediaType: "application/pdf",
+        size: 512,
+        url: "u1",
+      },
+    ]);
+
+    tray.remove(tray.getItems()[0].id);
+
+    expect(tray.getItems()).toEqual([]);
+    expect(discarded).toEqual(["u1"]);
+  });
+
+  test("removing a restored file that a saved message may use keeps its stored file", () => {
+    const { tray, discarded } = setup();
+    tray.restore(
+      [
+        {
+          filename: "notes.pdf",
+          mediaType: "application/pdf",
+          size: 512,
+          url: "u1",
+        },
+      ],
+      { maybeSaved: true }
+    );
+
+    tray.remove(tray.getItems()[0].id);
+
+    expect(tray.getItems()).toEqual([]);
+    expect(discarded).toEqual([]);
+  });
+
+  test("restored files come back past the per-message limit, and none is deleted", () => {
+    const { tray, discarded, rejected } = setup();
+    tray.add(
+      Array.from({ length: ATTACHMENT_MAX_COUNT - 1 }, (_, index) =>
+        image(`kept-${index}.png`)
+      )
+    );
+
+    tray.restore([
+      { filename: "first.png", mediaType: "image/png", size: 1, url: "u1" },
+      { filename: "second.png", mediaType: "image/png", size: 1, url: "u2" },
+    ]);
+
+    expect(tray.getItems()).toHaveLength(ATTACHMENT_MAX_COUNT + 1);
+    expect(tray.getItems().map(({ name }) => name)).toContain("second.png");
+    expect(rejected).toEqual([]);
+    expect(discarded).toEqual([]);
+  });
+
+  test("files past the per-message limit hold the send until enough are removed", () => {
+    const { tray } = setup();
+    tray.restore(
+      Array.from({ length: ATTACHMENT_MAX_COUNT + 2 }, (_, index) => ({
+        filename: `file-${index}.png`,
+        mediaType: "image/png" as const,
+        size: 1,
+        url: `u${index}`,
+      }))
+    );
+
+    const twoOver = readiness(tray.getItems());
+    tray.remove(tray.getItems()[0].id);
+    const oneOver = readiness(tray.getItems());
+    tray.remove(tray.getItems()[0].id);
+
+    expect(twoOver).toBe("over-limit");
+    expect(oneOver).toBe("over-limit");
+    expect(readiness(tray.getItems())).toBe("ready");
+  });
+
+  test("a send carries only the finished uploads", async () => {
+    const { tray, uploads } = setup();
+    tray.add([image("done.png"), pdf("pending.pdf")]);
+    uploads[0].resolve("https://files.test/done.png");
+    await settle();
+
+    expect(sentFiles(tray.getItems())).toEqual([
+      {
+        filename: "done.png",
+        mediaType: "image/png",
+        size: tray.getItems()[0].size,
+        url: "https://files.test/done.png",
+      },
+    ]);
   });
 
   test("notifies subscribers until they unsubscribe", () => {
