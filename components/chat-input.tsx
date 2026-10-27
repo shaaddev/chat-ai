@@ -9,6 +9,7 @@ import {
 import {
   type Dispatch,
   memo,
+  type RefObject,
   type SetStateAction,
   useCallback,
   useEffect,
@@ -57,6 +58,38 @@ function pastedFiles(clipboard: DataTransfer): File[] {
     clipboard.types.includes("text/html") &&
     clipboard.getData("text/plain").trim().length > 0;
   return isRichText ? [] : Array.from(clipboard.files);
+}
+
+// Phone toasts sit just above the composer, which grows with its text and
+// sits mid-screen in an empty chat.
+function usePublishComposerClearance(
+  composerRef: RefObject<HTMLDivElement | null>
+) {
+  useEffect(() => {
+    const composer = composerRef.current;
+    const area = composer?.closest("[data-composer]");
+    if (!(composer && area)) {
+      return;
+    }
+    const root = document.documentElement;
+    const publish = () => {
+      const clearance =
+        window.innerHeight - composer.getBoundingClientRect().top;
+      root.style.setProperty(
+        "--composer-clearance",
+        `${Math.round(clearance)}px`
+      );
+    };
+    const observer = new ResizeObserver(publish);
+    observer.observe(composer);
+    observer.observe(area);
+    window.addEventListener("resize", publish);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", publish);
+      root.style.removeProperty("--composer-clearance");
+    };
+  }, [composerRef]);
 }
 
 interface ChatInputProps {
@@ -149,23 +182,8 @@ export function ChatInput({
 
   const isBusy = status === "submitted" || status === "streaming";
 
-  // Phone toasts sit just above the composer, which grows with its text.
   const composerRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const composer = composerRef.current;
-    if (!composer) {
-      return;
-    }
-    const root = document.documentElement;
-    const observer = new ResizeObserver(() => {
-      root.style.setProperty("--composer-height", `${composer.offsetHeight}px`);
-    });
-    observer.observe(composer);
-    return () => {
-      observer.disconnect();
-      root.style.removeProperty("--composer-height");
-    };
-  }, []);
+  usePublishComposerClearance(composerRef);
 
   // Radix layers dismiss on Escape in the capture phase and mark the event
   // handled, so this only stops a reply when no menu or dialog consumed it.

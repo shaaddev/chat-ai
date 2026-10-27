@@ -7,11 +7,10 @@ import { Toaster as Sonner, type ToasterProps } from "sonner";
 // Sonner's phone layout, and its mobileOffset, apply up to 600 px wide.
 const PHONE_QUERY = "(max-width: 600px)";
 const HEADER_CLEARANCE = 64;
-const PHONE_COMPOSER_PADDING = 10;
 const TOAST_GAP = 12;
 // On a phone the thread pins the message just sent under the header, so
-// toasts sit just above the composer, which publishes its height.
-const COMPOSER_CLEARANCE = `calc(var(--composer-height, 0px) + ${PHONE_COMPOSER_PADDING + TOAST_GAP}px)`;
+// toasts sit just above the composer instead.
+const COMPOSER_CLEARANCE = `calc(var(--composer-clearance, 0px) + ${TOAST_GAP}px)`;
 
 const subscribeToPhone = (onChange: () => void) => {
   const query = window.matchMedia(PHONE_QUERY);

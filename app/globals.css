@@ -233,13 +233,13 @@
   }
 }
 
-/* Phone toasts sit just above the composer. They rise into place and sink
-   away a few pixels instead of sliding through the composer. */
+/* Sonner slides a bottom toast in and out by its full height, which passes
+   through the composer the toast sits on. */
 @media (max-width: 600px) {
   [data-sonner-toaster][data-y-position="bottom"]
     [data-sonner-toast]:not([data-mounted="true"]),
   [data-sonner-toaster][data-y-position="bottom"]
-    [data-sonner-toast][data-removed="true"][data-front="true"] {
+    [data-sonner-toast][data-removed="true"][data-front="true"][data-swipe-out="false"] {
     --y: translateY(8px);
   }
 }
