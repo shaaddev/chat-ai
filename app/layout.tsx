@@ -59,7 +59,7 @@ export default function RootLayout({
           <MotionConfig reducedMotion="user">
             <ChatProvider>
               <main className="lg:mx-auto">{children}</main>
-              <Toaster position="bottom-right" />
+              <Toaster />
             </ChatProvider>
           </MotionConfig>
         </ThemeProvider>

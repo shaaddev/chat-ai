@@ -2,16 +2,21 @@
 
 import { useTheme } from "next-themes";
 import { Toaster as Sonner, type ToasterProps } from "sonner";
-import { useIsMobile } from "@/hooks/use-mobile";
 
-const Toaster = ({ position, ...props }: ToasterProps) => {
+// Sonner uses PHONE_HEADER_CLEARANCE below 600 px wide and
+// HEADER_CLEARANCE above.
+const HEADER_CLEARANCE = 64;
+const PHONE_HEADER_CLEARANCE = 58;
+
+const Toaster = (props: ToasterProps) => {
   const { theme = "system" } = useTheme();
-  const isMobile = useIsMobile();
 
   return (
     <Sonner
       className="toaster group"
-      position={isMobile ? "top-center" : position}
+      mobileOffset={{ top: PHONE_HEADER_CLEARANCE }}
+      offset={{ top: HEADER_CLEARANCE }}
+      position="top-center"
       style={
         {
           "--normal-bg": "var(--popover)",
